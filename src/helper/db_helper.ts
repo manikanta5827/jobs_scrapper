@@ -58,8 +58,8 @@ export async function cleanupOldSeenJobs(): Promise<void> {
     await initDb();
     await db.delete(jobs).where(lt(jobs.seenAt, sql`NOW() - INTERVAL '7 days'`));
     console.log("Cleaned up old jobs");
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Deleting jobs failed from DB";
-    console.error(errorMessage);
+  } catch (error: any) {
+    const errorMessage = error?.message || "Deleting jobs failed from DB";
+    console.error(`DB Cleanup Error: ${errorMessage}`);
   }
 }

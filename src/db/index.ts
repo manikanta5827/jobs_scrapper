@@ -16,6 +16,7 @@ export async function initDb() {
 
     const pool = new Pool({
         connectionString: DATABASE_URL,
+        ssl: true, // Required for Neon
     });
 
     db = drizzle(pool, { schema });
