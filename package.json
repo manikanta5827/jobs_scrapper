@@ -1,0 +1,22 @@
+{
+    "name": "job-scraper-lambda",
+    "version": "1.0.0",
+    "description": "job scraper — Apify + OpenAI + Neon (TypeScript)",
+    "type": "module",
+    "main": ".eslintrc.js",
+    "scripts": {
+        "build": "sam validate --lint && sam build",
+        "deploy": "sam deploy --no-confirm-changeset",
+        "delete": "aws cloudformation delete-stack --stack-name event-management-platform",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@neondatabase/serverless": "^0.10.4"
+    },
+    "devDependencies": {
+        "@types/aws-lambda": "^8.10.145",
+        "@types/node": "^22.0.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.0"
+    }
+}

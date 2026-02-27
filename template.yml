@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Job Scrapper template
+
+# PARAMETERS
+Parameters:
+    AuthSecret:
+        Type: String
+        Description: auth secret for jwt token creation
+        Default: JWTSECRET9345
+
+# GLOBAL VARIABLES
+Globals:
+    Function:
+        
+        EphemeralStorage:
+            Size: 512
+        
+
+Resources:
+    # Event Bridge Invoke Lambda
+    EventBridgeInvokeLambda:
+        Type: AWS::Serverless::Function
+        Properties:
+            Runtime: nodejs24.x
+            Architectures:
+                - arm64
+            MemorySize: 1000
+            LoggingConfig:
+                LogFormat: JSON
+            CodeUri: ./
+            Handler: src/lambda.handler
+            Timeout: 600
+            Policies:
+                - AWSLambdaBasicExecutionRole
+            Events:
+                # cron job runs everyday on 9AM
+                Schedule:
+                    Type: ScheduleV2
+                    Properties:
+                        ScheduleExpression: cron(0 9 * * ? *)
+                        State: ENABLED
+        Metadata:
+            BuildMethod: esbuild
+            BuildProperties:
+                Minify: true
+                Target: es2020
+                Sourcemap: true
+                External:
+                    - '@aws-sdk/*'
+                EntryPoints:
+                    - src/lambda.ts
