@@ -34,6 +34,7 @@ Resources:
             Architectures:
                 - arm64
             MemorySize: 1000
+            ReservedConcurrentExecutions: 1
             LoggingConfig:
                 LogFormat: JSON
             CodeUri: ./
@@ -51,11 +52,11 @@ Resources:
                         Resource: '*'
             Environment:
                 Variables:
-                    APIFY_API_KEY: !Ref ApifyApiKey
-                    OPENAI_API_KEY: !Ref OpenaiApiKey
-                    DATABASE_URL: !Ref DatabaseUrl
-                    MASTER_EMAIL: !Ref MasterEmail
-                    RECEIVER_EMAIL: !Ref ReceiverEmail
+                    APIFY_API_KEY_PATH: !Ref ApifyApiKey
+                    OPENAI_API_KEY_PATH: !Ref OpenaiApiKey
+                    DATABASE_URL_PATH: !Ref DatabaseUrl
+                    MASTER_EMAIL_PATH: !Ref MasterEmail
+                    RECEIVER_EMAIL_PATH: !Ref ReceiverEmail
 
             Events:
                 # cron job runs everyday on 7AM
@@ -64,6 +65,9 @@ Resources:
                     Properties:
                         ScheduleExpression: cron(0 7 * * ? *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
+                        RetryPolicy:
+                            MaximumRetryAttempts: 0
+                            MaximumEventAgeInSeconds: 3600
         Metadata:
             BuildMethod: esbuild
             BuildProperties:
