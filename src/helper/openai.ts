@@ -3,6 +3,7 @@
  * Checks job relevance using GPT-4o-mini with batching + retry.
  */
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
@@ -12,8 +13,7 @@ if (!OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY not found");
 }
 
-const RESUME_TEXT = await readFile('resume.txt', 'utf8');
-
+const RESUME_TEXT = await readFile(path.join(__dirname, 'resume.txt'), 'utf8');
 
 const SYSTEM_PROMPT = `You are evaluating whether a job is worth applying to based on the candidate's profile.
 Your goal is NOT to be strict — you are filtering out irrelevant jobs, not perfect ones.

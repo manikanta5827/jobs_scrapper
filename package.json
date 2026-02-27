@@ -5,7 +5,7 @@
     "type": "module",
     "main": ".eslintrc.js",
     "scripts": {
-        "build": "sam validate --lint && sam build",
+        "build": "sam validate --lint && sam build --cached --parallel --use-container --skip-pull-image --build-in-source",
         "deploy": "sam deploy --no-confirm-changeset",
         "delete": "aws cloudformation delete-stack --stack-name event-management-platform",
         "typecheck": "tsc --noEmit",
