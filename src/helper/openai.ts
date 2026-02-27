@@ -2,18 +2,11 @@
  * openai.ts
  * Checks job relevance using GPT-4o-mini with batching + retry.
  */
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
+// @ts-ignore
+import resumeText from "../../resume.txt";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-
-if (!OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY not found");
-  throw new Error("OPENAI_API_KEY not found");
-}
-
-const RESUME_TEXT = await readFile(path.join(__dirname, 'resume.txt'), 'utf8');
 
 const SYSTEM_PROMPT = `You are evaluating whether a job is worth applying to based on the candidate's profile.
 Your goal is NOT to be strict — you are filtering out irrelevant jobs, not perfect ones.
@@ -103,7 +96,7 @@ export async function checkRelevanceBatch(
 
 async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceResult> {
   const userMessage =
-    `Candidate Resume:\n------------------\n${RESUME_TEXT}\n\n` +
+    `Candidate Resume:\n------------------\n${resumeText}\n\n` +
     `Job Title:\n----------\n${job.title ?? 'Unknown'}\n\n` +
     `Job Description:\n----------------\n${(job.descriptionText ?? '').slice(0, 3000)}\n\n` +
     `Evaluate strictly based on the system rules. Return JSON only.`;

@@ -42,8 +42,7 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
 
 async function scrapeUrl(url: string): Promise<Job[]> {
   const endpoint =
-    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items` +
-    `?token=${APIFY_API_KEY}&format=json&clean=true`;
+    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_KEY}&format=json&clean=true&memory=512`;
 
   const body = JSON.stringify({
     urls: [url],

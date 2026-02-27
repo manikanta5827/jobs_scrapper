@@ -49,11 +49,12 @@ Resources:
         Metadata:
             BuildMethod: esbuild
             BuildProperties:
-                Minify: true
                 Target: es2022
                 Format: esm
                 OutExtension:
                     - .js=.mjs
+                Loader:
+                    - .txt=text
                 Sourcemap: true
                 Banner:
                     - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
