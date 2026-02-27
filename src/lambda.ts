@@ -8,6 +8,8 @@ import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda'
 import { scrapeJobs } from './helper/apify';
 import { checkRelevanceBatch } from './helper/openai';
 import { getExistingJobLinks, trackJobLinks, insertMatchedJobs, cleanupOldSeenJobs } from './helper/db_helper';
+import { sendEmail } from './helper/ses_helper';
+import { loadSecrets } from './helper/secret_helper';
 import type { Job } from './helper/types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -52,6 +54,12 @@ export const handler = async (
   console.log('Job scraper started', new Date().toISOString());
 
   try {
+    // IMPORTANT: Load secrets from SSM first
+    await loadSecrets();
+
+    const MASTER_EMAIL = process.env.MASTER_EMAIL!;
+    const RECEIVER_EMAIL = process.env.RECEIVER_EMAIL!;
+
     // Optional: Cleanup old jobs once a day or on every run
     await cleanupOldSeenJobs();
 
@@ -89,6 +97,26 @@ export const handler = async (
     if (matched.length > 0) {
       await insertMatchedJobs(matched);
       console.log(`Inserted ${matched.length} matched jobs into matched_jobs table`);
+
+      // 3. Send email notification
+      const subject = `🚀 ${matched.length} New Relevant Jobs Found!`;
+      const htmlBody = `
+        <h2>Daily Job Match Summary</h2>
+        <p>Found <b>${matched.length}</b> new jobs matching your profile today.</p>
+        <hr/>
+        ${matched.map(j => `
+          <div style="margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <h3 style="margin-bottom: 5px;"><a href="${j.link}">${j.title}</a></h3>
+            <p style="margin: 0; color: #555;"><b>Company:</b> ${j.companyName}</p>
+            <p style="margin: 0; color: #555;"><b>Score:</b> ${j.ai_score}/100</p>
+            <p style="margin: 5px 0;"><b>Reason:</b> ${j.ai_reason}</p>
+            <p style="margin: 0; font-size: 0.9em; color: #666;"><b>Matched:</b> ${j.ai_matched_skills?.join(', ')}</p>
+          </div>
+        `).join('')}
+        <p>Good Luck!</p>
+      `;
+
+      await sendEmail(MASTER_EMAIL, RECEIVER_EMAIL, subject, htmlBody);
     }
 
     const result: LambdaResponse = {

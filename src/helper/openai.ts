@@ -6,8 +6,6 @@ import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
 // @ts-ignore
 import resumeText from "../../resume.txt";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-
 const SYSTEM_PROMPT = `You are evaluating whether a job is worth applying to based on the candidate's profile.
 Your goal is NOT to be strict — you are filtering out irrelevant jobs, not perfect ones.
 
@@ -95,6 +93,7 @@ export async function checkRelevanceBatch(
 }
 
 async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceResult> {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
   const userMessage =
     `Candidate Resume:\n------------------\n${resumeText}\n\n` +
     `Job Title:\n----------\n${job.title ?? 'Unknown'}\n\n` +

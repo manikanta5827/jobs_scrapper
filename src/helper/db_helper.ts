@@ -9,7 +9,7 @@ import type { EnrichedJob } from "./types";
  */
 export async function getExistingJobLinks(): Promise<Set<string>> {
   const result = await db.select({ jobLink: jobs.jobLink }).from(jobs);
-  return new Set(result.map((r) => r.jobLink));
+  return new Set(result.map((r: any) => r.jobLink));
 }
 
 /**

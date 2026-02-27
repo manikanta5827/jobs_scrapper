@@ -5,17 +5,25 @@ Description: Job Scrapper template
 # PARAMETERS
 Parameters:
     ApifyApiKey:
-        Type: AWS::SSM::Parameter::Value<String>
-        Description: Apify Api key
+        Type: String
+        Description: Apify Api key SSM path
         Default: /job-scraper/APIFY_API_KEY
     OpenaiApiKey:
-        Type: AWS::SSM::Parameter::Value<String>
-        Description: Openai Api key
+        Type: String
+        Description: Openai Api key SSM path
         Default: /job-scraper/OPENAI_API_KEY
     DatabaseUrl:
-        Type: AWS::SSM::Parameter::Value<String>
-        Description: Neon Database Url
+        Type: String
+        Description: Neon Database Url SSM path
         Default: /job-scraper/DATABASE_URL
+    MasterEmail:
+        Type: String
+        Description: Sender email SSM path
+        Default: /job-scraper/MASTER_EMAIL
+    ReceiverEmail:
+        Type: String
+        Description: Receiver email SSM path
+        Default: /job-scraper/RECEIVER_EMAIL
 
 Resources:
     # Event Bridge Invoke Lambda
@@ -33,11 +41,21 @@ Resources:
             Timeout: 600
             Policies:
                 - AWSLambdaBasicExecutionRole
+                - SSMParameterReadPolicy:
+                      ParameterName: 'job-scraper/*'
+                - Statement:
+                      - Effect: Allow
+                        Action:
+                            - ses:sendEmail
+                            - ses:SendRawEmail
+                        Resource: '*'
             Environment:
                 Variables:
                     APIFY_API_KEY: !Ref ApifyApiKey
                     OPENAI_API_KEY: !Ref OpenaiApiKey
                     DATABASE_URL: !Ref DatabaseUrl
+                    MASTER_EMAIL: !Ref MasterEmail
+                    RECEIVER_EMAIL: !Ref ReceiverEmail
 
             Events:
                 # cron job runs everyday on 7AM

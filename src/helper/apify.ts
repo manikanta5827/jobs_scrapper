@@ -7,13 +7,6 @@
 
 import type { Job } from './types';
 
-const APIFY_API_KEY = process.env.APIFY_API_KEY!;
-
-if (!APIFY_API_KEY) {
-  console.error("APIFY_API_KEY not found");
-  throw new Error("APIFY_API_KEY not found");
-}
-
 const ACTOR_ID = 'hKByXkMQaC5Qt9UMN'; // curious_coder/linkedin-jobs-scraper
 const JOBS_PER_URL = 100;
 
@@ -41,6 +34,8 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
 }
 
 async function scrapeUrl(url: string): Promise<Job[]> {
+  const APIFY_API_KEY = process.env.APIFY_API_KEY!;
+  
   const endpoint =
     `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_KEY}&format=json&clean=true&memory=512`;
 
