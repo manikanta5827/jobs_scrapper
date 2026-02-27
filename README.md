@@ -5,20 +5,22 @@ Automated job scraping from LinkedIn using Apify, OpenAI for relevance checking,
 ## Local Development
 
 ### 1. Setup Environment Variables
+
 Create an `env.json` file in the root directory to provide local values for the environment variables:
 
 ```json
 {
-  "MainLambda": {
-    "APIFY_TOKEN": "your_apify_token",
-    "OPENAI_TOKEN": "your_openai_token",
-    "DATABASE_URL": "your_neon_postgres_url",
-    "RESUME_TEXT": "your_resume_text_content"
-  }
+    "MainLambda": {
+        "APIFY_API_KEY": "your_apify_api_key",
+        "OPENAI_API_KEY": "your_openai_api_key",
+        "DATABASE_URL": "your_neon_postgres_url",
+        "RESUME_TEXT": "your_resume_text_content"
+    }
 }
 ```
 
 ### 2. Invoke Locally
+
 To build and trigger the Lambda function once:
 
 ```bash
@@ -30,6 +32,7 @@ sam local invoke MainLambda --env-vars env.json
 ```
 
 ### 3. Type Checking
+
 To run TypeScript type checks:
 
 ```bash
@@ -37,6 +40,8 @@ npm run typecheck
 ```
 
 ## Database Management
+
 This project uses Drizzle ORM.
+
 - Schema is defined in `src/db/schema.ts`
 - Database helper functions are in `src/helper/db_helper.ts`

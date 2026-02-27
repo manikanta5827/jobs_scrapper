@@ -3,8 +3,8 @@
 ## Parameter Store Setup (do this first)
 
 aws ssm put-parameter \
-  --name "/job-scraper/APIFY_TOKEN" \
-  --value "your_apify_token" \
+  --name "/job-scraper/APIFY_API_KEY" \
+  --value "your_apify_api_key" \
   --type SecureString \
   --region us-east-1
 
@@ -15,7 +15,7 @@ aws ssm put-parameter \
   --region us-east-1
 
 aws ssm put-parameter \
-  --name "/job-scraper/NEON_DATABASE_URL" \
+  --name "/job-scraper/DATABASE_URL" \
   --value "postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require" \
   --type SecureString \
   --region us-east-1
@@ -52,9 +52,9 @@ aws ssm put-parameter \
 
 ## Environment Variables in Lambda (NOT secrets — these are non-sensitive)
 
-APIFY_TOKEN        → {{resolve:ssm:/job-scraper/APIFY_TOKEN}}
+APIFY_API_KEY        → {{resolve:ssm:/job-scraper/APIFY_API_KEY}}
 OPENAI_API_KEY     → {{resolve:ssm:/job-scraper/OPENAI_API_KEY}}
-NEON_DATABASE_URL  → {{resolve:ssm:/job-scraper/NEON_DATABASE_URL}}
+DATABASE_URL  → {{resolve:ssm:/job-scraper/DATABASE_URL}}
 RESUME_TEXT        → {{resolve:ssm:/job-scraper/RESUME_TEXT}}
 
 Set these in Lambda console → Configuration → Environment Variables

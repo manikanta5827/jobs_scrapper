@@ -4,11 +4,11 @@ Description: Job Scrapper template
 
 # PARAMETERS
 Parameters:
-    ApifyToken:
+    ApifyApiKey:
         Type: AWS::SSM::Parameter::Value<String>
         Description: Apify Api key
-        Default: /job-scraper/APIFY_TOKEN
-    OpenaiToken:
+        Default: /job-scraper/APIFY_API_KEY
+    OpenaiApiKey:
         Type: AWS::SSM::Parameter::Value<String>
         Description: Openai Api key
         Default: /job-scraper/OPENAI_API_KEY
@@ -35,8 +35,8 @@ Resources:
                 - AWSLambdaBasicExecutionRole
             Environment:
                 Variables:
-                    APIFY_TOKEN: !Ref ApifyToken
-                    OPENAI_TOKEN: !Ref OpenaiToken
+                    APIFY_API_KEY: !Ref ApifyApiKey
+                    OPENAI_API_KEY: !Ref OpenaiApiKey
                     DATABASE_URL: !Ref DatabaseUrl
 
             Events:
@@ -53,8 +53,10 @@ Resources:
                 Target: es2022
                 Format: esm
                 OutExtension:
-                    .js: .mjs
+                    - .js=.mjs
                 Sourcemap: true
+                Banner:
+                    - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
                 External:
                     - '@aws-sdk/*'
                     - 'aws-lambda'

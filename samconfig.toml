@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "job-scrapper"
+resolve_s3 = true
+s3_prefix = "job-scrapper"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ApifyApiKey=\"/job-scraper/APIFY_API_KEY\" OpenaiApiKey=\"/job-scraper/OPENAI_API_KEY\" DatabaseUrl=\"/job-scraper/DATABASE_URL\""
+image_repositories = []
+
+[default.global.parameters]
+region = "ap-south-1"

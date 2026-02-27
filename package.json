@@ -16,6 +16,7 @@
     "dependencies": {
         "@neondatabase/serverless": "^0.10.4",
         "drizzle-orm": "^0.45.1",
+        "esbuild": "^0.27.3",
         "pg": "^8.19.0"
     },
     "devDependencies": {
