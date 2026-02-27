@@ -5,7 +5,7 @@
  * Apify takes ~2 min max. No async complexity needed.
  */
 
-import type { Job } from '../types';
+import type { Job } from './types';
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
 const ACTOR_ID = 'hKByXkMQaC5Qt9UMN'; // curious_coder/linkedin-jobs-scraper

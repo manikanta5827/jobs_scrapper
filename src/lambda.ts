@@ -6,16 +6,14 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { scrapeJobs } from './apify';
-import { checkRelevanceBatch } from '../openai';
+import { checkRelevanceBatch } from './openai';
 import { getExistingJobLinks, insertJobs } from './db';
-import type { Job, EnrichedJob } from '../types';
+import type { Job, EnrichedJob } from './types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const SEARCH_URLS: string[] = [
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer&location=Bengaluru&geoId=105214831&f_E=2&f_TPR=r86400&sortBy=DD',
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer&location=Hyderabad&geoId=105556991&f_E=2&f_TPR=r86400&sortBy=DD',
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer&location=Chennai&geoId=103671728&f_E=2&f_TPR=r86400&sortBy=DD',
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer&location=Remote&geoId=102713980&f_E=2&f_TPR=r86400&sortBy=DD',
+  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Bengaluru&geoId=105214831&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0',
+  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Hyderabad&geoId=105556991&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0'
 ];
 
 // Only skip 5+ YOE. 2-3 years is fine for a junior developer.
@@ -23,6 +21,10 @@ const EXCLUDE_KEYWORDS: string[] = [
   '5+ years', '6+ years', '7+ years', '8+ years', '10+ years',
   '5 years', '6 years', '7 years', '8 years', '10 years',
   'senior architect', 'principal engineer', 'vp of engineering',
+];
+
+const EXCLUDE_TITLE_KEYWORDS: string[] = [
+  '[', '||', '|||', '2', '3', 'L3', 'L4', 'Test', 'Quality', 'Support', 'Testing', 'Android', 'Mobile'
 ];
 
 const OPENAI_BATCH_SIZE = 10;
@@ -108,11 +110,19 @@ function keywordFilter(jobs: Job[]): FilterResult {
   const binned: Job[] = [];
 
   for (const job of jobs) {
-    const text = `${job.title ?? ''} ${job.descriptionText ?? ''}`.toLowerCase();
-    const matched = EXCLUDE_KEYWORDS.filter(kw => text.includes(kw));
+    const title = (job.title ?? '').toLowerCase();
+    const text = `${title} ${job.descriptionText ?? ''}`.toLowerCase();
 
-    if (matched.length > 0) {
-      binned.push({ ...job, keyword_bin_reason: matched.join(', ') });
+    // Check general exclude keywords in full text
+    const matchedGeneral = EXCLUDE_KEYWORDS.filter(kw => text.includes(kw.toLowerCase()));
+
+    // Check specific title keywords in title only
+    const matchedTitle = EXCLUDE_TITLE_KEYWORDS.filter(kw => title.includes(kw.toLowerCase()));
+
+    const allMatched = [...new Set([...matchedGeneral, ...matchedTitle])];
+
+    if (allMatched.length > 0) {
+      binned.push({ ...job, keyword_bin_reason: allMatched.join(', ') });
     } else {
       relevant.push(job);
     }

@@ -10,7 +10,7 @@
  *   100 jobs → 10 batches × ~15s = ~2.5 min total
  */
 
-import type { Job, EnrichedJob, RelevanceResult, BatchResult } from '../types';
+import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const RESUME_TEXT = process.env.RESUME_TEXT!;

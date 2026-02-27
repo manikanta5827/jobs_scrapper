@@ -4,22 +4,26 @@ Description: Job Scrapper template
 
 # PARAMETERS
 Parameters:
-    AuthSecret:
-        Type: String
-        Description: auth secret for jwt token creation
-        Default: JWTSECRET9345
-
-# GLOBAL VARIABLES
-Globals:
-    Function:
-        
-        EphemeralStorage:
-            Size: 512
-        
+    ApifyToken:
+        Type: AWS::SSM::Parameter::Value<String>
+        Description: Apify Api key
+        Default: /job-scraper/APIFY_TOKEN
+    OpenaiToken:
+        Type: AWS::SSM::Parameter::Value<String>
+        Description: Openai Api key
+        Default: /job-scraper/OPENAI_API_KEY
+    NeonDatabaseUrl:
+        Type: AWS::SSM::Parameter::Value<String>
+        Description: Neon Database Url
+        Default: /job-scraper/NEON_DATABASE_URL
+    ResumeText:
+        Type: AWS::SSM::Parameter::Value<String>
+        Description: Resume Text
+        Default: /job-scraper/RESUME_TEXT
 
 Resources:
     # Event Bridge Invoke Lambda
-    EventBridgeInvokeLambda:
+    MainLambda:
         Type: AWS::Serverless::Function
         Properties:
             Runtime: nodejs24.x
@@ -33,20 +37,34 @@ Resources:
             Timeout: 600
             Policies:
                 - AWSLambdaBasicExecutionRole
+            Environment:
+                Variables:
+                    APIFY_TOKEN: !Ref ApifyToken
+                    OPENAI_TOKEN: !Ref OpenaiToken
+                    NEON_DATABASE_URL: !Ref NeonDatabaseUrl
+                    RESUME_TEXT: !Ref ResumeText
+
             Events:
-                # cron job runs everyday on 9AM
+                # cron job runs everyday on 7AM
                 Schedule:
                     Type: ScheduleV2
                     Properties:
-                        ScheduleExpression: cron(0 9 * * ? *)
-                        State: ENABLED
+                        ScheduleExpression: cron(0 7 * * ? *)
+                        ScheduleExpressionTimezone: 'Asia/Kolkata'
         Metadata:
             BuildMethod: esbuild
             BuildProperties:
                 Minify: true
-                Target: es2020
+                Target: es2022
                 Sourcemap: true
                 External:
                     - '@aws-sdk/*'
+                    - 'aws-lambda'
                 EntryPoints:
                     - src/lambda.ts
+
+    MyLogGroup:
+        Type: AWS::Logs::LogGroup
+        Properties:
+            LogGroupName: !Sub '/aws/lambda/${MainLambda}'
+            RetentionInDays: 3

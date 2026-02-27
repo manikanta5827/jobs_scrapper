@@ -6,7 +6,7 @@
  */
 
 import { neon } from '@neondatabase/serverless';
-import type { EnrichedJob } from '../types';
+import type { EnrichedJob } from './types';
 
 // NEON_DATABASE_URL: postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require
 const sql = neon(process.env.NEON_DATABASE_URL!);
