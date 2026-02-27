@@ -30,11 +30,11 @@ async function getSecret(path: string | undefined): Promise<string> {
  */
 export async function loadSecrets(): Promise<void> {
     const secrets = await Promise.all([
-        getSecret(process.env.APIFY_API_KEY_PATH),
-        getSecret(process.env.OPENAI_API_KEY_PATH),
-        getSecret(process.env.DATABASE_URL_PATH),
-        getSecret(process.env.MASTER_EMAIL_PATH),
-        getSecret(process.env.RECEIVER_EMAIL_PATH),
+        getSecret(process.env.APIFY_API_KEY),
+        getSecret(process.env.OPENAI_API_KEY),
+        getSecret(process.env.DATABASE_URL),
+        getSecret(process.env.MASTER_EMAIL),
+        getSecret(process.env.RECEIVER_EMAIL),
     ]);
 
     process.env.APIFY_API_KEY = secrets[0];

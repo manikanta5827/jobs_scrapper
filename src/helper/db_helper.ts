@@ -1,6 +1,6 @@
-import { db } from "../db/index";
+import { db, initDb } from "../db/index";
 import { jobs, matchedJobs } from "../db/schema";
-import { sql } from "drizzle-orm";
+import { sql, lt } from "drizzle-orm";
 import type { EnrichedJob } from "./types";
 
 /**
@@ -8,6 +8,7 @@ import type { EnrichedJob } from "./types";
  * Returns a Set for O(1) lookups.
  */
 export async function getExistingJobLinks(): Promise<Set<string>> {
+  await initDb();
   const result = await db.select({ jobLink: jobs.jobLink }).from(jobs);
   return new Set(result.map((r: any) => r.jobLink));
 }
@@ -17,7 +18,7 @@ export async function getExistingJobLinks(): Promise<Set<string>> {
  */
 export async function trackJobLinks(links: string[]): Promise<void> {
   if (links.length === 0) return;
-  
+  await initDb();
   await db.insert(jobs)
     .values(links.map(link => ({ jobLink: link })))
     .onConflictDoNothing();
@@ -28,7 +29,7 @@ export async function trackJobLinks(links: string[]): Promise<void> {
  */
 export async function insertMatchedJobs(enrichedJobs: EnrichedJob[]): Promise<void> {
   if (enrichedJobs.length === 0) return;
-
+  await initDb();
   const values = enrichedJobs.map((j) => ({
     jobLink: j.link!,
     jobTitle: j.title,
@@ -54,7 +55,8 @@ export async function insertMatchedJobs(enrichedJobs: EnrichedJob[]): Promise<vo
  */
 export async function cleanupOldSeenJobs(): Promise<void> {
   try {
-    await db.delete(jobs).where(sql`seen_at < NOW() - INTERVAL '7 days'`);
+    await initDb();
+    await db.delete(jobs).where(lt(jobs.seenAt, sql`NOW() - INTERVAL '7 days'`));
     console.log("Cleaned up old jobs");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Deleting jobs failed from DB";
