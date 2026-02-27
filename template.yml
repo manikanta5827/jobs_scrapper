@@ -12,14 +12,10 @@ Parameters:
         Type: AWS::SSM::Parameter::Value<String>
         Description: Openai Api key
         Default: /job-scraper/OPENAI_API_KEY
-    NeonDatabaseUrl:
+    DatabaseUrl:
         Type: AWS::SSM::Parameter::Value<String>
         Description: Neon Database Url
-        Default: /job-scraper/NEON_DATABASE_URL
-    ResumeText:
-        Type: AWS::SSM::Parameter::Value<String>
-        Description: Resume Text
-        Default: /job-scraper/RESUME_TEXT
+        Default: /job-scraper/DATABASE_URL
 
 Resources:
     # Event Bridge Invoke Lambda
@@ -41,8 +37,7 @@ Resources:
                 Variables:
                     APIFY_TOKEN: !Ref ApifyToken
                     OPENAI_TOKEN: !Ref OpenaiToken
-                    NEON_DATABASE_URL: !Ref NeonDatabaseUrl
-                    RESUME_TEXT: !Ref ResumeText
+                    DATABASE_URL: !Ref DatabaseUrl
 
             Events:
                 # cron job runs everyday on 7AM

@@ -1,0 +1,64 @@
+MANIKANTA THUMMURI
+
+Backend Developer
+Vijayawada, India | thummurimanikanta7@gmail.com
+
+
+Professional Summary
+
+Highly motivated Backend Developer with practical experience building production-grade serverless applications on AWS. Strong
+foundation in event-driven architectures, scalable REST APIs, and LLM-powered systems, validated through real-world internships
+and independent projects.
+
+Technical Skills
+
+Languages: JavaScript (Node.js), TypeScript, Python
+Cloud & Serverless: AWS Lambda, SAM, API Gateway, DynamoDB, S3, RDS, IAM, Step Functions, SQS, SNS, SES,
+EventBridge, CloudWatch, CloudFront CDN
+AI / LLMs: AWS Bedrock, LangChain, Agents, MCPs, Tooling, RAG
+Databases & Caching: PostgreSQL, DynamoDB, Redis, Vector DB, Supabase
+DevOps & Tooling: Docker, Git, GitHub, CI/CD, Jest
+Architecture: Event-Driven Systems, REST APIs, Microservices
+
+
+Experience
+
+Backend Developer Intern | AntStack Nov 2025 – Jan 2026
+Engineered and deployed serverless backend systems using AWS Lambda, SAM, API Gateway, DynamoDB, and IAM.
+Designed and implemented robust event-driven workflows leveraging SQS, SNS, EventBridge, and SES.
+Developed and integrated LLM-based agents using AWS Bedrock, Strands, AgentCore, and MCPs.
+Ensured adherence to cloud-native security and performance best practices across scalable Node.js services.
+
+Backend Developer Intern | Persist Ventures Mar 2025 – Aug 2025
+Developed secure RESTful APIs using Node.js and Symfony, integrated with MySQL and AWS S3.
+Improved API response times by up to 80% through async processing and Redis caching.
+Automated critical background processing tasks using Symfony Messenger and cron-based workflows.
+
+
+Projects
+
+AI Research App: Developed a Perplexity-style AI research assistant with LLM-powered summarization and search.
+Implemented a $0/month serverless backend using AWS Lambda, integrating DuckDuckGo for web scraping and utilizing
+the Grok model for its high context window and fast response. Designed a simple React frontend.
+
+Job Search Automation Engine: Automated job search and resume generation using AWS Step Functions, Apify
+(LinkedIn scraping), and OpenAI. Analyzes relevance, creates tailored ATS resumes, and stores data in Google Sheets
+(0$ cost with AWS Free Tier).
+
+Leave Management System (Serverless): Developed a leave application system using AWS Lambda, Step Functions
+for approval workflow orchestration, and SES for email notifications (request and final status). Supabase served as the
+database, with SAM used for Infrastructure as Code.
+
+
+Certifications
+
+Advanced Node.js Development (Udemy)
+Troubleshooting Backend Performance (Udemy)
+Database Engineering (Udemy)
+
+
+Education
+
+B.Tech (ECE): Sir CR Reddy College, Eluru (2023) – CGPA: 6.8
+Intermediate (MPC): Sri Chaitanya JR College, Eluru (2019) – CGPA: 9.5
+SSC (General Studies): De Paul School – CGPA: 9.2

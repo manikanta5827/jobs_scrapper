@@ -5,10 +5,10 @@
  */
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
-import { scrapeJobs } from './apify';
-import { checkRelevanceBatch } from './openai';
-import { getExistingJobLinks, insertJobs } from './db';
-import type { Job, EnrichedJob } from './types';
+import { scrapeJobs } from './helper/apify';
+import { checkRelevanceBatch } from './helper/openai';
+import { getExistingJobLinks, trackJobLinks, insertMatchedJobs, cleanupOldSeenJobs } from './helper/db_helper';
+import type { Job } from './helper/types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const SEARCH_URLS: string[] = [
@@ -24,7 +24,7 @@ const EXCLUDE_KEYWORDS: string[] = [
 ];
 
 const EXCLUDE_TITLE_KEYWORDS: string[] = [
-  '[', '||', '|||', '2', '3', 'L3', 'L4', 'Test', 'Quality', 'Support', 'Testing', 'Android', 'Mobile'
+  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'Support', 'Testing', 'Android', 'Mobile'
 ];
 
 const OPENAI_BATCH_SIZE = 10;
@@ -44,6 +44,7 @@ interface FilterResult {
   binned: Job[];
 }
 
+await cleanupOldSeenJobs();
 // ─── Handler ─────────────────────────────────────────────────────────────────
 export const handler = async (
   _event: ScheduledEvent,
@@ -77,15 +78,16 @@ export const handler = async (
     const { matched, rejected } = await checkRelevanceBatch(toCheck, OPENAI_BATCH_SIZE, BATCH_DELAY_MS);
     console.log(`OpenAI: ${matched.length} matched, ${rejected.length} rejected`);
 
-    // Step 5: Write everything to Neon in one shot
-    const allJobs: EnrichedJob[] = [
-      ...matched.map(j => ({ ...j, status: 'matched' as const })),
-      ...rejected.map(j => ({ ...j, status: 'rejected' as const })),
-      ...keywordBinned.map(j => ({ ...j, status: 'binned' as const, ai_reason: j.keyword_bin_reason })),
-    ];
+    // Step 5: Write to DB
+    // 1. Track all new links so we don't process them again
+    const allNewLinks = newJobs.map(j => j.link).filter((l): l is string => !!l);
+    await trackJobLinks(allNewLinks);
 
-    await insertJobs(allJobs);
-    console.log(`Inserted ${allJobs.length} jobs into Neon DB`);
+    // 2. Insert only matched jobs for the dashboard
+    if (matched.length > 0) {
+      await insertMatchedJobs(matched);
+      console.log(`Inserted ${matched.length} matched jobs into matched_jobs table`);
+    }
 
     const result: LambdaResponse = {
       total_scraped: rawJobs.length,

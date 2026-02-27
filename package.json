@@ -11,12 +11,17 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "@neondatabase/serverless": "^0.10.4"
+        "@neondatabase/serverless": "^0.10.4",
+        "drizzle-orm": "^0.45.1",
+        "pg": "^8.19.0"
     },
     "devDependencies": {
         "@types/aws-lambda": "^8.10.145",
         "@types/node": "^22.0.0",
+        "@types/pg": "^8.16.0",
+        "drizzle-kit": "^0.31.9",
         "ts-node": "^10.9.2",
+        "tsx": "^4.21.0",
         "typescript": "^5.7.0"
     }
 }

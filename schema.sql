@@ -1,6 +1,11 @@
 -- Run this once in your Neon SQL Editor to create the table
 
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE jobs (
+  job_link  TEXT PRIMARY KEY,
+  seen_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS matched_jobs (
   id                  SERIAL PRIMARY KEY,
   job_link            TEXT UNIQUE NOT NULL,        -- unique constraint handles deduplication
   job_title           TEXT,
@@ -8,16 +13,13 @@ CREATE TABLE IF NOT EXISTS jobs (
   company_website     TEXT,
   posted_at           TEXT,
   salary              TEXT,
-  description         TEXT,
   applicants_count    TEXT,
   apply_url           TEXT,
-  status              TEXT NOT NULL DEFAULT 'unknown', -- 'matched' | 'rejected' | 'binned'
   ai_score            INT  DEFAULT 0,
   ai_reason           TEXT,
   ai_matched_skills   TEXT,                        -- JSON array stored as text
   ai_missing_skills   TEXT,                        -- JSON array stored as text
-  keyword_bin_reason  TEXT,
-  created_at          TEXT,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
   applied             BOOLEAN DEFAULT FALSE,        -- you manually toggle this in dashboard
   notes               TEXT                         -- your personal notes per job
 );
@@ -34,6 +36,6 @@ CREATE OR REPLACE VIEW matched_jobs AS
     posted_at, apply_url, applicants_count,
     ai_score, ai_reason, ai_matched_skills, ai_missing_skills,
     applied, notes, created_at
-  FROM jobs
+  FROM matched_jobsjobs
   WHERE status = 'matched'
   ORDER BY ai_score DESC, created_at DESC;

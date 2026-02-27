@@ -1,19 +1,19 @@
 /**
  * openai.ts
  * Checks job relevance using GPT-4o-mini with batching + retry.
- *
- * Rate limit math (Tier 1 GPT-4o-mini):
- *   Limit  : 200,000 TPM, 1,000 RPM
- *   Per job: ~1,850 tokens (system + resume + JD + output)
- *   Batch  : 10 jobs parallel = ~18,500 tokens — safe under 200K TPM
- *   Gap    : 3s between batches = ~20 req/min — safe under 1,000 RPM
- *   100 jobs → 10 batches × ~15s = ~2.5 min total
  */
-
+import { readFile } from 'node:fs/promises';
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-const RESUME_TEXT = process.env.RESUME_TEXT!;
+
+if (!OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY not found");
+  throw new Error("OPENAI_API_KEY not found");
+}
+
+const RESUME_TEXT = await readFile('resume.txt', 'utf8');
+
 
 const SYSTEM_PROMPT = `You are evaluating whether a job is worth applying to based on the candidate's profile.
 Your goal is NOT to be strict — you are filtering out irrelevant jobs, not perfect ones.

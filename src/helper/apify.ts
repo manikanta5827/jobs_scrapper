@@ -8,6 +8,12 @@
 import type { Job } from './types';
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
+
+if (!APIFY_TOKEN) {
+  console.error("APIFY_TOKEN not found");
+  throw new Error("APIFY_TOKEN not found");
+}
+
 const ACTOR_ID = 'hKByXkMQaC5Qt9UMN'; // curious_coder/linkedin-jobs-scraper
 const JOBS_PER_URL = 100;
 
