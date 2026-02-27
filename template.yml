@@ -51,6 +51,9 @@ Resources:
             BuildProperties:
                 Minify: true
                 Target: es2022
+                Format: esm
+                OutExtension:
+                    .js: .mjs
                 Sourcemap: true
                 External:
                     - '@aws-sdk/*'

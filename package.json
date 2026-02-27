@@ -8,7 +8,10 @@
         "build": "sam validate --lint && sam build",
         "deploy": "sam deploy --no-confirm-changeset",
         "delete": "aws cloudformation delete-stack --stack-name event-management-platform",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "db:generate": "npx drizzle-kit generate",
+        "db:migrate": "npx drizzle-kit migrate",
+        "lambda": "sam local invoke MainLambda --env-vars env.json"
     },
     "dependencies": {
         "@neondatabase/serverless": "^0.10.4",

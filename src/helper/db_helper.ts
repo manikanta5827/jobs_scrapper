@@ -35,7 +35,7 @@ export async function insertMatchedJobs(enrichedJobs: EnrichedJob[]): Promise<vo
     companyName: j.companyName,
     companyWebsite: j.companyWebsite,
     postedAt: j.postedAt,
-    salary: j.salary,
+    salary: j.salary!,
     applicantsCount: String(j.applicantsCount ?? ""),
     applyUrl: j.applyUrl,
     aiScore: j.ai_score,

@@ -44,7 +44,6 @@ interface FilterResult {
   binned: Job[];
 }
 
-await cleanupOldSeenJobs();
 // ─── Handler ─────────────────────────────────────────────────────────────────
 export const handler = async (
   _event: ScheduledEvent,
@@ -53,6 +52,9 @@ export const handler = async (
   console.log('Job scraper started', new Date().toISOString());
 
   try {
+    // Optional: Cleanup old jobs once a day or on every run
+    await cleanupOldSeenJobs();
+
     // Step 1: Scrape all cities
     const rawJobs = await scrapeJobs(SEARCH_URLS);
     console.log(`Scraped ${rawJobs.length} total jobs across all cities`);
@@ -63,7 +65,7 @@ export const handler = async (
 
     // Step 2: Deduplicate against existing DB records
     const existingLinks = await getExistingJobLinks();
-    const newJobs = rawJobs.filter(job => job.link && !existingLinks.has(job.link));
+    const newJobs = rawJobs.filter((job: Job) => job.link && !existingLinks.has(job.link));
     console.log(`${newJobs.length} new jobs after dedup (${rawJobs.length - newJobs.length} already seen)`);
 
     if (newJobs.length === 0) {
@@ -80,7 +82,7 @@ export const handler = async (
 
     // Step 5: Write to DB
     // 1. Track all new links so we don't process them again
-    const allNewLinks = newJobs.map(j => j.link).filter((l): l is string => !!l);
+    const allNewLinks = newJobs.map((j: Job) => j.link).filter((l: string | undefined): l is string => !!l);
     await trackJobLinks(allNewLinks);
 
     // 2. Insert only matched jobs for the dashboard
