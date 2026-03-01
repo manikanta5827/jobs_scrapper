@@ -24,6 +24,10 @@ Parameters:
         Type: String
         Description: Receiver email SSM path
         Default: /job-scraper/RECEIVER_EMAIL
+    MinMatchScore:
+        Type: String
+        Description: Minimum AI match score for a job to be considered relevant
+        Default: "60"
 
 Resources:
     # Event Bridge Invoke Lambda
@@ -57,6 +61,7 @@ Resources:
                     DATABASE_URL_PATH: !Ref DatabaseUrl
                     MASTER_EMAIL_PATH: !Ref MasterEmail
                     RECEIVER_EMAIL_PATH: !Ref ReceiverEmail
+                    MIN_MATCH_SCORE: !Ref MinMatchScore
 
             Events:
                 # cron job runs everyday on 7AM
