@@ -67,7 +67,7 @@ Resources:
                 MorningRun:
                     Type: ScheduleV2
                     Properties:
-                        ScheduleExpression: cron(0 9 * * ? *)
+                        ScheduleExpression: cron(0 9 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
                         Input: '{"lookbackHours": 18}'
                         RetryPolicy:
@@ -76,7 +76,7 @@ Resources:
                 AfternoonRun:
                     Type: ScheduleV2
                     Properties:
-                        ScheduleExpression: cron(0 13 * * ? *)
+                        ScheduleExpression: cron(0 13 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
                         Input: '{"lookbackHours": 4}'
                         RetryPolicy:
@@ -85,7 +85,7 @@ Resources:
                 EveningRun:
                     Type: ScheduleV2
                     Properties:
-                        ScheduleExpression: cron(30 17 * * ? *)
+                        ScheduleExpression: cron(30 17 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
                         Input: '{"lookbackHours": 4.5}'
                         RetryPolicy:
