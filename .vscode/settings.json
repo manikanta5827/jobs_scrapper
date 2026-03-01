@@ -11,6 +11,7 @@
       "!Select sequence",
       "!Split sequence",
       "!Sub"
-    ]
+    ],
+    "postman.settings.dotenv-detection-notification-visibility": false
   }
   
