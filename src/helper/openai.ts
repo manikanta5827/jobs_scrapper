@@ -142,7 +142,14 @@ async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceR
 
       const parsed = JSON.parse(content) as RelevanceResult;
 
-      if (typeof parsed.matched !== 'boolean' || typeof parsed.score !== 'number') {
+      // Validate shape
+      const isValid = 
+        typeof parsed.score === 'number' &&
+        typeof parsed.reason === 'string' &&
+        Array.isArray(parsed.matched_skills) &&
+        Array.isArray(parsed.missing_skills);
+
+      if (!isValid) {
         throw new Error(`Invalid JSON shape: ${content}`);
       }
 

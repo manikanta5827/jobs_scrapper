@@ -18,7 +18,6 @@ export interface Job {
 
 // OpenAI relevance check result
 export interface RelevanceResult {
-  matched:        boolean;
   score:          number;
   reason:         string;
   matched_skills: string[];
