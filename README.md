@@ -1,46 +1,30 @@
-# Job Scraper Lambda
+# 🚀 AI-Powered LinkedIn Job Scraper
 
-Automated job scraping from LinkedIn using Apify, OpenAI for relevance checking, Neon (Postgres) for storage, and AWS SES for email notifications.
+An automated job discovery engine that acts as your personal recruiter. It scrapes LinkedIn for new opportunities, evaluates them against your specific profile using OpenAI, and delivers a curated list of high-quality matches directly to your inbox.
 
-## Local Development
+## 🌟 Key Features
 
-### 1. Setup Environment Variables
-Create an `env.json` file in the root directory. For local testing, the `_PATH` variables can contain actual values. If the value starts with `/`, the Lambda will attempt to fetch it from AWS SSM (requires AWS credentials).
+*   **Automated Discovery**: Runs daily at 7:30 AM IST, so you never miss a new posting.
+*   **AI-Powered Scoring**: Uses GPT-4o-mini to analyze job descriptions against your resume, providing a match score (0-100) and a brief reason.
+*   **Smart Filtering**: Multi-layer filtering (Deduplication -> Keyword Filter -> AI Analysis) ensures you only see relevant roles.
+*   **Professional Reports**: Receive a clean, emoji-free HTML email summary with the best matches sorted by relevance.
+*   **Serverless Architecture**: Built on AWS Lambda for minimal cost and zero maintenance.
 
-```json
-{
-  "MainLambda": {
-    "APIFY_API_KEY_PATH": "your_apify_token",
-    "OPENAI_API_KEY_PATH": "your_openai_token",
-    "DATABASE_URL_PATH": "postgresql://...",
-    "MASTER_EMAIL_PATH": "sender@example.com",
-    "RECEIVER_EMAIL_PATH": "receiver@example.com"
-  }
-}
-```
+## 🛠 How It Works (The Pipeline)
 
-### 2. Invoke Locally
-To build and trigger the Lambda function:
+1.  **Scrape**: Fetches raw job listings from LinkedIn via **Apify**.
+2.  **Deduplicate**: Checks against **Neon Postgres** to ensure you don't see the same job twice.
+3.  **Keyword Filter**: Instantly removes roles with mismatched seniority (e.g., "10+ YOE") or irrelevant domains.
+4.  **AI Analysis**: GPT-4o-mini evaluates the job against your `resume.txt` to find the best fit.
+5.  **Notify**: High-scoring matches are saved to the database and sent via **AWS SES**.
 
-```bash
-# Build the project
-sam build
+## 🏗 Tech Stack
 
-# Invoke the function locally
-sam local invoke MainLambda --env-vars env.json
-```
+*   **Logic**: Node.js, TypeScript, AWS Lambda.
+*   **Storage**: Neon Serverless Postgres, Drizzle ORM.
+*   **Intelligence**: OpenAI API (GPT-4o-mini).
+*   **Infrastructure**: AWS SAM (EventBridge, SSM, SES).
+*   **Scraping**: Apify LinkedIn Scraper.
 
-### 3. Type Checking
-```bash
-npm run typecheck
-```
-
-## Database Management
-This project uses Drizzle ORM.
-- Schema: `src/db/schema.ts`
-- Helpers: `src/helper/db_helper.ts`
-
-## AWS Deployment
-The Lambda fetches secrets at runtime from AWS SSM Parameter Store using the paths defined in `template.yml`.
-- **SSM Paths:** Ensure `/job-scraper/APIFY_API_KEY`, etc., exist in your region.
-- **SES:** Ensure the `MASTER_EMAIL` is verified in AWS SES.
+---
+*For technical setup and deployment instructions, see [RUN.md](./RUN.md).*

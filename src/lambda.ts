@@ -15,7 +15,8 @@ import type { Job } from './helper/types';
 // ─── Config ──────────────────────────────────────────────────────────────────
 const SEARCH_URLS: string[] = [
   'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Bengaluru&geoId=105214831&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0',
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Hyderabad&geoId=105556991&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0'
+  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Hyderabad&geoId=105556991&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0',
+  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Chennai&geoId=106888327&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0'
 ];
 
 // Only skip 5+ YOE. 2-3 years is fine for a junior developer.
@@ -46,12 +47,18 @@ interface FilterResult {
   binned: Job[];
 }
 
+interface CustomEvent {
+  lookbackHours?: number;
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 export const handler = async (
-  _event: ScheduledEvent,
+  event: CustomEvent & ScheduledEvent,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Job scraper started', new Date().toISOString());
+  const lookbackHours = event.lookbackHours || 24;
+  const lookbackSeconds = Math.floor(lookbackHours * 3600);
+  console.log(`Job scraper started. Lookback: ${lookbackHours} hours (${lookbackSeconds}s)`, new Date().toISOString());
 
   try {
     // IMPORTANT: Load secrets from SSM first
@@ -63,8 +70,12 @@ export const handler = async (
     // Optional: Cleanup old jobs once a day or on every run
     await cleanupOldSeenJobs();
 
-    // Step 1: Scrape all cities
-    const rawJobs = await scrapeJobs(SEARCH_URLS);
+    // Step 1: Scrape all cities with dynamic lookback
+    const dynamicUrls = SEARCH_URLS.map(url => 
+      url.replace(/f_TPR=r\d+/, `f_TPR=r${lookbackSeconds}`)
+    );
+    
+    const rawJobs = await scrapeJobs(dynamicUrls);
     console.log(`Scraped ${rawJobs.length} total jobs across all cities`);
 
     if (rawJobs.length === 0) {

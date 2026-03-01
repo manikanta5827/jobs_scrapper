@@ -64,12 +64,39 @@ Resources:
                     MIN_MATCH_SCORE: !Ref MinMatchScore
 
             Events:
-                # cron job runs everyday on 7AM
-                Schedule:
+                MorningRun:
                     Type: ScheduleV2
                     Properties:
-                        ScheduleExpression: cron(0 7 * * ? *)
+                        ScheduleExpression: cron(0 9 * * ? *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
+                        Input: '{"lookbackHours": 18}'
+                        RetryPolicy:
+                            MaximumRetryAttempts: 0
+                            MaximumEventAgeInSeconds: 3600
+                AfternoonRun:
+                    Type: ScheduleV2
+                    Properties:
+                        ScheduleExpression: cron(0 13 * * ? *)
+                        ScheduleExpressionTimezone: 'Asia/Kolkata'
+                        Input: '{"lookbackHours": 4}'
+                        RetryPolicy:
+                            MaximumRetryAttempts: 0
+                            MaximumEventAgeInSeconds: 3600
+                EveningRun:
+                    Type: ScheduleV2
+                    Properties:
+                        ScheduleExpression: cron(30 17 * * ? *)
+                        ScheduleExpressionTimezone: 'Asia/Kolkata'
+                        Input: '{"lookbackHours": 4.5}'
+                        RetryPolicy:
+                            MaximumRetryAttempts: 0
+                            MaximumEventAgeInSeconds: 3600
+                SundayMorningRun:
+                    Type: ScheduleV2
+                    Properties:
+                        ScheduleExpression: cron(0 8 ? * SUN *)
+                        ScheduleExpressionTimezone: 'Asia/Kolkata'
+                        Input: '{"lookbackHours": 48}'
                         RetryPolicy:
                             MaximumRetryAttempts: 0
                             MaximumEventAgeInSeconds: 3600
