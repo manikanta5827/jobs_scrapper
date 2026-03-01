@@ -3,6 +3,9 @@
  * Checks job relevance using GPT-4o-mini with batching + retry.
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
+
+const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? '60', 10);
+
 // @ts-ignore
 import resumeText from "../../resume.txt";
 
@@ -19,7 +22,6 @@ Determine if this job is worth applying to. A job is worth applying to if:
 Return ONLY valid JSON. No markdown. No text outside the JSON.
 
 {
-  "matched": boolean,
   "score": number (0-100),
   "reason": "string (1-2 sentences)",
   "matched_skills": ["string"],
@@ -27,8 +29,7 @@ Return ONLY valid JSON. No markdown. No text outside the JSON.
 }
 
 ## RULES
-- matched: true if score >= 50
-- If completely unrelated to candidate's field = score 0, matched: false
+- If completely unrelated to candidate's field = score 0
 - Do NOT penalize for missing nice-to-have skills
 - missing_skills = only hard requirements clearly missing from the resume`;
 
@@ -59,15 +60,16 @@ export async function checkRelevanceBatch(
 
       if (result.status === 'fulfilled') {
         const parsed: RelevanceResult = result.value;
+
         const enriched: EnrichedJob = {
           ...job,
-          status: parsed.matched ? 'matched' : 'rejected',
+          status: parsed.score >= MIN_MATCH_SCORE ? 'matched' : 'rejected',
           ai_score: parsed.score,
           ai_reason: parsed.reason,
           ai_matched_skills: parsed.matched_skills,
           ai_missing_skills: parsed.missing_skills,
         };
-        parsed.matched ? matched.push(enriched) : rejected.push(enriched);
+        parsed.score >= MIN_MATCH_SCORE ? matched.push(enriched) : rejected.push(enriched);
       } else {
         // OpenAI failed after retries — bin it, don't crash Lambda
         const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
