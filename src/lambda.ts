@@ -26,7 +26,7 @@ const EXCLUDE_KEYWORDS: string[] = [
 ];
 
 const EXCLUDE_TITLE_KEYWORDS: string[] = [
-  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'Support', 'Testing', 'Android', 'Mobile'
+  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'Support', 'Testing', 'Android', 'Mobile', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS', 'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager'
 ];
 
 const OPENAI_BATCH_SIZE = 10;
