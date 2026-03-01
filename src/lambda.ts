@@ -190,6 +190,40 @@ export const handler = async (
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Lambda failed:', message);
+    
+    // send email to master email about the failure
+    const MASTER_EMAIL = process.env.MASTER_EMAIL!;
+    const RECEIVER_EMAIL = process.env.RECEIVER_EMAIL!;
+    const subject = `Job Scraper Failure - ${new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })}`;
+
+    const htmlBody = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
+        <h2 style="color: #c0392b; border-bottom: 2px solid #e74c3c; padding-bottom: 10px; margin-bottom: 20px;">
+          Job Scraper Failure Alert
+        </h2>
+        <p style="font-size: 1.1em;">
+          An error occurred during the job scraping process on <strong>${new Date().toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          })}</strong>.
+        </p>
+        <div style="margin-top: 20px; padding: 15px; background: #f8d7da; color: #721c24; border-radius: 6px; border: 1px solid #f5c6cb;">
+          <h3 style="margin-top: 0; margin-bottom: 10px;">Error Details:</h3>
+          <pre style="white-space: pre-wrap; word-break: break-word;">${message}</pre>
+        </div>
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #888; font-size: 0.85em;">
+          <p>This is an automated alert from your Job Scraper Service.</p>
+          <p>&copy; ${new Date().getFullYear()} Job Scraper Inc.</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmail(MASTER_EMAIL, RECEIVER_EMAIL, subject, htmlBody);
     return response(500, { error: message });
   }
 };
