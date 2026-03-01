@@ -6,6 +6,8 @@
  */
 
 import type { Job } from './types';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 const ACTOR_ID = 'hKByXkMQaC5Qt9UMN'; // curious_coder/linkedin-jobs-scraper
 const JOBS_PER_URL = 100;
@@ -15,6 +17,18 @@ const JOBS_PER_URL = 100;
  * Sequential (not parallel) to avoid Apify concurrent run limits.
  */
 export async function scrapeJobs(urls: string[]): Promise<Job[]> {
+  // --- MOCK MODE ---
+  if (process.env.APP_ENV === 'dev') {
+    console.log('--- [DEV MODE] Using mock data from mock_jobs.json ---');
+    try {
+      const mockFilePath = path.join(process.cwd(), 'mock_jobs.json');
+      const data = await fs.readFile(mockFilePath, 'utf-8');
+      return JSON.parse(data);
+    } catch (err) {
+      console.warn('Failed to read mock_jobs.json, falling back to real scrape...', err);
+    }
+  }
+
   const allJobs: Job[] = [];
 
   for (const url of urls) {

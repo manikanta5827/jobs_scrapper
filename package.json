@@ -5,7 +5,7 @@
     "type": "module",
     "main": ".eslintrc.js",
     "scripts": {
-        "build": "sam validate --lint && sam build --cached --parallel --use-container --skip-pull-image",
+        "build": "sam validate --lint && sam build --cached --parallel --use-container --skip-pull-image && cp -f mock_jobs.json .aws-sam/build/MainLambda/ 2>/dev/null || true",
         "deploy": "sam deploy --no-confirm-changeset",
         "delete": "aws cloudformation delete-stack --stack-name event-management-platform",
         "typecheck": "tsc --noEmit",

@@ -4,6 +4,10 @@ Description: Job Scrapper template
 
 # PARAMETERS
 Parameters:
+    AppEnv:
+        Type: String
+        Description: Application environment (dev/prod)
+        Default: prod
     ApifyApiKey:
         Type: String
         Description: Apify Api key SSM path
@@ -62,6 +66,7 @@ Resources:
                     MASTER_EMAIL_PATH: !Ref MasterEmail
                     RECEIVER_EMAIL_PATH: !Ref ReceiverEmail
                     MIN_MATCH_SCORE: !Ref MinMatchScore
+                    APP_ENV: !Ref AppEnv
 
             Events:
                 MorningRun:

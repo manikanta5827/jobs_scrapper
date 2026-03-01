@@ -85,14 +85,43 @@ export const handler = async (
     // Step 2: Deduplicate within rawJobs and against existing DB records
     const existingLinks = await getExistingJobLinks();
 
-    // 1. Deduplicate the current batch of scraped jobs by link
-    const uniqueRawJobs = Array.from(
-      new Map(
-        rawJobs
-          .filter((job: Job) => !!job.link)
-          .map((job: Job) => [job.link!, job])
-      ).values()
-    );
+    // Helper to normalize LinkedIn links (extract Job ID)
+    const normalizeLink = (link: string) => {
+      try {
+        const url = new URL(link);
+        // Extract ID from /jobs/view/12345 or ?currentJobId=12345
+        const jobIdMatch = url.pathname.match(/\/view\/(\d+)/) || url.searchParams.get('currentJobId');
+        if (jobIdMatch) {
+          const id = Array.isArray(jobIdMatch) ? jobIdMatch[1] : jobIdMatch;
+          return `https://www.linkedin.com/jobs/view/${id}`;
+        }
+        // Fallback: remove query params
+        return `${url.origin}${url.pathname}`;
+      } catch {
+        return link;
+      }
+    };
+
+    // 1. Deduplicate the current batch of scraped jobs
+    const uniqueRawJobsMap = new Map<string, Job>();
+    
+    for (const job of rawJobs) {
+      const link = job.link;
+      const title = job.title;
+      const company = job.companyName;
+
+      if (!link || !title || !company) continue;
+      
+      const normalizedLink = normalizeLink(link);
+      // Composite key to catch identical jobs with different links
+      const compositeKey = `${normalizedLink}|${title.toLowerCase()}|${company.toLowerCase()}`.trim();
+      
+      if (!uniqueRawJobsMap.has(compositeKey)) {
+        uniqueRawJobsMap.set(compositeKey, { ...job, link: normalizedLink });
+      }
+    }
+    
+    const uniqueRawJobs = Array.from(uniqueRawJobsMap.values());
 
     // 2. Filter out jobs already present in the database
     const newJobs = uniqueRawJobs.filter((job: Job) => !existingLinks.has(job.link!));
@@ -246,7 +275,7 @@ function keywordFilter(jobs: Job[]): FilterResult {
     const allMatched = [...new Set([...matchedGeneral, ...matchedTitle])];
 
     if (allMatched.length > 0) {
-      binned.push({ ...job, keyword_bin_reason: allMatched.join(', ') });
+      binned.push({ ...job});
     } else {
       relevant.push(job);
     }
