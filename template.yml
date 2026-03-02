@@ -81,6 +81,7 @@ Resources:
                     TELEGRAM_MATCHED_JOBS_CHAT_ID_PATH: !Ref TelegramMatchedJobsChatId
                     TELEGRAM_DROPPED_JOBS_BOT_TOKEN_PATH: !Ref TelegramDroppedJobsBotToken
                     TELEGRAM_DROPPED_JOBS_CHAT_ID_PATH: !Ref TelegramDroppedJobsChatId
+                    ADMIN_API_KEY_PATH: !Ref AdminApiKey
 
             Events:
                 MorningRun:
@@ -88,7 +89,7 @@ Resources:
                     Properties:
                         ScheduleExpression: cron(0 9 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: '{"lookbackHours": 18}'
+                        Input: !Sub '{"lookbackHours": 18, "adminApiKey": "${AdminApiKey}"}'
                         RetryPolicy:
                             MaximumRetryAttempts: 0
                             MaximumEventAgeInSeconds: 3600
@@ -97,7 +98,7 @@ Resources:
                     Properties:
                         ScheduleExpression: cron(0 13 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: '{"lookbackHours": 4}'
+                        Input: !Sub '{"lookbackHours": 4, "adminApiKey": "${AdminApiKey}"}'
                         RetryPolicy:
                             MaximumRetryAttempts: 0
                             MaximumEventAgeInSeconds: 3600
@@ -106,7 +107,7 @@ Resources:
                     Properties:
                         ScheduleExpression: cron(30 17 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: '{"lookbackHours": 4.5}'
+                        Input: !Sub '{"lookbackHours": 4.5, "adminApiKey": "${AdminApiKey}"}'
                         RetryPolicy:
                             MaximumRetryAttempts: 0
                             MaximumEventAgeInSeconds: 3600
@@ -115,7 +116,7 @@ Resources:
                     Properties:
                         ScheduleExpression: cron(0 8 ? * SUN *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: '{"lookbackHours": 48}'
+                        Input: !Sub '{"lookbackHours": 48, "adminApiKey": "${AdminApiKey}"}'
                         RetryPolicy:
                             MaximumRetryAttempts: 0
                             MaximumEventAgeInSeconds: 3600
@@ -157,6 +158,7 @@ Resources:
                 Variables:
                     DATABASE_URL_PATH: !Ref DatabaseUrl
                     APP_ENV: !Ref AppEnv
+                    ADMIN_API_KEY_PATH: !Ref AdminApiKey
             Events:
                 AdminApi:
                     Type: Api

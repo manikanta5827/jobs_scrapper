@@ -38,10 +38,14 @@ export const handler = async (
   event: { lookbackHours?: number; adminApiKey?: string } & ScheduledEvent,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
-  // 🛡️ Security Check: Skip if triggered by EventBridge (it won't have the API key in payload by default)
-  // If triggered manually/externally, require the adminApiKey.
-  const isScheduled = !!event['detail-type']; // EventBridge adds this field
-  if (!isScheduled && event.adminApiKey !== process.env.ADMIN_API_KEY) {
+  // 🛡️ Security Check
+  // The key must match the secret value (for manual calls)
+  // OR the SSM path string (passed from our EventBridge template)
+  const isAuthorized = 
+    event.adminApiKey === process.env.ADMIN_API_KEY || 
+    event.adminApiKey === process.env.ADMIN_API_KEY_PATH;
+
+  if (!isAuthorized) {
     console.warn('Unauthorized attempt to trigger MainLambda');
     return response(401, { error: 'Unauthorized: Missing or invalid adminApiKey' });
   }
