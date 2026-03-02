@@ -16,7 +16,7 @@ export const EXCLUDE_KEYWORDS: string[] = [
 ];
 
 export const EXCLUDE_TITLE_KEYWORDS: string[] = [
-  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'QA', 'Support', 'Testing', 'Android', 'Mobile','React', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS','Rust', 'Dot net', "Bussiness", 'C#', 'Sales', '.NET', 'Kotline', 'Swift', 'Golang', 'Game' ,'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager', 'Front End', 'Tester'
+  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'QA', 'Support', 'Testing', 'Android', 'Mobile','React', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS','Rust', 'Dot net', "Bussiness", 'C#', 'Sales', '.NET', 'Kotline', 'Swift', 'Golang', 'Game' ,'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager', 'Front End', 'Tester', 'Kubernetes'
 ];
 
 export interface FilterResult {
