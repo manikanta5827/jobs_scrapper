@@ -12,7 +12,7 @@ import { loadSecrets } from './helper/secret_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
-import { getSuccessTelegramMessage, getFailureTelegramMessage } from './helper/telegram_templates';
+import { getSuccessTelegramMessages, getFailureTelegramMessage } from './helper/telegram_templates';
 import type { Job } from './helper/types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -70,8 +70,10 @@ export const handler = async (
 
     if (matched.length > 0) {
       await insertMatchedJobs(matched);
-      const telegramMsg = getSuccessTelegramMessage(matched, dateStr);
-      await sendTelegramMessage(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, telegramMsg);
+      const telegramMsgs = getSuccessTelegramMessages(matched, dateStr);
+      for (const msg of telegramMsgs) {
+        await sendTelegramMessage(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, msg);
+      }
     }
 
     return response(200, {

@@ -14,8 +14,8 @@ export async function getExistingJobsData(): Promise<{ links: Set<string>, finge
   }).from(jobs);
   
   return {
-    links: new Set(result.map(r => r.jobLink)),
-    fingerprints: new Set(result.map(r => r.fingerprint).filter((f): f is string => !!f))
+    links: new Set(result.map((r: { jobLink: string }) => r.jobLink)),
+    fingerprints: new Set(result.map((r: { fingerprint: string | null }) => r.fingerprint).filter((f: string | null): f is string => !!f))
   };
 }
 
