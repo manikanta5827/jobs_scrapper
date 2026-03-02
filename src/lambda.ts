@@ -59,6 +59,8 @@ export const handler = async (
     // 2. Clean & Deduplicate (Batch)
     const uniqueRawJobs = getUniqueJobsFromBatch(rawJobs);
 
+    console.log(`${uniqueRawJobs.length} jobs after removing duplicate jobs from scrapper`);
+
     // 3. Filter against Database
     const existingData = await getExistingJobsData();
     const newJobs = uniqueRawJobs.filter((job: Job) => {
@@ -79,11 +81,15 @@ export const handler = async (
       allDropped.push({ job, reason: `Keyword Binned: ${job.keyword_bin_reason || 'Skill mismatch'}` });
     }
 
+    console.log(`${toCheck.length} jobs after keyword filtering`);
+
     // 5. AI Relevance Check
     const { matched, rejected } = await checkRelevanceBatch(toCheck, OPENAI_BATCH_SIZE, BATCH_DELAY_MS);
     for (const job of rejected) {
       allDropped.push({ job, reason: `AI Rejected: ${job.ai_reason || 'Low relevance'}` });
     }
+
+    console.log(`${matched.length} jobs after LLM filtering`);
 
     // 6. Persist & Notify Matched
     await trackJobs(newJobs.map(j => ({ link: j.link!, fingerprint: j.fingerprint! })));
@@ -96,6 +102,7 @@ export const handler = async (
 
     // Send All Dropped at once
     if(allDropped.length > 0) {
+      console.log(`Total ${allDropped.length} jobs are dropped. Sending notifications...`);
       await sendDroppedJobs(allDropped, dateStr);
     }
 
