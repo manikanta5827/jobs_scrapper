@@ -14,7 +14,6 @@
         "lambda": "sam local invoke MainLambda --env-vars env.json --container-host-interface 0.0.0.0"
     },
     "dependencies": {
-        "@aws-sdk/client-ses": "^3.999.0",
         "@aws-sdk/client-ssm": "^3.999.0",
         "@neondatabase/serverless": "^0.10.4",
         "drizzle-orm": "^0.45.1",
