@@ -19,19 +19,23 @@ export interface Job {
 
 // OpenAI relevance check result
 export interface RelevanceResult {
-  score:          number;
-  reason:         string;
-  matched_skills: string[];
-  missing_skills: string[];
+  score:               number;
+  reason:              string;
+  matched_skills:      string[];
+  missing_skills:      string[];
+  location:            string;
+  years_of_experience: string;
 }
 
 // Job after OpenAI enrichment
 export interface EnrichedJob extends Job {
-  status:            'matched' | 'rejected' | 'binned';
-  ai_score?:         number;
-  ai_reason?:        string;
+  status:             'matched' | 'rejected' | 'binned';
+  ai_score?:          number;
+  ai_reason?:         string;
   ai_matched_skills?: string[];
   ai_missing_skills?: string[];
+  ai_location?:       string;
+  ai_yoe?:            string;
 }
 
 // Result from checkRelevanceBatch

@@ -1,38 +1,50 @@
 import type { EnrichedJob } from './types';
 
 /**
- * Formats job matches for Telegram (HTML mode).
- * Returns an array of message strings, each within Telegram's character limit.
+ * Returns a header message for successful job matches.
  */
-export function getSuccessTelegramMessages(matchedJobs: EnrichedJob[], dateStr: string): string[] {
-  const TELEGRAM_LIMIT = 4000;
-  const sortedMatched = [...matchedJobs].sort((a, b) => (b.ai_score ?? 0) - (a.ai_score ?? 0));
+export function getSuccessHeader(count: number, dateStr: string): string {
+  return `<b>🚀 Job Match Summary - ${dateStr}</b>\nFound <b>${count}</b> new matching opportunities!`;
+}
 
-  const messages: string[] = [];
-  let currentMsg = `<b>🚀 Job Match Summary - ${dateStr}</b>\n`;
-  currentMsg += `Found <b>${sortedMatched.length}</b> new opportunities!\n\n`;
+/**
+ * Returns a header message for dropped jobs (debugging).
+ */
+export function getDroppedHeader(count: number, dateStr: string): string {
+  return `<b>🗑️ Dropped Jobs - ${dateStr}</b>\nProcessing summary: <b>${count}</b> jobs filtered out at various stages.`;
+}
 
-  sortedMatched.forEach((j, index) => {
-    const scoreEmoji = (j.ai_score ?? 0) > 80 ? '✅' : '⚠️';
-    let jobEntry = `${index + 1}. <b>${j.title}</b>\n`;
-    jobEntry += `🏢 ${j.companyName}\n`;
-    jobEntry += `${scoreEmoji} <b>Match Score:</b> ${j.ai_score}/100\n`;
-    jobEntry += `📝 <b>Reason:</b> ${j.ai_reason}\n`;
-    jobEntry += `🔗 <a href="${j.link}">View Job</a>\n\n`;
+/**
+ * Formats a SINGLE job match message for Telegram (HTML mode).
+ */
+export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
+  const scoreEmoji = (j.ai_score ?? 0) > 80 ? '✅' : '⚠️';
+  let msg = `<b>${index}. ${j.title}</b>\n`;
+  msg += `🏢 <b>Company:</b> ${j.companyName}\n`;
+  msg += `📍 <b>Location:</b> ${j.ai_location ?? 'Not specified'}\n`;
+  msg += `⏳ <b>Exp needed:</b> ${j.ai_yoe ?? 'Not specified'}\n`;
+  msg += `${scoreEmoji} <b>Score:</b> ${j.ai_score}/100\n`;
+  
+  if (j.ai_missing_skills && j.ai_missing_skills.length > 0) {
+    msg += `❌ <b>Missing Skills:</b> ${j.ai_missing_skills.join(', ')}\n`;
+  }
+  
+  msg += `🔗 <a href="${j.link}">View Job</a>`;
+  return msg;
+}
 
-    // If adding this job exceeds the limit, push current message and start a new one
-    if (currentMsg.length + jobEntry.length + 50 > TELEGRAM_LIMIT) {
-      messages.push(currentMsg);
-      currentMsg = `<i>(Continued...)</i>\n\n` + jobEntry;
-    } else {
-      currentMsg += jobEntry;
-    }
-  });
-
-  currentMsg += `<i>Sent by Job Scraper Service</i>`;
-  messages.push(currentMsg);
-
-  return messages;
+/**
+ * Formats a SINGLE dropped job message for Telegram (HTML mode).
+ */
+export function getDroppedJobMessage(j: EnrichedJob | any, reason: string): string {
+  let msg = `<b>🗑️ Dropped: ${j.title ?? 'Unknown Title'}</b>\n`;
+  msg += `🏢 <b>Company:</b> ${j.companyName ?? 'Unknown'}\n`;
+  msg += `🚩 <b>Reason:</b> ${reason}\n`;
+  if (j.ai_score !== undefined) {
+    msg += `📊 <b>AI Score:</b> ${j.ai_score}/100\n`;
+  }
+  msg += `🔗 <a href="${j.link}">View Job</a>`;
+  return msg;
 }
 
 /**
@@ -43,7 +55,6 @@ export function getFailureTelegramMessage(errorMessage: string, dateStr: string)
   let msg = `<b>❌ Job Scraper Failure - ${dateStr}</b>\n\n`;
   msg += `<b>Error Details:</b>\n`;
 
-  // Truncate error message if it's too long
   const truncatedError = errorMessage.length > 3500 
     ? errorMessage.substring(0, 3500) + '... (truncated)'
     : errorMessage;

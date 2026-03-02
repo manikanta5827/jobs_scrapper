@@ -25,7 +25,9 @@ Return ONLY valid JSON. No markdown. No text outside the JSON.
   "score": number (0-100),
   "reason": "string (1-2 sentences)",
   "matched_skills": ["string"],
-  "missing_skills": ["string"]
+  "missing_skills": ["string"],
+  "location": "string (city/state or remote status)",
+  "years_of_experience": "string (e.g. 2+ years, or 'not specified')"
 }
 
 ## RULES
@@ -68,6 +70,8 @@ export async function checkRelevanceBatch(
           ai_reason: parsed.reason,
           ai_matched_skills: parsed.matched_skills,
           ai_missing_skills: parsed.missing_skills,
+          ai_location: parsed.location,
+          ai_yoe: parsed.years_of_experience,
         };
         parsed.score >= MIN_MATCH_SCORE ? matched.push(enriched) : rejected.push(enriched);
       } else {

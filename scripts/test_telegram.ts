@@ -8,8 +8,8 @@ async function test() {
   console.log('Testing Telegram integration...');
   
   try {
-    const token = process.env.TELEGRAM_BOT_TOKEN!;
-    const chatId = process.env.TELEGRAM_CHAT_ID!; // Replace with your actual Chat ID
+    const token = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
+    const chatId = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!; // Replace with your actual Chat ID
 
     console.log(`Using Chat ID: ${chatId}`);
 

@@ -9,10 +9,10 @@ aws ssm put-parameter \
   --region us-east-1
 
 aws ssm put-parameter \
-  --name "/job-scraper/OPENAI_API_KEY" \
-  --value "sk-..." \
+  --name "/job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN" \
+  --value "8733173190:AAFuLDrfrYkruJBrGiGSGGRGEiN" \
   --type SecureString \
-  --region us-east-1
+  --region ap-south-1
 
 aws ssm put-parameter \
   --name "/job-scraper/DATABASE_URL" \
