@@ -24,14 +24,22 @@ Parameters:
         Type: String
         Description: Minimum AI match score for a job to be considered relevant
         Default: "60"
-    TelegramBotToken:
+    TelegramMatchedJobsBotToken:
         Type: String
-        Description: Telegram Bot Token for failure notifications
-        Default: /job-scraper/TELEGRAM_BOT_TOKEN
-    TelegramChatId:
+        Description: Telegram Bot Token for matched jobs notifications
+        Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
+    TelegramDroppedJobsBotToken:
         Type: String
-        Description: Telegram Chat ID for failure notifications
-        Default: /job-scraper/TELEGRAM_CHAT_ID
+        Description: Telegram Bot Token for dropped jobs notifications
+        Default: /job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN
+    TelegramMatchedJobsChatId:
+        Type: String
+        Description: Telegram Chat ID for matched jobs notifications
+        Default: /job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID
+    TelegramDroppedJobsChatId:
+        Type: String
+        Description: Telegram Chat ID for dropped jobs notifications
+        Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
 
 Resources:
     # Event Bridge Invoke Lambda
@@ -65,8 +73,10 @@ Resources:
                     DATABASE_URL_PATH: !Ref DatabaseUrl
                     MIN_MATCH_SCORE: !Ref MinMatchScore
                     APP_ENV: !Ref AppEnv
-                    TELEGRAM_BOT_TOKEN_PATH: !Ref TelegramBotToken
-                    TELEGRAM_CHAT_ID_PATH: !Ref TelegramChatId
+                    TELEGRAM_MATCHED_JOBS_BOT_TOKEN_PATH: !Ref TelegramMatchedJobsBotToken
+                    TELEGRAM_MATCHED_JOBS_CHAT_ID_PATH: !Ref TelegramMatchedJobsChatId
+                    TELEGRAM_DROPPED_JOBS_BOT_TOKEN_PATH: !Ref TelegramDroppedJobsBotToken
+                    TELEGRAM_DROPPED_JOBS_CHAT_ID_PATH: !Ref TelegramDroppedJobsChatId
 
             Events:
                 MorningRun:
