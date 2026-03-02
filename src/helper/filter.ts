@@ -16,7 +16,7 @@ export const EXCLUDE_KEYWORDS: string[] = [
 ];
 
 export const EXCLUDE_TITLE_KEYWORDS: string[] = [
-  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'QA', 'Support', 'Testing', 'Android', 'Mobile','React', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS','Rust', 'Dot net', "Bussiness", 'C#', 'Sales', '.NET', 'Kotline', 'Swift', 'Golang', 'Game' ,'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager', 'Front End', 'Tester', 'Kubernetes'
+  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'QA', 'Support', 'Testing', 'Android', 'Mobile','React', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS','Rust', 'Dot net', "Bussiness", 'C#', 'Sales', '.NET', 'Kotline', 'Swift', 'Golang', 'Game' ,'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager', 'Front End', 'Tester', 'Kubernetes', 'senior', 'lead', 'manager', 'director', 'principal', 'staff', 'architect', 'vp', 'vice president', 'head of', 'founder', 'co-founder'
 ];
 
 export interface FilterResult {
@@ -53,7 +53,7 @@ export function keywordFilter(jobs: Job[]): FilterResult {
     const allMatched = [...new Set([...matchedGeneral, ...matchedTitle])];
 
     if (allMatched.length > 0) {
-      binned.push({ ...job });
+      binned.push({ ...job, keyword_bin_reason: allMatched.join(', ') });
     } else {
       relevant.push(job);
     }
