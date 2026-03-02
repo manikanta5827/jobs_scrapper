@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, serial, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, serial, doublePrecision, boolean, date } from "drizzle-orm/pg-core";
 
 export const jobs = pgTable("jobs", {
   jobLink: text("job_link").primaryKey(),
@@ -6,27 +6,11 @@ export const jobs = pgTable("jobs", {
   seenAt: timestamp("seen_at", { withTimezone: true }).defaultNow(),
 });
 
-export const matchedJobs = pgTable("matched_jobs", {
+export const keyRotation = pgTable("key_rotation", {
   id: serial("id").primaryKey(),
-  jobLink: text("job_link").notNull().unique(),
-  fingerprint: text("fingerprint").unique(),
-  jobTitle: text("job_title"),
-  companyName: text("company_name"),
-  companyWebsite: text("company_website"),
-  postedAt: text("posted_at"),
-  salary: text("salary"),
-  applicantsCount: text("applicants_count"),
-  applyUrl: text("apply_url"),
-  aiScore: integer("ai_score").default(0),
-  aiReason: text("ai_reason"),
-  aiMatchedSkills: text("ai_matched_skills"), // JSON array stored as text
-  aiMissingSkills: text("ai_missing_skills"), // JSON array stored as text
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  applied: boolean("applied").default(false),
-  notes: text("notes"),
-}, (table) => {
-  return {
-    aiScoreIndex: index("idx_jobs_ai_score").on(table.aiScore),
-    createdAtIndex: index("idx_jobs_created").on(table.createdAt),
-  };
+  apiKey: text("api_key").notNull().unique(),
+  usageCost: doublePrecision("usage_cost").default(0), // Tracking in $
+  subscriptionStartDate: date("subscription_start_date").notNull(),
+  isExpired: boolean("is_expired").default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

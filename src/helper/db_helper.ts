@@ -1,7 +1,51 @@
 import { db, initDb } from "../db/index";
-import { jobs, matchedJobs } from "../db/schema";
-import { sql, lt } from "drizzle-orm";
-import type { EnrichedJob } from "./types";
+import { jobs, keyRotation } from "../db/schema";
+import { sql, lt, desc, and, eq } from "drizzle-orm";
+
+/**
+ * Fetch an active Apify token.
+ * Strategy: Get one that is NOT expired, cost < $5.00, and has the MOST usage (to exhaust one by one).
+ */
+export async function getValidApifyToken(): Promise<{ id: number; apiKey: string } | null> {
+  await initDb();
+  const result = await db.select()
+    .from(keyRotation)
+    .where(and(
+      eq(keyRotation.isExpired, false),
+      lt(keyRotation.usageCost, 5.00)
+    ))
+    .orderBy(desc(keyRotation.usageCost))
+    .limit(1);
+
+  return result.length > 0 ? { id: result[0].id, apiKey: result[0].apiKey } : null;
+}
+
+/**
+ * Update the usage cost for a token.
+ * Cost calculation: $0.001 per job, rounded to 2 decimal places.
+ * If 25 jobs -> 0.025 -> 0.03
+ * If 24 jobs -> 0.024 -> 0.02
+ */
+export async function updateApifyTokenUsage(tokenId: number, jobsCount: number): Promise<void> {
+  const incrementalCost = Number((jobsCount * 0.001).toFixed(2));
+  await initDb();
+  await db.update(keyRotation)
+    .set({ 
+      usageCost: sql`${keyRotation.usageCost} + ${incrementalCost}`,
+      updatedAt: new Date()
+    })
+    .where(eq(keyRotation.id, tokenId));
+}
+
+/**
+ * Mark a token as expired (e.g., when receiving 403 Monthly usage exceeded).
+ */
+export async function markApifyTokenExpired(tokenId: number): Promise<void> {
+  await initDb();
+  await db.update(keyRotation)
+    .set({ isExpired: true, updatedAt: new Date() })
+    .where(eq(keyRotation.id, tokenId));
+}
 
 /**
  * Fetch all existing job links and fingerprints for deduplication.
@@ -30,42 +74,6 @@ export async function trackJobs(jobsToTrack: { link: string; fingerprint: string
     .onConflictDoUpdate({ 
       target: [jobs.jobLink],
       set: { fingerprint: sql`excluded.fingerprint` }
-    });
-}
-
-/**
- * Bulk insert only the jobs that passed the AI relevance check.
- */
-export async function insertMatchedJobs(enrichedJobs: EnrichedJob[]): Promise<void> {
-  if (enrichedJobs.length === 0) return;
-  await initDb();
-  const values = enrichedJobs.map((j) => ({
-    jobLink: j.link!,
-    fingerprint: j.fingerprint!,
-    jobTitle: j.title,
-    companyName: j.companyName,
-    companyWebsite: j.companyWebsite,
-    postedAt: j.postedAt,
-    salary: j.salary!,
-    applicantsCount: String(j.applicantsCount ?? ""),
-    applyUrl: j.applyUrl,
-    aiScore: j.ai_score,
-    aiReason: j.ai_reason,
-    aiMatchedSkills: JSON.stringify(j.ai_matched_skills ?? []),
-    aiMissingSkills: JSON.stringify(j.ai_missing_skills ?? []),
-  }));
-
-  await db.insert(matchedJobs)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [matchedJobs.jobLink],
-      set: { 
-        fingerprint: sql`excluded.fingerprint`,
-        aiScore: sql`excluded.ai_score`,
-        aiReason: sql`excluded.ai_reason`,
-        aiMatchedSkills: sql`excluded.ai_matched_skills`,
-        aiMissingSkills: sql`excluded.ai_missing_skills`
-      }
     });
 }
 

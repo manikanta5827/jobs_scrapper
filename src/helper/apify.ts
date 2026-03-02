@@ -8,6 +8,7 @@
 import type { Job } from './types';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
 
 const ACTOR_ID = 'hKByXkMQaC5Qt9UMN'; // curious_coder/linkedin-jobs-scraper
 const JOBS_PER_URL = 100;
@@ -34,7 +35,7 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
   for (const url of urls) {
     console.log(`Scraping: ${url}`);
     try {
-      const jobs = await scrapeUrl(url);
+      const jobs = await scrapeUrlWithRotation(url);
       console.log(`  → ${jobs.length} jobs`);
       allJobs.push(...jobs);
     } catch (err) {
@@ -47,11 +48,44 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
   return deduplicateByLink(allJobs);
 }
 
-async function scrapeUrl(url: string): Promise<Job[]> {
-  const APIFY_API_KEY = process.env.APIFY_API_KEY!;
+/**
+ * Retries scraping with different tokens if one is exhausted.
+ */
+async function scrapeUrlWithRotation(url: string, retries: number = 3): Promise<Job[]> {
+  for (let i = 0; i < retries; i++) {
+    const tokenData = await getValidApifyToken();
+    
+    if (!tokenData) {
+      throw new Error("No valid Apify tokens available (all exhausted or expired).");
+    }
+
+    try {
+      const jobs = await scrapeUrl(url, tokenData.apiKey);
+      // Update usage: $0.001 per job, rounded to 2 decimal places.
+      await updateApifyTokenUsage(tokenData.id, jobs.length);
+      return jobs;
+    } catch (err: any) {
+      // If error indicates monthly usage hard limit exceeded (status 403 or specific error message)
+      const isExhausted = err.message?.toLowerCase().includes("monthly usage hard limit exceeded") || 
+                          err.message?.includes("403");
+      
+      if (isExhausted) {
+        console.warn(`Token ID ${tokenData.id} exhausted. Marking as expired.`);
+        await markApifyTokenExpired(tokenData.id);
+        // Continue loop to try next token
+        continue;
+      }
+      
+      throw err; // Re-throw other errors
+    }
+  }
   
+  throw new Error("Failed to scrape after trying all available tokens.");
+}
+
+async function scrapeUrl(url: string, apiKey: string): Promise<Job[]> {
   const endpoint =
-    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_API_KEY}&format=json&clean=true&memory=512`;
+    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${apiKey}&format=json&clean=true&memory=512`;
 
   const body = JSON.stringify({
     urls: [url],
@@ -68,6 +102,9 @@ async function scrapeUrl(url: string): Promise<Job[]> {
 
   if (!res.ok) {
     const text = await res.text();
+    console.error('Apify status :', res.status);
+    console.error(JSON.parse(text));
+
     throw new Error(`Apify HTTP ${res.status}: ${text}`);
   }
 
