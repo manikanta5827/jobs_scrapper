@@ -32,6 +32,10 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   
   msg += `${scoreEmoji} <b>Match Score:</b> <code>${j.ai_score}/100</code>\n`;
   
+  if (j.ai_direct_apply) {
+    msg += `📩 <b>Direct Apply:</b> <i>${j.ai_direct_apply}</i>\n`;
+  }
+  
   if (j.ai_missing_skills && j.ai_missing_skills.length > 0) {
     msg += `❌ <b>Missing Skills:</b> <i>${j.ai_missing_skills.join(', ')}</i>\n`;
   }

@@ -25,6 +25,7 @@ export interface RelevanceResult {
   missing_skills:      string[];
   location:            string;
   years_of_experience: string;
+  direct_apply:        string | null;
 }
 
 // Job after OpenAI enrichment
@@ -36,6 +37,7 @@ export interface EnrichedJob extends Job {
   ai_missing_skills?: string[];
   ai_location?:       string;
   ai_yoe?:            string;
+  ai_direct_apply?:   string | null;
 }
 
 // Result from checkRelevanceBatch

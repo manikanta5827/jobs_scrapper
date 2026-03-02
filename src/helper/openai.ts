@@ -18,6 +18,11 @@ Determine if this job is worth applying to. A job is worth applying to if:
 - The role level is not way above (e.g. 10+ YOE required but candidate has 2 = skip)
 - The domain/industry is not completely unrelated
 
+## DIRECT APPLICATION DETECTION
+If the job description explicitly mentions a direct way to apply (e.g., a link to a Google Form, a Typeform, or an email address), you MUST:
+1. Extract the FULL instruction into the "direct_apply" field. Include the contact method AND any specific requirements mentioned (e.g., "Send CV and Github link to jobs@co.com", "Apply via form: [link], strictly NO CVs allowed", "Email portfolio to creative@agency.com").
+2. Give the job a significantly higher score (boost by 15-20 points, up to 100 max).
+
 ## OUTPUT
 Return ONLY valid JSON. No markdown. No text outside the JSON.
 
@@ -27,7 +32,8 @@ Return ONLY valid JSON. No markdown. No text outside the JSON.
   "matched_skills": ["string"],
   "missing_skills": ["string"],
   "location": "string (city/state or remote status)",
-  "years_of_experience": "string (e.g. 2+ years, or 'not specified')"
+  "years_of_experience": "string (e.g. 2+ years, or 'not specified')",
+  "direct_apply": "string or null (e.g. 'Email jobs@co.com with Portfolio and Github. NO CV.')"
 }
 
 ## RULES
@@ -72,6 +78,7 @@ export async function checkRelevanceBatch(
           ai_missing_skills: parsed.missing_skills,
           ai_location: parsed.location,
           ai_yoe: parsed.years_of_experience,
+          ai_direct_apply: parsed.direct_apply,
         };
         parsed.score >= MIN_MATCH_SCORE ? matched.push(enriched) : rejected.push(enriched);
       } else {
@@ -85,6 +92,7 @@ export async function checkRelevanceBatch(
           ai_reason: 'OpenAI check failed',
           ai_matched_skills: [],
           ai_missing_skills: [],
+          ai_direct_apply: null,
         });
       }
     }
@@ -151,7 +159,8 @@ async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceR
         typeof parsed.score === 'number' &&
         typeof parsed.reason === 'string' &&
         Array.isArray(parsed.matched_skills) &&
-        Array.isArray(parsed.missing_skills);
+        Array.isArray(parsed.missing_skills) &&
+        ('direct_apply' in parsed); // Ensure the field exists (even if null)
 
       if (!isValid) {
         throw new Error(`Invalid JSON shape: ${content}`);

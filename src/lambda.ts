@@ -7,7 +7,7 @@
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { scrapeJobs } from './helper/apify';
 import { checkRelevanceBatch } from './helper/openai';
-import { getExistingJobsData, trackJobs, insertMatchedJobs, cleanupOldSeenJobs } from './helper/db_helper';
+import { getExistingJobsData, trackJobs, cleanupOldSeenJobs } from './helper/db_helper';
 import { loadSecrets } from './helper/secret_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
@@ -96,7 +96,6 @@ export const handler = async (
 
     // Send Matched Jobs to Telegram
     if (matched.length > 0) {
-      await insertMatchedJobs(matched);
       await sendMatchedJobs(matched, dateStr);
     }
 
