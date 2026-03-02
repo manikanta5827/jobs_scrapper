@@ -7,7 +7,7 @@ s3_prefix = "job-scrapper"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
-parameter_overrides = "ApifyApiKey=\"/job-scraper/APIFY_API_KEY\" OpenaiApiKey=\"/job-scraper/OPENAI_API_KEY\" DatabaseUrl=\"/job-scraper/DATABASE_URL\" MasterEmail=\"/job-scraper/MASTER_EMAIL\" ReceiverEmail=\"/job-scraper/RECEIVER_EMAIL\""
+parameter_overrides = "ApifyApiKey=\"/job-scraper/APIFY_API_KEY\" OpenaiApiKey=\"/job-scraper/OPENAI_API_KEY\" DatabaseUrl=\"/job-scraper/DATABASE_URL\" MinMatchScore=\"60\" TelegramBotToken=\"/job-scraper/TELEGRAM_BOT_TOKEN\""
 
 [default.global.parameters]
 region = "ap-south-1"

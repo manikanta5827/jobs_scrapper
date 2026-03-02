@@ -20,18 +20,18 @@ Parameters:
         Type: String
         Description: Neon Database Url SSM path
         Default: /job-scraper/DATABASE_URL
-    MasterEmail:
-        Type: String
-        Description: Sender email SSM path
-        Default: /job-scraper/MASTER_EMAIL
-    ReceiverEmail:
-        Type: String
-        Description: Receiver email SSM path
-        Default: /job-scraper/RECEIVER_EMAIL
     MinMatchScore:
         Type: String
         Description: Minimum AI match score for a job to be considered relevant
         Default: "60"
+    TelegramBotToken:
+        Type: String
+        Description: Telegram Bot Token for failure notifications
+        Default: /job-scraper/TELEGRAM_BOT_TOKEN
+    TelegramChatId:
+        Type: String
+        Description: Telegram Chat ID for failure notifications
+        Default: /job-scraper/TELEGRAM_CHAT_ID
 
 Resources:
     # Event Bridge Invoke Lambda
@@ -63,10 +63,10 @@ Resources:
                     APIFY_API_KEY_PATH: !Ref ApifyApiKey
                     OPENAI_API_KEY_PATH: !Ref OpenaiApiKey
                     DATABASE_URL_PATH: !Ref DatabaseUrl
-                    MASTER_EMAIL_PATH: !Ref MasterEmail
-                    RECEIVER_EMAIL_PATH: !Ref ReceiverEmail
                     MIN_MATCH_SCORE: !Ref MinMatchScore
                     APP_ENV: !Ref AppEnv
+                    TELEGRAM_BOT_TOKEN_PATH: !Ref TelegramBotToken
+                    TELEGRAM_CHAT_ID_PATH: !Ref TelegramChatId
 
             Events:
                 MorningRun:
