@@ -8,16 +8,21 @@ import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda'
 import { scrapeJobs } from './helper/apify';
 import { checkRelevanceBatch } from './helper/openai';
 import { getExistingJobsData, trackJobs, insertMatchedJobs, cleanupOldSeenJobs } from './helper/db_helper';
-import { sendEmail } from './helper/ses_helper';
 import { loadSecrets } from './helper/secret_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
-import { getSuccessEmailHtml, getFailureEmailHtml } from './helper/email_templates';
+import { sendTelegramMessage } from './helper/telegram_helper';
+import { getSuccessTelegramMessage, getFailureTelegramMessage } from './helper/telegram_templates';
 import type { Job } from './helper/types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const OPENAI_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;
+
+await loadSecrets();
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 export const handler = async (
@@ -31,10 +36,6 @@ export const handler = async (
   console.log(`Job scraper started. Lookback: ${lookbackHours}h`, new Date().toISOString());
 
   try {
-    await loadSecrets();
-    const MASTER_EMAIL = process.env.MASTER_EMAIL!;
-    const RECEIVER_EMAIL = process.env.RECEIVER_EMAIL!;
-
     await cleanupOldSeenJobs();
 
     // 1. Scrape
@@ -46,15 +47,6 @@ export const handler = async (
 
     // 2. Clean & Deduplicate (Batch)
     const uniqueRawJobs = getUniqueJobsFromBatch(rawJobs);
-
-    console.log(`After removing duplicates from scrapper :: ${uniqueRawJobs.length}`);
-
-    // Optional: Debugging/Tracking
-    await fetch('https://yorkshire-last-bus-management.trycloudflare.com/api/first', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(uniqueRawJobs) 
-    }).catch(() => {}); // Ignore debug failures
 
     // 3. Filter against Database
     const existingData = await getExistingJobsData();
@@ -78,9 +70,8 @@ export const handler = async (
 
     if (matched.length > 0) {
       await insertMatchedJobs(matched);
-      const subject = `Job Match Summary - ${dateStr} (${matched.length} New Jobs)`;
-      const htmlBody = getSuccessEmailHtml(matched, dateStr);
-      await sendEmail(MASTER_EMAIL, RECEIVER_EMAIL, subject, htmlBody);
+      const telegramMsg = getSuccessTelegramMessage(matched, dateStr);
+      await sendTelegramMessage(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, telegramMsg);
     }
 
     return response(200, {
@@ -94,12 +85,13 @@ export const handler = async (
     const message = err instanceof Error ? err.message : String(err);
     console.error('Lambda failed:', message);
     
-    const MASTER_EMAIL = process.env.MASTER_EMAIL!;
-    const RECEIVER_EMAIL = process.env.RECEIVER_EMAIL!;
-    const subject = `Job Scraper Failure - ${dateStr}`;
-    const htmlBody = getFailureEmailHtml(message, dateStr);
-    
-    await sendEmail(MASTER_EMAIL, RECEIVER_EMAIL, subject, htmlBody).catch(console.error);
+    try {
+      const failMsg = getFailureTelegramMessage(message, dateStr);
+      await sendTelegramMessage(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, failMsg);
+    } catch (teleErr) {
+      console.error('Even Telegram notification failed:', teleErr);
+    }
+
     return response(500, { error: message });
   }
 };

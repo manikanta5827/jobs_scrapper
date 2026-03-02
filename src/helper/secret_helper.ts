@@ -33,13 +33,14 @@ export async function loadSecrets(): Promise<void> {
         getSecret(process.env.APIFY_API_KEY_PATH),
         getSecret(process.env.OPENAI_API_KEY_PATH),
         getSecret(process.env.DATABASE_URL_PATH),
-        getSecret(process.env.MASTER_EMAIL_PATH),
-        getSecret(process.env.RECEIVER_EMAIL_PATH),
+        getSecret(process.env.TELEGRAM_BOT_TOKEN_PATH),
+        getSecret(process.env.TELEGRAM_CHAT_ID_PATH),
+        
     ]);
 
     process.env.APIFY_API_KEY = secrets[0];
     process.env.OPENAI_API_KEY = secrets[1];
     process.env.DATABASE_URL = secrets[2];
-    process.env.MASTER_EMAIL = secrets[3];
-    process.env.RECEIVER_EMAIL = secrets[4];
+    process.env.TELEGRAM_BOT_TOKEN = secrets[3];
+    process.env.TELEGRAM_CHAT_ID = secrets[4];
 }
