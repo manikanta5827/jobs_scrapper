@@ -20,6 +20,10 @@ Parameters:
         Type: String
         Description: Neon Database Url SSM path
         Default: /job-scraper/DATABASE_URL
+    AdminApiKey:
+        Type: String
+        Description: Admin API Key for security SSM path
+        Default: /job-scraper/ADMIN_API_KEY
     MinMatchScore:
         Type: String
         Description: Minimum AI match score for a job to be considered relevant
@@ -180,3 +184,8 @@ Resources:
         Properties:
             LogGroupName: !Sub '/aws/lambda/${MainLambda}'
             RetentionInDays: 3
+
+Outputs:
+    ApiGatewayUrl:
+        Description: "API Gateway URL for Admin API"
+        Value: !Sub "https://${AdminLambda}.execute-api.${AWS::Region}.amazonaws.com/Prod/tokens"

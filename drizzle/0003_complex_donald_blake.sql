@@ -1,0 +1,1 @@
+ALTER TABLE "key_rotation" ADD COLUMN "name" text;
