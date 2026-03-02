@@ -15,6 +15,13 @@
       "when": 1772431502376,
       "tag": "0001_lethal_sally_floyd",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772469623065,
+      "tag": "0002_tearful_frank_castle",
+      "breakpoints": true
     }
   ]
 }

@@ -133,6 +133,48 @@ Resources:
                 EntryPoints:
                     - src/lambda.ts
 
+    AdminLambda:
+        Type: AWS::Serverless::Function
+        Properties:
+            Runtime: nodejs24.x
+            Architectures:
+                - arm64
+            MemorySize: 512
+            LoggingConfig:
+                LogFormat: JSON
+            CodeUri: ./
+            Handler: src/admin.handler
+            Timeout: 30
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - SSMParameterReadPolicy:
+                      ParameterName: 'job-scraper/*'
+            Environment:
+                Variables:
+                    DATABASE_URL_PATH: !Ref DatabaseUrl
+                    APP_ENV: !Ref AppEnv
+            Events:
+                AdminApi:
+                    Type: Api
+                    Properties:
+                        Path: /tokens
+                        Method: ANY
+        Metadata:
+            BuildMethod: esbuild
+            BuildProperties:
+                Target: es2022
+                Format: esm
+                OutExtension:
+                    - .js=.mjs
+                Sourcemap: true
+                Banner:
+                    - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+                External:
+                    - '@aws-sdk/*'
+                    - 'aws-lambda'
+                EntryPoints:
+                    - src/admin.ts
+
     MyLogGroup:
         Type: AWS::Logs::LogGroup
         Properties:
