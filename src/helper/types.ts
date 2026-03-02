@@ -5,6 +5,7 @@
 // Raw job object returned by Apify LinkedIn scraper
 export interface Job {
   link?:             string;
+  fingerprint?:      string;
   title?:            string;
   companyName?:      string;
   companyWebsite?:   string;

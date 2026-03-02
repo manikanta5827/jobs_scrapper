@@ -4,24 +4,33 @@ import { sql, lt } from "drizzle-orm";
 import type { EnrichedJob } from "./types";
 
 /**
- * Fetch all existing job links for deduplication.
- * Returns a Set for O(1) lookups.
+ * Fetch all existing job links and fingerprints for deduplication.
  */
-export async function getExistingJobLinks(): Promise<Set<string>> {
+export async function getExistingJobsData(): Promise<{ links: Set<string>, fingerprints: Set<string> }> {
   await initDb();
-  const result = await db.select({ jobLink: jobs.jobLink }).from(jobs);
-  return new Set(result.map((r: any) => r.jobLink));
+  const result = await db.select({ 
+    jobLink: jobs.jobLink, 
+    fingerprint: jobs.fingerprint 
+  }).from(jobs);
+  
+  return {
+    links: new Set(result.map(r => r.jobLink)),
+    fingerprints: new Set(result.map(r => r.fingerprint).filter((f): f is string => !!f))
+  };
 }
 
 /**
- * Track all discovered job links to avoid re-processing.
+ * Track all discovered jobs to avoid re-processing.
  */
-export async function trackJobLinks(links: string[]): Promise<void> {
-  if (links.length === 0) return;
+export async function trackJobs(jobsToTrack: { link: string; fingerprint: string }[]): Promise<void> {
+  if (jobsToTrack.length === 0) return;
   await initDb();
   await db.insert(jobs)
-    .values(links.map(link => ({ jobLink: link })))
-    .onConflictDoNothing();
+    .values(jobsToTrack.map(j => ({ jobLink: j.link, fingerprint: j.fingerprint })))
+    .onConflictDoUpdate({ 
+      target: [jobs.jobLink],
+      set: { fingerprint: sql`excluded.fingerprint` }
+    });
 }
 
 /**
@@ -32,6 +41,7 @@ export async function insertMatchedJobs(enrichedJobs: EnrichedJob[]): Promise<vo
   await initDb();
   const values = enrichedJobs.map((j) => ({
     jobLink: j.link!,
+    fingerprint: j.fingerprint!,
     jobTitle: j.title,
     companyName: j.companyName,
     companyWebsite: j.companyWebsite,
@@ -47,7 +57,16 @@ export async function insertMatchedJobs(enrichedJobs: EnrichedJob[]): Promise<vo
 
   await db.insert(matchedJobs)
     .values(values)
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: [matchedJobs.jobLink],
+      set: { 
+        fingerprint: sql`excluded.fingerprint`,
+        aiScore: sql`excluded.ai_score`,
+        aiReason: sql`excluded.ai_reason`,
+        aiMatchedSkills: sql`excluded.ai_matched_skills`,
+        aiMissingSkills: sql`excluded.ai_missing_skills`
+      }
+    });
 }
 
 /**

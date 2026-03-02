@@ -2,12 +2,14 @@ import { pgTable, text, timestamp, serial, integer, boolean, index } from "drizz
 
 export const jobs = pgTable("jobs", {
   jobLink: text("job_link").primaryKey(),
+  fingerprint: text("fingerprint").unique(),
   seenAt: timestamp("seen_at", { withTimezone: true }).defaultNow(),
 });
 
 export const matchedJobs = pgTable("matched_jobs", {
   id: serial("id").primaryKey(),
   jobLink: text("job_link").notNull().unique(),
+  fingerprint: text("fingerprint").unique(),
   jobTitle: text("job_title"),
   companyName: text("company_name"),
   companyWebsite: text("company_website"),
