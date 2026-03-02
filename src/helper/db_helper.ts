@@ -3,11 +3,68 @@ import { jobs, keyRotation } from "../db/schema";
 import { sql, lt, desc, and, eq } from "drizzle-orm";
 
 /**
+ * Fetch all tokens and their current usage for the admin dashboard.
+ */
+export async function getAllApifyTokens() {
+  await initDb();
+  return await db.select().from(keyRotation).orderBy(keyRotation.id);
+}
+
+/**
+ * Insert a new Apify token.
+ */
+export async function addApifyToken(apiKey: string, subscriptionStartDate: string) {
+  await initDb();
+  return await db.insert(keyRotation).values({
+    apiKey,
+    subscriptionStartDate,
+    usageCost: 0,
+    isExpired: false
+  }).returning();
+}
+
+/**
+ * Delete an Apify token.
+ */
+export async function deleteApifyToken(id: number) {
+  await initDb();
+  return await db.delete(keyRotation).where(eq(keyRotation.id, id));
+}
+
+/**
+ * Manually update/reset a token's usage or status.
+ */
+export async function updateApifyToken(id: number, data: Partial<{ usageCost: number; isExpired: boolean; subscriptionStartDate: string }>) {
+  await initDb();
+  return await db.update(keyRotation)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(keyRotation.id, id))
+    .returning();
+}
+
+/**
  * Fetch an active Apify token.
- * Strategy: Get one that is NOT expired, cost < $5.00, and has the MOST usage (to exhaust one by one).
+ * Strategy: 
+ * 1. Reset usage/expiry if today is the monthly renewal day.
+ * 2. Get one that is NOT expired, cost < $5.00, and has the MOST usage.
  */
 export async function getValidApifyToken(): Promise<{ id: number; apiKey: string } | null> {
   await initDb();
+  
+  const today = new Date();
+  const currentDay = today.getDate();
+
+  // 1. Auto-reset tokens whose monthly cycle starts yesterday (reset today to be safe)
+  // We check if currentDay matches (subscriptionStartDate + 1 day)
+  await db.update(keyRotation)
+    .set({ 
+      usageCost: 0, 
+      isExpired: false, 
+      updatedAt: today 
+    })
+    .where(sql`EXTRACT(DAY FROM ${keyRotation.subscriptionStartDate} + INTERVAL '1 day') = ${currentDay}`);
+
+  // 2. Fetch the best valid token
   const result = await db.select()
     .from(keyRotation)
     .where(and(
