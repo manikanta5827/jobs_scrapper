@@ -18,6 +18,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const method = event.httpMethod;
   const body = event.body ? JSON.parse(event.body) : {};
 
+  // 🛡️ Security Check
+  const requestApiKey = event.headers['x-api-key'] || event.headers['X-Api-Key'];
+  if (!requestApiKey || requestApiKey !== process.env.ADMIN_API_KEY) {
+    console.warn('Unauthorized access attempt to Admin API');
+    return response(401, { error: 'Unauthorized: Invalid or missing API Key' });
+  }
+
   try {
     switch (method) {
       case 'GET': {

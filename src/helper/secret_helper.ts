@@ -37,7 +37,7 @@ export async function loadSecrets(): Promise<void> {
         getSecret(process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID_PATH),
         getSecret(process.env.TELEGRAM_DROPPED_JOBS_BOT_TOKEN_PATH),
         getSecret(process.env.TELEGRAM_DROPPED_JOBS_CHAT_ID_PATH),
-        
+        getSecret(process.env.ADMIN_API_KEY_PATH),
     ]);
 
     process.env.APIFY_API_KEY = secrets[0];
@@ -47,4 +47,5 @@ export async function loadSecrets(): Promise<void> {
     process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID = secrets[4];
     process.env.TELEGRAM_DROPPED_JOBS_BOT_TOKEN = secrets[5];
     process.env.TELEGRAM_DROPPED_JOBS_CHAT_ID = secrets[6];
+    process.env.ADMIN_API_KEY = secrets[7];
 }

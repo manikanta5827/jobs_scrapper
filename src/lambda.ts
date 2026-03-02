@@ -35,9 +35,17 @@ const TELEGRAM_DROPPED_JOBS_CHAT_ID = process.env.TELEGRAM_DROPPED_JOBS_CHAT_ID!
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 export const handler = async (
-  event: { lookbackHours?: number } & ScheduledEvent,
+  event: { lookbackHours?: number; adminApiKey?: string } & ScheduledEvent,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
+  // 🛡️ Security Check: Skip if triggered by EventBridge (it won't have the API key in payload by default)
+  // If triggered manually/externally, require the adminApiKey.
+  const isScheduled = !!event['detail-type']; // EventBridge adds this field
+  if (!isScheduled && event.adminApiKey !== process.env.ADMIN_API_KEY) {
+    console.warn('Unauthorized attempt to trigger MainLambda');
+    return response(401, { error: 'Unauthorized: Missing or invalid adminApiKey' });
+  }
+
   const lookbackHours = event.lookbackHours || 24;
   const lookbackSeconds = Math.floor(lookbackHours * 3600);
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
