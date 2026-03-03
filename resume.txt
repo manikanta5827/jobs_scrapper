@@ -1,15 +1,3 @@
-MANIKANTA THUMMURI
-
-Backend Developer
-Vijayawada, India | thummurimanikanta7@gmail.com
-
-
-Professional Summary
-
-Highly motivated Backend Developer with practical experience building production-grade serverless applications on AWS. Strong
-foundation in event-driven architectures, scalable REST APIs, and LLM-powered systems, validated through real-world internships
-and independent projects.
-
 Technical Skills
 
 Languages: JavaScript (Node.js), TypeScript, Python
@@ -55,10 +43,3 @@ Certifications
 Advanced Node.js Development (Udemy)
 Troubleshooting Backend Performance (Udemy)
 Database Engineering (Udemy)
-
-
-Education
-
-B.Tech (ECE): Sir CR Reddy College, Eluru (2023) – CGPA: 6.8
-Intermediate (MPC): Sri Chaitanya JR College, Eluru (2019) – CGPA: 9.5
-SSC (General Studies): De Paul School – CGPA: 9.2

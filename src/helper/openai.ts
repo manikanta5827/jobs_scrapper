@@ -10,17 +10,23 @@ const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? '60', 10);
 import resumeText from "../../resume.txt";
 
 const SYSTEM_PROMPT = `You are evaluating whether a job is worth applying to based on the candidate's profile.
-Your goal is NOT to be strict — you are filtering out irrelevant jobs, not perfect ones.
+Your goal is to strictly filter out irrelevant jobs and focus on roles that align with the candidate's skills and experience level.
 
 ## TASK
-Determine if this job is worth applying to. A job is worth applying to if:
-- At least 50% of required skills match the candidate's background
-- The role level is not way above (e.g. 10+ YOE required but candidate has 2 = skip)
-- The domain/industry is not completely unrelated
+Determine if this job is a good match. A job is a good match only if it meets ALL the following criteria:
+1. **Experience Level (STRICT)**: You are looking for entry-level roles.
+   - Target: 0 years, 1 year, or 1-2 years of experience.
+   - Accept: "Entry level", "Junior", "0-1 years", "1-2 years".
+   - REJECT: "2+ years", "3+ years", "5+ years", or any requirement clearly ≥ 2 years. If the JD says "at least 2 years", it is a REJECT.
+2. **Skill Alignment**: 
+   - **Matched**: If a skill is in the resume OR is naturally aligned (e.g., JD asks for "HTML/CSS" and candidate has "React.js/Frontend" = Match).
+   - **Optional Skills**: If JD allows "any of X, Y, or Z" (e.g., "Java, Python, or Node.js") and the candidate has one = Match.
+   - **Strict Requirements**: If JD specifies a mandatory skill (e.g., "Must have Java", "Strong Java knowledge required") and it's not in the resume/not aligned = REJECT.
+3. **Relevance**: The domain/industry should be related to the candidate's field.
 
 ## DIRECT APPLICATION DETECTION
 If the job description explicitly mentions a direct way to apply (e.g., a link to a Google Form, a Typeform, or an email address), you MUST:
-1. Extract the FULL instruction into the "direct_apply" field. Include the contact method AND any specific requirements mentioned (e.g., "Send CV and Github link to jobs@co.com", "Apply via form: [link], strictly NO CVs allowed", "Email portfolio to creative@agency.com").
+1. Extract the FULL instruction into the "direct_apply" field. Include the contact method AND any specific requirements mentioned (e.g., "Send CV and Github link to jobs@co.com").
 2. Give the job a significantly higher score (boost by 15-20 points, up to 100 max).
 
 ## OUTPUT
@@ -28,18 +34,19 @@ Return ONLY valid JSON. No markdown. No text outside the JSON.
 
 {
   "score": number (0-100),
-  "reason": "string (1-2 sentences)",
+  "is_matched": boolean (true if score >= ${MIN_MATCH_SCORE}, experience <= 2 years, and hard skills are aligned),
+  "reason": "string (1-2 sentences explaining why it is or isn't a match)",
   "matched_skills": ["string"],
   "missing_skills": ["string"],
   "job_location": "string (city/state or remote status) or null if not specified",
-  "years_of_experience": "string (e.g. 2+ years, or 'not specified')",
-  "direct_apply": "string or null (e.g. 'Email jobs@co.com with Portfolio and Github. NO CV.')"
+  "years_of_experience": "string (e.g. 1-2 years, or 'not specified')",
+  "direct_apply": "string or null"
 }
 
 ## RULES
-- If completely unrelated to candidate's field = score 0
-- Do NOT penalize for missing nice-to-have skills
-- missing_skills = only hard requirements clearly missing from the resume`;
+- If experience >= 2 years = is_matched: false, score: 0
+- If mandatory hard skills are missing = is_matched: false
+- If completely unrelated field = is_matched: false, score: 0`;
 
 /**
  * Process jobs in batches. Each batch fires in parallel.
@@ -69,10 +76,13 @@ export async function checkRelevanceBatch(
       if (result.status === 'fulfilled') {
         const parsed: RelevanceResult = result.value;
 
+        const isGoodMatch = parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
+
         const enriched: EnrichedJob = {
           ...job,
-          status: parsed.score >= MIN_MATCH_SCORE ? 'matched' : 'rejected',
+          status: isGoodMatch ? 'matched' : 'rejected',
           ai_score: parsed.score,
+          ai_is_matched: parsed.is_matched,
           ai_reason: parsed.reason,
           ai_matched_skills: parsed.matched_skills,
           ai_missing_skills: parsed.missing_skills,
@@ -80,7 +90,7 @@ export async function checkRelevanceBatch(
           ai_yoe: parsed.years_of_experience,
           ai_direct_apply: parsed.direct_apply,
         };
-        parsed.score >= MIN_MATCH_SCORE ? matched.push(enriched) : rejected.push(enriched);
+        isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
       } else {
         // OpenAI failed after retries — bin it, don't crash Lambda
         const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
@@ -89,6 +99,7 @@ export async function checkRelevanceBatch(
           ...job,
           status: 'rejected',
           ai_score: 0,
+          ai_is_matched: false,
           ai_reason: 'OpenAI check failed',
           ai_matched_skills: [],
           ai_missing_skills: [],
@@ -157,6 +168,7 @@ async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceR
       // Validate shape
       const isValid = 
         typeof parsed.score === 'number' &&
+        typeof parsed.is_matched === 'boolean' &&
         typeof parsed.reason === 'string' &&
         Array.isArray(parsed.matched_skills) &&
         Array.isArray(parsed.missing_skills) &&
