@@ -8,7 +8,6 @@ import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda'
 import { scrapeJobs } from './helper/apify';
 import { checkRelevanceBatch } from './helper/openai';
 import { getExistingJobsData, trackJobs, cleanupOldSeenJobs } from './helper/db_helper';
-import { loadSecrets } from './helper/secret_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
@@ -25,7 +24,6 @@ import type { Job } from './helper/types';
 const OPENAI_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;
 
-await loadSecrets();
 const TELEGRAM_MATCHED_JOBS_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 const TELEGRAM_MATCHED_JOBS_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
 
@@ -39,8 +37,7 @@ export const handler = async (
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
   // 🛡️ Security Check
-  // The key must match the secret value (for manual calls)
-  // OR the SSM path string (passed from our EventBridge template)
+  // The key must match the secret value
   const isAuthorized = 
     event.adminApiKey === process.env.ADMIN_API_KEY;
 

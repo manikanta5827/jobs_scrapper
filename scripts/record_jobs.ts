@@ -8,7 +8,6 @@ const SEARCH_URLS = [
 async function record() {
   console.log('--- RECORDING REAL APIFY DATA ---');
   try {
-    // await loadSecrets();
     const jobs = await scrapeJobs(SEARCH_URLS);
     
     // Save it to the root of the project

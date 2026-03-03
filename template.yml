@@ -9,40 +9,32 @@ Parameters:
         Description: Application environment (dev/prod)
         Default: prod
     ApifyApiKey:
-        Type: String
-        Description: Apify Api key SSM path
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/APIFY_API_KEY
     OpenaiApiKey:
-        Type: String
-        Description: Openai Api key SSM path
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/OPENAI_API_KEY
     DatabaseUrl:
-        Type: String
-        Description: Neon Database Url SSM path
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/DATABASE_URL
     AdminApiKey:
-        Type: String
-        Description: Admin API Key for security SSM path
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/ADMIN_API_KEY
     MinMatchScore:
         Type: String
         Description: Minimum AI match score for a job to be considered relevant
         Default: "70"
     TelegramMatchedJobsBotToken:
-        Type: String
-        Description: Telegram Bot Token for matched jobs notifications
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
     TelegramDroppedJobsBotToken:
-        Type: String
-        Description: Telegram Bot Token for dropped jobs notifications
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN
     TelegramMatchedJobsChatId:
-        Type: String
-        Description: Telegram Chat ID for matched jobs notifications
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID
     TelegramDroppedJobsChatId:
-        Type: String
-        Description: Telegram Chat ID for dropped jobs notifications
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
 
 Resources:
@@ -53,7 +45,7 @@ Resources:
             Runtime: nodejs24.x
             Architectures:
                 - arm64
-            MemorySize: 1000
+            MemorySize: 512
             ReservedConcurrentExecutions: 1
             LoggingConfig:
                 LogFormat: JSON
@@ -63,7 +55,7 @@ Resources:
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - SSMParameterReadPolicy:
-                      ParameterName: 'job-scraper/*'
+                      ParameterName: '/job-scraper/*'
                 - Statement:
                       - Effect: Allow
                         Action:
@@ -72,16 +64,16 @@ Resources:
                         Resource: '*'
             Environment:
                 Variables:
-                    APIFY_API_KEY_PATH: !Ref ApifyApiKey
-                    OPENAI_API_KEY_PATH: !Ref OpenaiApiKey
-                    DATABASE_URL_PATH: !Ref DatabaseUrl
+                    APIFY_API_KEY: !Ref ApifyApiKey
+                    OPENAI_API_KEY: !Ref OpenaiApiKey
+                    DATABASE_URL: !Ref DatabaseUrl
                     MIN_MATCH_SCORE: !Ref MinMatchScore
                     APP_ENV: !Ref AppEnv
-                    TELEGRAM_MATCHED_JOBS_BOT_TOKEN_PATH: !Ref TelegramMatchedJobsBotToken
-                    TELEGRAM_MATCHED_JOBS_CHAT_ID_PATH: !Ref TelegramMatchedJobsChatId
-                    TELEGRAM_DROPPED_JOBS_BOT_TOKEN_PATH: !Ref TelegramDroppedJobsBotToken
-                    TELEGRAM_DROPPED_JOBS_CHAT_ID_PATH: !Ref TelegramDroppedJobsChatId
-                    ADMIN_API_KEY_PATH: !Ref AdminApiKey
+                    TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
+                    TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
+                    TELEGRAM_DROPPED_JOBS_BOT_TOKEN: !Ref TelegramDroppedJobsBotToken
+                    TELEGRAM_DROPPED_JOBS_CHAT_ID: !Ref TelegramDroppedJobsChatId
+                    ADMIN_API_KEY: !Ref AdminApiKey
 
             Events:
                 MorningRun:
@@ -144,7 +136,7 @@ Resources:
             Runtime: nodejs24.x
             Architectures:
                 - arm64
-            MemorySize: 512
+            MemorySize: 128
             LoggingConfig:
                 LogFormat: JSON
             CodeUri: ./
@@ -153,12 +145,12 @@ Resources:
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - SSMParameterReadPolicy:
-                      ParameterName: 'job-scraper/*'
+                      ParameterName: '/job-scraper/*'
             Environment:
                 Variables:
-                    DATABASE_URL_PATH: !Ref DatabaseUrl
+                    DATABASE_URL: !Ref DatabaseUrl
                     APP_ENV: !Ref AppEnv
-                    ADMIN_API_KEY_PATH: !Ref AdminApiKey
+                    ADMIN_API_KEY: !Ref AdminApiKey
             Events:
                 AdminApi:
                     Type: Api

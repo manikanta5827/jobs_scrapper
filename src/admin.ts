@@ -10,9 +10,6 @@ import {
   deleteApifyToken, 
   updateApifyToken 
 } from './helper/db_helper';
-import { loadSecrets } from './helper/secret_helper';
-
-await loadSecrets();
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const method = event.httpMethod;
