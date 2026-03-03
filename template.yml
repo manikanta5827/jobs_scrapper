@@ -45,7 +45,7 @@ Resources:
             Runtime: nodejs24.x
             Architectures:
                 - arm64
-            MemorySize: 512
+            MemorySize: 1024
             ReservedConcurrentExecutions: 1
             LoggingConfig:
                 LogFormat: JSON
