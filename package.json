@@ -11,7 +11,7 @@
         "typecheck": "tsc --noEmit",
         "db:generate": "npx drizzle-kit generate",
         "db:migrate": "npx drizzle-kit migrate",
-        "lambda": "sam local invoke MainLambda --env-vars env.json --container-host-interface 0.0.0.0"
+        "lambda": "sam local invoke MainLambda --env-vars env.json -e event.json --container-host-interface 0.0.0.0"
     },
     "dependencies": {
         "@aws-sdk/client-ssm": "^3.999.0",

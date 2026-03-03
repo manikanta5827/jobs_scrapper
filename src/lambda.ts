@@ -110,7 +110,7 @@ export const handler = async (
     // Send All Dropped at once
     if(allDropped.length > 0) {
       console.log(`Total ${allDropped.length} jobs are dropped. Sending notifications...`);
-      await sendDroppedJobs(allDropped, dateStr);
+      // await sendDroppedJobs(allDropped, dateStr);
     }
 
     return response(200, {
