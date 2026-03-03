@@ -31,7 +31,7 @@ Return ONLY valid JSON. No markdown. No text outside the JSON.
   "reason": "string (1-2 sentences)",
   "matched_skills": ["string"],
   "missing_skills": ["string"],
-  "location": "string (city/state or remote status)",
+  "job_location": "string (city/state or remote status) or null if not specified",
   "years_of_experience": "string (e.g. 2+ years, or 'not specified')",
   "direct_apply": "string or null (e.g. 'Email jobs@co.com with Portfolio and Github. NO CV.')"
 }
@@ -76,7 +76,7 @@ export async function checkRelevanceBatch(
           ai_reason: parsed.reason,
           ai_matched_skills: parsed.matched_skills,
           ai_missing_skills: parsed.missing_skills,
-          ai_location: parsed.location,
+          ai_job_location: parsed.job_location,
           ai_yoe: parsed.years_of_experience,
           ai_direct_apply: parsed.direct_apply,
         };

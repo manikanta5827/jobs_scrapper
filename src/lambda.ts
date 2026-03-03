@@ -42,8 +42,7 @@ export const handler = async (
   // The key must match the secret value (for manual calls)
   // OR the SSM path string (passed from our EventBridge template)
   const isAuthorized = 
-    event.adminApiKey === process.env.ADMIN_API_KEY || 
-    event.adminApiKey === process.env.ADMIN_API_KEY_PATH;
+    event.adminApiKey === process.env.ADMIN_API_KEY;
 
   if (!isAuthorized) {
     console.warn('Unauthorized attempt to trigger MainLambda');

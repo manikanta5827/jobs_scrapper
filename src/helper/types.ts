@@ -23,7 +23,7 @@ export interface RelevanceResult {
   reason:              string;
   matched_skills:      string[];
   missing_skills:      string[];
-  location:            string;
+  job_location:        string | null;
   years_of_experience: string;
   direct_apply:        string | null;
 }
@@ -35,7 +35,7 @@ export interface EnrichedJob extends Job {
   ai_reason?:         string;
   ai_matched_skills?: string[];
   ai_missing_skills?: string[];
-  ai_location?:       string;
+  ai_job_location?:       string | null;
   ai_yoe?:            string;
   ai_direct_apply?:   string | null;
 }

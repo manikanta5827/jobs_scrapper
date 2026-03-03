@@ -9,8 +9,8 @@ aws ssm put-parameter \
   --region us-east-1
 
 aws ssm put-parameter \
-  --name "/job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN" \
-  --value "8733173190:AAFuLDrfrYkruJBrGiGSGGRGEiN" \
+  --name "/job-scraper/ADMIN_API_KEY" \
+  --value "ammay" \
   --type SecureString \
   --region ap-south-1
 

@@ -17,7 +17,11 @@ export const EXCLUDE_KEYWORDS: string[] = [
 ];
 
 export const EXCLUDE_TITLE_KEYWORDS: string[] = [
-  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'QA', 'Support', 'Testing', 'Android', 'Mobile','React', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS','Rust', 'Dot net', "Bussiness", 'C#', 'Sales', '.NET', 'Kotline', 'Swift', 'Golang', 'Game' ,'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager', 'Front End', 'Tester', 'Kubernetes', 'senior', 'lead', 'manager', 'director', 'principal', 'staff', 'architect', 'vp', 'vice president', 'head of', 'founder', 'co-founder'
+  '2', '3', 'L3', 'L4', 'Test', 'Quality', 'QA', 'Support', 'Testing', 'Android', 'Mobile','React', 'React.js', 'React Js', 'React Native', 'Flutter', 'iOS','Rust', 'Dot net', "Bussiness", 'C#', 'Sales', '.NET', 'Kotline', 'Swift', 'Golang', 'Game' ,'Unity', 'Game', 'SRE', 'Data Engineer', 'Data Scientist', 'Machine Learning', 'ML Engineer', 'AI Engineer', 'Security', 'Network', 'Hardware', 'Embedded', 'Firmware', 'Front End', 'Frontend', 'UI/UX', 'Designer', 'Product Manager', 'Project Manager', 'Front End', 'Tester', 'Kubernetes', 'senior', 'lead', 'manager', 'director', 'principal', 'staff', 'architect', 'vp', 'vice president', 'head of', 'founder', 'co-founder', 'II', 'Java', 'PHP', 'Salesforce', 'SAP', 'Oracle', 'Mainframe', 'Cobol', 'Hadoop', 'Spark', 'Data Warehouse', 'ETL', 'Informatica', 'Tableau', 'Power BI', 'Intern', 'Laravel', 'C#'
+];
+
+export const EXCLUDE_COMPANY_KEYWORDS: string[] = [
+  'Apple', 'Google', 'Microsoft', 'Amazon', 'Meta', 'Facebook', 'Netflix', 'Tesla', 'Nvidia', 'Adobe', 'Salesforce', 'Oracle', 'IBM', 'Intel', 'Uber', 'Airbnb', 'Twitter', 'LinkedIn', 'Cisco', 'Notion', 'Spotify', 'Snap', 'Stripe', 'Square', 'PayPal', 'Shopify', 'Zoom', 'Slack', 'Dropbox', 'Asana', 'Atlassian', 'GitHub', 'Reddit', 'Pinterest', 'Quora', 'Twilio', 'Cloudflare'
 ];
 
 export interface FilterResult {

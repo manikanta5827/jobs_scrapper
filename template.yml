@@ -27,7 +27,7 @@ Parameters:
     MinMatchScore:
         Type: String
         Description: Minimum AI match score for a job to be considered relevant
-        Default: "60"
+        Default: "70"
     TelegramMatchedJobsBotToken:
         Type: String
         Description: Telegram Bot Token for matched jobs notifications

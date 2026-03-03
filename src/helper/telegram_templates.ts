@@ -27,7 +27,7 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   let msg = `<b>[ #${index} ] — ${j.title}</b>\n`;
   msg += `────────────────────\n`;
   msg += `🏢 <b>Company:</b>  <code>${j.companyName}</code>\n`;
-  msg += `📍 <b>Location:</b> <code>${j.ai_location ?? 'Not specified'}</code>\n`;
+  msg += `📍 <b>Location:</b> <code>${j.ai_job_location ?? 'Not specified'}</code>\n`;
   msg += `⏳ <b>Experience:</b> <code>${j.ai_yoe ?? 'Not specified'}</code>\n\n`;
   
   msg += `${scoreEmoji} <b>Match Score:</b> <code>${j.ai_score}/100</code>\n`;
@@ -35,11 +35,19 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   if (j.ai_direct_apply) {
     msg += `📩 <b>Direct Apply:</b> <i>${j.ai_direct_apply}</i>\n`;
   }
-  
+
+  if (j.ai_matched_skills && j.ai_matched_skills.length > 0) {
+    msg += `✅ <b>Matched Skills:</b> <i>${j.ai_matched_skills.join(', ')}</i>\n`;
+  }
+
   if (j.ai_missing_skills && j.ai_missing_skills.length > 0) {
     msg += `❌ <b>Missing Skills:</b> <i>${j.ai_missing_skills.join(', ')}</i>\n`;
   }
-  
+
+  if(j.ai_reason) {
+    msg += `📝 <b>AI Reason:</b> <i>${j.ai_reason}</i>\n`;
+  }
+
   msg += `\n🚀 <a href="${j.link}"><b>APPLY ON LINKEDIN</b></a>`;
   return msg;
 }

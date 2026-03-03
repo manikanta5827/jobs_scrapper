@@ -85,7 +85,7 @@ async function scrapeUrlWithRotation(url: string, retries: number = 3): Promise<
 
 async function scrapeUrl(url: string, apiKey: string): Promise<Job[]> {
   const endpoint =
-    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${apiKey}&format=json&clean=true&memory=512`;
+    `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${apiKey}&format=json&clean=true&memory=1024`;
 
   const body = JSON.stringify({
     urls: [url],
