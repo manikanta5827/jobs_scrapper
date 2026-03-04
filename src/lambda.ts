@@ -16,9 +16,10 @@ import {
   getDroppedHeader,
   getMatchedJobMessage, 
   getDroppedJobMessage, 
-  getFailureTelegramMessage 
+  getFailureTelegramMessage,
+  getZeroMatchesMessage
 } from './helper/telegram_templates';
-import type { Job } from './helper/types';
+import type { Job, JobStats } from './helper/types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const OPENAI_BATCH_SIZE = 10;
@@ -60,14 +61,20 @@ export const handler = async (
     // 1. Scrape
     const searchUrls = prepareSearchUrls(lookbackSeconds);
     const rawJobs = await scrapeJobs(searchUrls);
-    console.log(`Scraped ${rawJobs.length} total jobs`);
+    const rawCount = rawJobs.length;
+    console.log(`Scraped ${rawCount} total jobs`);
 
-    if (rawJobs.length === 0) return response(200, 'No jobs scraped.');
+    if (rawCount === 0) {
+      const stats: JobStats = { scraped: 0, duplicateRemoved: 0, dbDeduplicated: 0, keywordFiltered: 0, aiRejected: 0, matched: 0 };
+      await sendMatchedJobs([], dateStr, stats);
+      return response(200, 'No jobs scraped.');
+    }
 
     // 2. Clean & Deduplicate (Batch)
     const uniqueRawJobs = getUniqueJobsFromBatch(rawJobs);
-
-    console.log(`${uniqueRawJobs.length} jobs after removing duplicate jobs from scrapper`);
+    const uniqueCount = uniqueRawJobs.length;
+    const duplicateRemoved = rawCount - uniqueCount;
+    console.log(`${uniqueCount} jobs after removing duplicate jobs from scrapper`);
 
     // 3. Filter against Database
     const existingData = await getExistingJobsData();
@@ -75,48 +82,75 @@ export const handler = async (
       const isNew = !existingData.links.has(job.link!) && !existingData.fingerprints.has(job.fingerprint!);
       return isNew;
     });
-
-    console.log(`${newJobs.length} new jobs after DB deduplication.`);
+    const newCount = newJobs.length;
+    const dbDeduplicated = uniqueCount - newCount;
+    console.log(`${newCount} new jobs after DB deduplication.`);
     
-    if (newJobs.length === 0) {
-      await sendDroppedJobs(allDropped, dateStr);
+    if (newCount === 0) {
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved, dbDeduplicated, keywordFiltered: 0, aiRejected: 0, matched: 0 };
+      await sendMatchedJobs([], dateStr, stats);
+      // await sendDroppedJobs(allDropped, dateStr);
       return response(200, 'All jobs already processed.');
     }
 
     // 4. Keyword Filter
     const { relevant: toCheck, binned: keywordBinned } = keywordFilter(newJobs);
+    const toCheckCount = toCheck.length;
+    const keywordFiltered = newCount - toCheckCount;
     for (const job of keywordBinned) {
       allDropped.push({ job, reason: `Keyword Binned: ${job.keyword_bin_reason || 'Skill mismatch'}` });
     }
 
-    console.log(`${toCheck.length} jobs after keyword filtering`);
+    console.log(`${toCheckCount} jobs after keyword filtering`);
+
+    if (toCheckCount === 0) {
+      const stats: JobStats = {
+        scraped: rawCount,
+        duplicateRemoved,
+        dbDeduplicated,
+        keywordFiltered,
+        aiRejected: 0,
+        matched: 0
+      };
+      await sendMatchedJobs([], dateStr, stats);
+      // await sendDroppedJobs(allDropped, dateStr);
+      return response(200, 'All jobs filtered out by keywords.');
+    }
 
     // 5. AI Relevance Check
     const { matched, rejected } = await checkRelevanceBatch(toCheck, OPENAI_BATCH_SIZE, BATCH_DELAY_MS);
+    const matchedCount = matched.length;
+    const aiRejected = toCheckCount - matchedCount;
     for (const job of rejected) {
       allDropped.push({ job, reason: `AI Rejected: ${job.ai_reason || 'Low relevance'}` });
     }
 
-    console.log(`${matched.length} jobs after LLM filtering`);
+    console.log(`${matchedCount} jobs after LLM filtering`);
 
     // 6. Persist & Notify Matched
     await trackJobs(newJobs.map(j => ({ link: j.link!, fingerprint: j.fingerprint! })));
 
-    // Send Matched Jobs to Telegram
-    if (matched.length > 0) {
-      await sendMatchedJobs(matched, dateStr);
-    }
+    // Send Matched Jobs to Telegram (Always called now)
+    const stats: JobStats = {
+      scraped: rawCount,
+      duplicateRemoved,
+      dbDeduplicated,
+      keywordFiltered,
+      aiRejected,
+      matched: matchedCount
+    };
+    await sendMatchedJobs(matched, dateStr, stats);
 
     // Send All Dropped at once
     if(allDropped.length > 0) {
-      console.log(`Total ${allDropped.length} jobs are dropped. Sending notifications...`);
+      console.log(`Total ${allDropped.length} jobs are dropped.`);
       // await sendDroppedJobs(allDropped, dateStr);
     }
 
     return response(200, {
-      scraped: rawJobs.length,
-      new: newJobs.length,
-      matched: matched.length,
+      scraped: rawCount,
+      new: newCount,
+      matched: matchedCount,
       dropped: allDropped.length
     });
 
@@ -151,11 +185,14 @@ async function sendDroppedJobs(dropped: { job: any, reason: string }[], dateStr:
   }
 }
 
-async function sendMatchedJobs(matched: any[], dateStr: string) {
-  if (matched.length === 0) return;
+async function sendMatchedJobs(matched: any[], dateStr: string, stats: JobStats) {
+  if (matched.length === 0) {
+    await sendTelegramMessage(TELEGRAM_MATCHED_JOBS_BOT_TOKEN, TELEGRAM_MATCHED_JOBS_CHAT_ID, getZeroMatchesMessage(dateStr, stats));
+    return;
+  }
 
   // Header
-  await sendTelegramMessage(TELEGRAM_MATCHED_JOBS_BOT_TOKEN, TELEGRAM_MATCHED_JOBS_CHAT_ID, getSuccessHeader(matched.length, dateStr));
+  await sendTelegramMessage(TELEGRAM_MATCHED_JOBS_BOT_TOKEN, TELEGRAM_MATCHED_JOBS_CHAT_ID, getSuccessHeader(dateStr, stats));
 
   // Individual messages for each matched job
   for (let i = 0; i < matched.length; i++) {

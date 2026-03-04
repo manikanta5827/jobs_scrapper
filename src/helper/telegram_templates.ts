@@ -1,12 +1,34 @@
-import type { EnrichedJob } from './types';
+import type { EnrichedJob, JobStats } from './types';
+
+function getStatsSection(stats: JobStats): string {
+  return `📊 <b>PROCESSING STATS:</b>\n` +
+         `├ 📥 <b>Scraped:</b> <code>${stats.scraped}</code>\n` +
+         `├ 🧹 <b>Dupes removed:</b> <code>${stats.duplicateRemoved}</code>\n` +
+         `├ 🗄️ <b>DB Deduplicated:</b> <code>${stats.dbDeduplicated}</code>\n` +
+         `├ 🔑 <b>Keyword Filtered:</b> <code>${stats.keywordFiltered}</code>\n` +
+         `├ 🤖 <b>AI Rejected:</b> <code>${stats.aiRejected}</code>\n` +
+         `└ 🎯 <b>Final Matches:</b> <b>${stats.matched}</b>`;
+}
+
+/**
+ * Returns a message for when zero jobs matched the candidate's profile.
+ */
+export function getZeroMatchesMessage(dateStr: string, stats: JobStats): string {
+  return `🔎 <b>NO JOB MATCHES FOUND</b> • <code>${dateStr}</code>\n` +
+         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+         `${getStatsSection(stats)}\n\n` +
+         `😴 No new jobs met your criteria in this run.\n` +
+         `☕️ <i>Check back later!</i>`;
+}
 
 /**
  * Returns a header message for successful job matches.
  */
-export function getSuccessHeader(count: number, dateStr: string): string {
+export function getSuccessHeader(dateStr: string, stats: JobStats): string {
   return `✨ <b>JOB MATCH SUMMARY</b> • <code>${dateStr}</code>\n` +
          `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-         `🎯 Found <b>${count}</b> matching opportunities!`;
+         `${getStatsSection(stats)}\n\n` +
+         `🎯 Found <b>${stats.matched}</b> matching opportunities!`;
 }
 
 /**

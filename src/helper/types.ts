@@ -47,3 +47,12 @@ export interface BatchResult {
   matched:  EnrichedJob[];
   rejected: EnrichedJob[];
 }
+
+export interface JobStats {
+  scraped: number;
+  duplicateRemoved: number;
+  dbDeduplicated: number;
+  keywordFiltered: number;
+  aiRejected: number;
+  matched: number;
+}

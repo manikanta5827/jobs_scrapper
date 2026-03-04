@@ -97,9 +97,9 @@ Resources:
                 EveningRun:
                     Type: ScheduleV2
                     Properties:
-                        ScheduleExpression: cron(30 17 ? * MON-FRI *)
+                        ScheduleExpression: cron(0 18 ? * MON-FRI *)
                         ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: !Sub '{"lookbackHours": 4.5, "adminApiKey": "${AdminApiKey}"}'
+                        Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
                         RetryPolicy:
                             MaximumRetryAttempts: 0
                             MaximumEventAgeInSeconds: 3600
