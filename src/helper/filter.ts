@@ -5,8 +5,7 @@ export const SEARCH_URLS: string[] = [
   'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Bengaluru&geoId=105214831&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0',
   'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Developer&location=Hyderabad&geoId=105556991&distance=25&f_TPR=r86400&f_E=2&position=1&pageNum=0',
   'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Backend%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Engineer&location=United%20States&geoId=103644278&f_E=1%2C2&f_TPR=r86400&position=1&pageNum=0',
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Backend%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Engineer&location=Europe&geoId=100506914&f_E=1%2C2&f_TPR=r86400&position=1&pageNum=0',
-  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Backend%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Engineer&location=United%20Arab%20Emirates&geoId=104305776&f_E=1%2C2&f_TPR=r86400&position=1&pageNum=0'
+  'https://www.linkedin.com/jobs/search?keywords=Software%20Developer%20OR%20Backend%20Developer%20OR%20Software%20Engineer%20OR%20Backend%20Engineer&location=Europe&geoId=100506914&f_E=1%2C2&f_TPR=r86400&position=1&pageNum=0'
 ];
 
 // Only skip 5+ YOE. 2-3 years is fine for a junior developer.
