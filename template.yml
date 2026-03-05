@@ -23,7 +23,7 @@ Parameters:
     MinMatchScore:
         Type: String
         Description: Minimum AI match score for a job to be considered relevant
-        Default: "70"
+        Default: "65"
     TelegramMatchedJobsBotToken:
         Type: 'AWS::SSM::Parameter::Value<String>'
         Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
