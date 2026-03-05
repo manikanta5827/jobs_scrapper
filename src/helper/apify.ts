@@ -11,7 +11,7 @@ import * as path from 'node:path';
 import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
 
 const ACTOR_ID = 'hKByXkMQaC5Qt9UMN'; // curious_coder/linkedin-jobs-scraper
-const JOBS_PER_URL = 100;
+const JOBS_PER_URL = 200;
 
 /**
  * Scrape all provided LinkedIn search URLs sequentially.
