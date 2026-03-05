@@ -1,6 +1,7 @@
 /**
  * openai.ts
  * Checks job relevance using GPT-4o-mini with batching + retry.
+ * Optimized for OpenAI Prompt Caching (50% discount on cached tokens).
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
 
@@ -9,6 +10,12 @@ const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? '60', 10);
 // @ts-ignore
 import resumeText from "../../resume.txt";
 
+/**
+ * To maximize OpenAI Prompt Caching, we combine static content (Rules + Resume + Examples)
+ * into a single "system" message prefix. This stays identical across all requests.
+ * 
+ * Requirement: Prefix must be >= 1024 tokens to trigger caching.
+ */
 const SYSTEM_PROMPT = `You are evaluating whether a job is worth applying to based on the candidate's profile.
 Your goal is to strictly filter out irrelevant jobs and focus on roles that align with the candidate's skills and experience level.
 
@@ -23,6 +30,24 @@ Determine if this job is a good match. A job is a good match only if it meets AL
    - **Optional Skills**: If JD allows "any of X, Y, or Z" (e.g., "Java, Python, or Node.js") and the candidate has one = Match.
    - **Strict Requirements**: If JD specifies a mandatory skill (e.g., "Must have Java", "Strong Java knowledge required") and it's not in the resume/not aligned = REJECT.
 3. **Relevance**: The domain/industry should be related to the candidate's field.
+
+## CANDIDATE RESUME
+------------------
+${resumeText}
+
+## EXAMPLES OF EVALUATION (FEW-SHOT)
+----------------------------------
+Example 1 (REJECT - Experience):
+Job: { "title": "Senior Node.js Developer", "seniorityLevel": "Senior", "descriptionText": "5+ years experience required..." }
+Result: { "score": 0, "is_matched": false, "reason": "Job requires 5+ years of experience, but candidate is entry-level." }
+
+Example 2 (REJECT - Skills):
+Job: { "title": "C++ Developer", "descriptionText": "Must have strong C++ and Unreal Engine knowledge." }
+Result: { "score": 20, "is_matched": false, "reason": "Candidate lacks mandatory C++ and Unreal Engine skills." }
+
+Example 3 (MATCH):
+Job: { "title": "Backend Intern", "seniorityLevel": "Entry level", "descriptionText": "Node.js, AWS, SQL. 0-1 years exp." }
+Result: { "score": 95, "is_matched": true, "reason": "Perfect match for an entry-level backend role using candidate's core stack (Node/AWS)." }
 
 ## DIRECT APPLICATION DETECTION
 If the job description explicitly mentions a direct way to apply (e.g., a link to a Google Form, a Typeform, or an email address), you MUST:
@@ -119,10 +144,24 @@ export async function checkRelevanceBatch(
 
 async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceResult> {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+
+  // High-signal fields for LLM reasoning
+  const jobForOpenAI = {
+    title: job.title,
+    companyName: job.companyName,
+    companyDescription: job.companyDescription,
+    location: job.location,
+    seniorityLevel: job.seniorityLevel,
+    employmentType: job.employmentType,
+    jobFunction: job.jobFunction,
+    industries: job.industries,
+    salary: job.salary,
+    descriptionText: (job.descriptionText ?? '').slice(0, 5000), 
+    benefits: job.benefits,
+  };
+
   const userMessage =
-    `Candidate Resume:\n------------------\n${resumeText}\n\n` +
-    `Job Title:\n----------\n${job.title ?? 'Unknown'}\n\n` +
-    `Job Description:\n----------------\n${(job.descriptionText ?? '').slice(0, 3000)}\n\n` +
+    `Job Details (JSON):\n-------------------\n${JSON.stringify(jobForOpenAI, null, 2)}\n\n` +
     `Evaluate strictly based on the system rules. Return JSON only.`;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
