@@ -4,17 +4,24 @@
 
 // Raw job object returned by Apify LinkedIn scraper
 export interface Job {
+  id?:               string;
   link?:             string;
-  fingerprint?:      string;
   title?:            string;
   companyName?:      string;
-  companyWebsite?:   string;
+  companyDescription?: string;
+  location?:         string;
   postedAt?:         string;
   salary?:           string;
   descriptionText?:  string;
   applicantsCount?:  string | number;
   applyUrl?:         string;
+  seniorityLevel?:   string;
+  employmentType?:   string;
+  jobFunction?:      string;
+  industries?:       string;
+  benefits?:         string[];
   keyword_bin_reason?: string;
+  [key: string]:      any; // Still allow other fields but they won't be explicitly typed
 }
 
 // OpenAI relevance check result
