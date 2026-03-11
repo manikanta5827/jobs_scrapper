@@ -7,7 +7,7 @@ s3_prefix = "job-scrapper"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
-parameter_overrides = "ApifyApiKey=\"/job-scraper/APIFY_API_KEY\" OpenaiApiKey=\"/job-scraper/OPENAI_API_KEY\" DatabaseUrl=\"/job-scraper/DATABASE_URL\" MinMatchScore=\"60\" TelegramMatchedJobsBotToken=\"/job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN\" TelegramMatchedJobsChatId=\"/job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID\" TelegramDroppedJobsBotToken=\"/job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN\" TelegramDroppedJobsChatId=\"/job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID\""
+parameter_overrides = "ApifyApiKey=\"/job-scraper/APIFY_API_KEY\" OpenaiApiKey=\"/job-scraper/OPENAI_API_KEY\" DatabaseUrl=\"/job-scraper/DATABASE_URL\" MinMatchScore=\"/job-scraper/MIN_MATCH_SCORE\" TelegramMatchedJobsBotToken=\"/job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN\" TelegramMatchedJobsChatId=\"/job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID\" TelegramDroppedJobsBotToken=\"/job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN\" TelegramDroppedJobsChatId=\"/job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID\""
 
 [default.global.parameters]
 region = "ap-south-1"

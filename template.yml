@@ -10,31 +10,39 @@ Parameters:
         Default: prod
     ApifyApiKey:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: API Key for Apify service to fetch job listings
         Default: /job-scraper/APIFY_API_KEY
     OpenaiApiKey:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: API Key for OpenAI service to evaluate job relevance
         Default: /job-scraper/OPENAI_API_KEY
     DatabaseUrl:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: Database connection URL (Postgres/Drizzle)
         Default: /job-scraper/DATABASE_URL
     AdminApiKey:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: API Key used to authenticate admin requests
         Default: /job-scraper/ADMIN_API_KEY
     MinMatchScore:
-        Type: String
+        Type: 'AWS::SSM::Parameter::Value<String>'
         Description: Minimum AI match score for a job to be considered relevant
-        Default: "65"
+        Default: /job-scraper/MIN_MATCH_SCORE
     TelegramMatchedJobsBotToken:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: Telegram Bot Token for the bot that notifies about matched jobs
         Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
     TelegramDroppedJobsBotToken:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: Telegram Bot Token for the bot that notifies about rejected jobs
         Default: /job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN
     TelegramMatchedJobsChatId:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: Telegram Chat ID where matched job notifications are sent
         Default: /job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID
     TelegramDroppedJobsChatId:
         Type: 'AWS::SSM::Parameter::Value<String>'
+        Description: Telegram Chat ID where rejected job notifications are sent
         Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
 
 Resources:

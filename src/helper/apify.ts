@@ -38,10 +38,23 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
       const jobs = await scrapeUrlWithRotation(url);
       console.log(`  → ${jobs.length} jobs`);
       allJobs.push(...jobs);
-    } catch (err) {
-      // Don't fail entire Lambda if one city fails
+    } catch (err: any) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`  → Failed: ${message}`);
+      console.error(`  → Failed to scrape ${url}: ${message}`);
+
+      // FATAL: If we are completely out of tokens or hit credential issues, 
+      // stop everything and let the main handler notify the admin.
+      const isFatal = 
+        message.includes("No valid Apify tokens") || 
+        message.includes("Failed after trying all tokens") ||
+        message.includes("401") || 
+        message.includes("403");
+
+      if (isFatal) {
+        throw err; 
+      }
+      
+      // For non-fatal errors (timeout, 500 on one URL), we continue to the next URL.
     }
   }
 
@@ -49,10 +62,10 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
 }
 
 /**
- * Retries scraping with different tokens if one is exhausted.
+ * Retries scraping with different tokens if one is exhausted or invalid.
  */
-async function scrapeUrlWithRotation(url: string, retries: number = 3): Promise<Job[]> {
-  for (let i = 0; i < retries; i++) {
+async function scrapeUrlWithRotation(url: string): Promise<Job[]> {
+  while (true) {
     const tokenData = await getValidApifyToken();
     
     if (!tokenData) {
@@ -65,22 +78,26 @@ async function scrapeUrlWithRotation(url: string, retries: number = 3): Promise<
       await updateApifyTokenUsage(tokenData.id, jobs.length);
       return jobs;
     } catch (err: any) {
-      // If error indicates monthly usage hard limit exceeded (status 403 or specific error message)
-      const isExhausted = err.message?.toLowerCase().includes("monthly usage hard limit exceeded") || 
-                          err.message?.includes("403");
+      const message = err instanceof Error ? err.message : String(err);
       
-      if (isExhausted) {
-        console.warn(`Token ID ${tokenData.id} exhausted. Marking as expired.`);
+      // If error indicates monthly usage hard limit exceeded (403) or invalid token (401)
+      const isInvalidOrExhausted = 
+        message.includes("403") || 
+        message.includes("401") ||
+        message.toLowerCase().includes("monthly usage hard limit exceeded") ||
+        message.toLowerCase().includes("unauthorized");
+      
+      if (isInvalidOrExhausted) {
+        console.warn(`Token ID ${tokenData.id} is invalid or exhausted. Marking as expired and rotating...`);
         await markApifyTokenExpired(tokenData.id);
-        // Continue loop to try next token
+        // Continue loop to fetch the NEXT best token from the database
         continue;
       }
       
-      throw err; // Re-throw other errors
+      // For network errors, timeouts, or 500s, don't rotate/expire the token, just fail this URL.
+      throw err; 
     }
   }
-  
-  throw new Error("Failed to scrape after trying all available tokens.");
 }
 
 async function scrapeUrl(url: string, apiKey: string): Promise<Job[]> {
@@ -102,9 +119,7 @@ async function scrapeUrl(url: string, apiKey: string): Promise<Job[]> {
 
   if (!res.ok) {
     const text = await res.text();
-    console.error('Apify status :', res.status);
-    console.error(JSON.parse(text));
-
+    // We include the status code in the error message so scrapeUrlWithRotation can detect 401/403
     throw new Error(`Apify HTTP ${res.status}: ${text}`);
   }
 
