@@ -64,12 +64,6 @@ Resources:
                 - AWSLambdaBasicExecutionRole
                 - SSMParameterReadPolicy:
                       ParameterName: '/job-scraper/*'
-                - Statement:
-                      - Effect: Allow
-                        Action:
-                            - ses:sendEmail
-                            - ses:SendRawEmail
-                        Resource: '*'
             Environment:
                 Variables:
                     APIFY_API_KEY: !Ref ApifyApiKey

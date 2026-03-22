@@ -50,8 +50,8 @@ export async function updateApifyToken(id: number, data: Partial<{ usageCost: nu
 export async function getValidApifyToken(): Promise<{ id: number; apiKey: string } | null> {
   await initDb();
   
-  const today = new Date();
-  const currentDay = today.getDate();
+  // const today = new Date();
+  // const currentDay = today.getDate();
 
   // // 1. Auto-reset tokens whose monthly cycle starts yesterday (reset today to be safe)
   // // We check if currentDay matches (subscriptionStartDate + 1 day)

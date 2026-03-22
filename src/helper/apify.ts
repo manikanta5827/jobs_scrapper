@@ -45,7 +45,7 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
       // FATAL: If we are completely out of tokens or hit credential issues, 
       // stop everything and let the main handler notify the admin.
       const isFatal = 
-        message.includes("No valid Apify tokens") || 
+        message.includes("No valid Apify tokens available (all exhausted or expired).") || 
         message.includes("Failed after trying all tokens") ||
         message.includes("401") || 
         message.includes("403");
@@ -67,6 +67,8 @@ export async function scrapeJobs(urls: string[]): Promise<Job[]> {
 async function scrapeUrlWithRotation(url: string): Promise<Job[]> {
   while (true) {
     const tokenData = await getValidApifyToken();
+    
+    console.log(`Fetched token ID ${tokenData?.id} for scraping.`);
     
     if (!tokenData) {
       throw new Error("No valid Apify tokens available (all exhausted or expired).");
