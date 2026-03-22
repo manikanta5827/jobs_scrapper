@@ -100,7 +100,8 @@ export async function markApifyTokenExpired(tokenId: number): Promise<void> {
 }
 
 /**
- * Reset usage cost to 0 for tokens that have reached $5 or more and whose subscription has started (date <= today).
+ * Reset usage cost to 0 for tokens that have reached $5 or more and whose subscription has already started.
+ * Date-only comparison is required (day of month, month, year), no time-of-day differences.
  */
 export async function resetHighUsageTokens(): Promise<void> {
   await initDb();
@@ -108,7 +109,8 @@ export async function resetHighUsageTokens(): Promise<void> {
     .set({ usageCost: 0, updatedAt: new Date() })
     .where(and(
       sql`${keyRotation.usageCost} >= 5`,
-      sql`${keyRotation.subscriptionStartDate} <= CURRENT_DATE`
+      // compare full date, ignoring time, so subscriptionStartDate: 2026-03-23 will not reset on 2026-03-22
+      sql`DATE(${keyRotation.subscriptionStartDate}) <= CURRENT_DATE`
     ));
 }
 
