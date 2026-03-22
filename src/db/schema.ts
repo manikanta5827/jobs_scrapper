@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, serial, doublePrecision, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, serial, doublePrecision, date } from "drizzle-orm/pg-core";
 
 export const jobs = pgTable("jobs", {
   jobLink: text("job_link").primaryKey(),
@@ -12,6 +12,5 @@ export const keyRotation = pgTable("key_rotation", {
   usageCost: doublePrecision("usage_cost").default(0), // Tracking in $
   name: text("name"), // Optional friendly name for easier identification
   subscriptionStartDate: date("subscription_start_date").notNull(),
-  isExpired: boolean("is_expired").default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

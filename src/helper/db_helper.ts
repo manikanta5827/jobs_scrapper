@@ -18,8 +18,7 @@ export async function addApifyToken(apiKey: string, subscriptionStartDate: strin
   return await db.insert(keyRotation).values({
     apiKey,
     subscriptionStartDate,
-    usageCost: 0,
-    isExpired: false
+    usageCost: 0
   }).returning();
 }
 
@@ -34,7 +33,7 @@ export async function deleteApifyToken(id: number) {
 /**
  * Manually update/reset a token's usage or status.
  */
-export async function updateApifyToken(id: number, data: Partial<{ usageCost: number; isExpired: boolean; subscriptionStartDate: string }>) {
+export async function updateApifyToken(id: number, data: Partial<{ usageCost: number; subscriptionStartDate: string }>) {
   await initDb();
   return await db.update(keyRotation)
     .set({ ...data, updatedAt: new Date() })
@@ -54,23 +53,19 @@ export async function getValidApifyToken(): Promise<{ id: number; apiKey: string
   const today = new Date();
   const currentDay = today.getDate();
 
-  // 1. Auto-reset tokens whose monthly cycle starts yesterday (reset today to be safe)
-  // We check if currentDay matches (subscriptionStartDate + 1 day)
-  await db.update(keyRotation)
-    .set({ 
-      usageCost: 0, 
-      isExpired: false, 
-      updatedAt: today 
-    })
-    .where(sql`EXTRACT(DAY FROM ${keyRotation.subscriptionStartDate} + INTERVAL '1 day') = ${currentDay}`);
+  // // 1. Auto-reset tokens whose monthly cycle starts yesterday (reset today to be safe)
+  // // We check if currentDay matches (subscriptionStartDate + 1 day)
+  // await db.update(keyRotation)
+  //   .set({ 
+  //     usageCost: 0, 
+  //     updatedAt: today 
+  //   })
+  //   .where(sql`EXTRACT(DAY FROM ${keyRotation.subscriptionStartDate} + INTERVAL '1 day') = ${currentDay}`);
 
   // 2. Fetch the best valid token
   const result = await db.select()
     .from(keyRotation)
-    .where(and(
-      eq(keyRotation.isExpired, false),
-      lt(keyRotation.usageCost, 5.00)
-    ))
+    .where(lt(keyRotation.usageCost, 5.00))
     .orderBy(desc(keyRotation.usageCost))
     .limit(1);
 
@@ -95,13 +90,26 @@ export async function updateApifyTokenUsage(tokenId: number, jobsCount: number):
 }
 
 /**
- * Mark a token as expired (e.g., when receiving 403 Monthly usage exceeded).
+ * Mark a token as exhausted (e.g., when receiving 403 Monthly usage exceeded).
  */
 export async function markApifyTokenExpired(tokenId: number): Promise<void> {
   await initDb();
   await db.update(keyRotation)
-    .set({ isExpired: true, updatedAt: new Date() })
+    .set({ usageCost: 5, updatedAt: new Date() })
     .where(eq(keyRotation.id, tokenId));
+}
+
+/**
+ * Reset usage cost to 0 for tokens that have reached $5 or more and whose subscription has started (date <= today).
+ */
+export async function resetHighUsageTokens(): Promise<void> {
+  await initDb();
+  await db.update(keyRotation)
+    .set({ usageCost: 0, updatedAt: new Date() })
+    .where(and(
+      sql`${keyRotation.usageCost} >= 5`,
+      sql`${keyRotation.subscriptionStartDate} <= CURRENT_DATE`
+    ));
 }
 
 /**
@@ -132,18 +140,4 @@ export async function trackJobs(jobsToTrack: { link: string; fingerprint: string
       target: [jobs.jobLink],
       set: { fingerprint: sql`excluded.fingerprint` }
     });
-}
-
-/**
- * Cleanup old jobs seen more than 7 days ago.
- */
-export async function cleanupOldSeenJobs(): Promise<void> {
-  try {
-    await initDb();
-    await db.delete(jobs).where(lt(jobs.seenAt, sql`NOW() - INTERVAL '7 days'`));
-    console.log("Cleaned up old jobs");
-  } catch (error: any) {
-    const errorMessage = error?.message || "Deleting jobs failed from DB";
-    console.error(`DB Cleanup Error: ${errorMessage}`);
-  }
 }
