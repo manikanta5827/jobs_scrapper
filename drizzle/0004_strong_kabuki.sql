@@ -1,0 +1,1 @@
+ALTER TABLE "key_rotation" DROP COLUMN "is_expired";
