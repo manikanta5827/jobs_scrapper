@@ -49,8 +49,8 @@ export function getUniqueJobsFromBatch(rawJobs: Job[]): Job[] {
     const normalizedLink = normalizeLink(job.link);
     const fingerprint = calculateFingerprint(job);
     
-    if (!uniqueJobsMap.has(normalizedLink)) {
-      uniqueJobsMap.set(normalizedLink, { 
+    if (!uniqueJobsMap.has(fingerprint)) {
+      uniqueJobsMap.set(fingerprint, { 
         ...job, 
         link: normalizedLink,
         fingerprint 
