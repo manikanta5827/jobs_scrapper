@@ -56,8 +56,6 @@ export const handler = async (
   console.log(`Job scraper started. Lookback: ${lookbackHours}h`, new Date().toISOString());
 
   try {
-    await cleanupOldSeenJobs();
-
     // 1. Scrape
     const searchUrls = prepareSearchUrls(lookbackSeconds);
     const rawJobs = await scrapeJobs(searchUrls);
