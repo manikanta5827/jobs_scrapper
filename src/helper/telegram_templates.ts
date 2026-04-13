@@ -102,3 +102,16 @@ export function getFailureTelegramMessage(errorMessage: string, dateStr: string)
   msg += `🛠 <i>Please check the AWS Lambda logs for details.</i>`;
   return msg;
 }
+
+/**
+ * Formats fatal error alert for Telegram.
+ */
+export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: string): string {
+  let msg = `⚠️ <b>FATAL API ERROR</b>\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `📅 <b>Date:</b> <code>${dateStr}</code>\n`;
+  msg += `❌ <b>Reason:</b> <code>${errorMessage}</code>\n\n`;
+  msg += `🛑 <b>Processing stopped immediately.</b>\n`;
+  msg += `🛠 <i>Please update your <code>OPENAI_API_KEY</code>.</i>`;
+  return msg;
+}

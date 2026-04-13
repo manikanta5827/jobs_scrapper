@@ -6,7 +6,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { scrapeJobs } from './helper/apify';
-import { checkRelevanceBatch } from './helper/openai';
+import { checkRelevanceBatch, FatalError } from './helper/openai';
 import { getExistingJobsData, trackJobs, resetHighUsageTokens } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
@@ -17,7 +17,8 @@ import {
   getMatchedJobMessage, 
   getDroppedJobMessage, 
   getFailureTelegramMessage,
-  getZeroMatchesMessage
+  getZeroMatchesMessage,
+  getFatalErrorTelegramMessage
 } from './helper/telegram_templates';
 import type { Job, JobStats } from './helper/types';
 
@@ -160,7 +161,10 @@ export const handler = async (
     console.error('Lambda failed:', message);
     
     try {
-      const failMsg = getFailureTelegramMessage(message, dateStr);
+      const failMsg = err instanceof FatalError 
+        ? getFatalErrorTelegramMessage(message, dateStr)
+        : getFailureTelegramMessage(message, dateStr);
+        
       await sendTelegramMessage(TELEGRAM_MATCHED_JOBS_BOT_TOKEN, TELEGRAM_MATCHED_JOBS_CHAT_ID, failMsg);
     } catch (teleErr) {
       console.error('Even Telegram notification failed:', teleErr);

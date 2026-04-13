@@ -3,9 +3,16 @@
  * Checks job relevance using GPT-4o-mini with batching + retry.
  * Optimized for OpenAI Prompt Caching (50% discount on cached tokens).
  */
-import type { Job, EnrichedJob, RelevanceResult, BatchResult } from './types';
+import type { Job, EnrichedJob, RelevanceResult, BatchResult } from "./types";
 
-const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? '60', 10);
+export class FatalError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FatalError";
+  }
+}
+
+const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
 
 // @ts-ignore
 import resumeText from "../../resume.txt";
@@ -13,7 +20,7 @@ import resumeText from "../../resume.txt";
 /**
  * To maximize OpenAI Prompt Caching, we combine static content (Rules + Resume + Examples)
  * into a single "system" message prefix. This stays identical across all requests.
- * 
+ *
  * Requirement: Prefix must be >= 1024 tokens to trigger caching.
  */
 const SYSTEM_PROMPT = `You are a strict job-fit evaluator. Your only job is to determine if a job posting is worth applying to for this specific candidate. Be conservative — it's better to reject a borderline job than to waste the candidate's time.
@@ -96,7 +103,7 @@ Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
 export async function checkRelevanceBatch(
   jobs: Job[],
   batchSize: number = 10,
-  delayMs: number = 3000
+  delayMs: number = 3000,
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
@@ -106,22 +113,27 @@ export async function checkRelevanceBatch(
     const batchNum = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(jobs.length / batchSize);
 
-    console.log(`OpenAI batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
+    console.log(
+      `OpenAI batch ${batchNum}/${totalBatches} (${batch.length} jobs)`,
+    );
 
-    const results = await Promise.allSettled(batch.map(job => checkSingleJob(job)));
+    const results = await Promise.allSettled(
+      batch.map((job) => checkSingleJob(job)),
+    );
 
     for (let j = 0; j < results.length; j++) {
       const result = results[j];
       const job = batch[j];
 
-      if (result.status === 'fulfilled') {
+      if (result.status === "fulfilled") {
         const parsed: RelevanceResult = result.value;
 
-        const isGoodMatch = parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
+        const isGoodMatch =
+          parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
 
         const enriched: EnrichedJob = {
           ...job,
-          status: isGoodMatch ? 'matched' : 'rejected',
+          status: isGoodMatch ? "matched" : "rejected",
           ai_score: parsed.score,
           ai_is_matched: parsed.is_matched,
           ai_reason: parsed.reason,
@@ -133,15 +145,22 @@ export async function checkRelevanceBatch(
         };
         isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
       } else {
-        // OpenAI failed after retries — bin it, don't crash Lambda
-        const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        // OpenAI failed after retries
+        const err = result.reason;
+
+        // PROPAGATE FATAL ERRORS IMMEDIATELY
+        if (err instanceof FatalError) {
+          throw err;
+        }
+
+        const reason = err instanceof Error ? err.message : String(err);
         console.error(`Job failed OpenAI check: "${job.title}" | ${reason}`);
         rejected.push({
           ...job,
-          status: 'rejected',
+          status: "rejected",
           ai_score: 0,
           ai_is_matched: false,
-          ai_reason: 'OpenAI check failed',
+          ai_reason: "OpenAI check failed",
           ai_matched_skills: [],
           ai_missing_skills: [],
           ai_direct_apply: null,
@@ -158,11 +177,43 @@ export async function checkRelevanceBatch(
   return { matched, rejected };
 }
 
-async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceResult> {
+export async function checkSingleJob(
+  job: Job,
+  retries: number = 3,
+): Promise<RelevanceResult> {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+  const userMessage = `Job Details (JSON):\n-------------------\n${JSON.stringify(prepareJobPayload(job), null, 2)}\n\nEvaluate strictly based on the system rules. Return JSON only.`;
 
-  // High-signal fields for LLM reasoning
-  const jobForOpenAI = {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await executeOpenAICall(
+        userMessage,
+        OPENAI_API_KEY,
+        attempt,
+        retries,
+      );
+      if (!res) continue; // Handled 429 and waiting
+
+      return await parseAndValidateResponse(res);
+    } catch (err) {
+      if (err instanceof FatalError || attempt === retries) throw err;
+
+      const backoff = attempt * 2000;
+      console.warn(
+        `Attempt ${attempt} failed for "${job.title}": ${err instanceof Error ? err.message : String(err)}. Retry in ${backoff}ms`,
+      );
+      await sleep(backoff);
+    }
+  }
+
+  throw new Error(`All ${retries} attempts failed for job: ${job.title}`);
+}
+
+/**
+ * Extracts and cleans job data for the LLM.
+ */
+function prepareJobPayload(job: Job) {
+  return {
     title: job.title,
     companyName: job.companyName,
     companyDescription: job.companyDescription,
@@ -172,81 +223,107 @@ async function checkSingleJob(job: Job, retries: number = 3): Promise<RelevanceR
     jobFunction: job.jobFunction,
     industries: job.industries,
     salary: job.salary,
-    descriptionText: (job.descriptionText ?? '').slice(0, 5000), 
+    descriptionText: (job.descriptionText ?? "").slice(0, 5000),
     benefits: job.benefits,
   };
+}
 
-  const userMessage =
-    `Job Details (JSON):\n-------------------\n${JSON.stringify(jobForOpenAI, null, 2)}\n\n` +
-    `Evaluate strictly based on the system rules. Return JSON only.`;
+/**
+ * Handles the fetch request and specific OpenAI error codes.
+ */
+async function executeOpenAICall(
+  userMessage: string,
+  apiKey: string,
+  attempt: number,
+  retries: number,
+): Promise<Response | null> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      max_tokens: 300,
+      temperature: 0,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+    }),
+  });
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          response_format: { type: 'json_object' },
-          max_tokens: 300,
-          temperature: 0,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userMessage },
-          ],
-        }),
-      });
-
-      // Rate limited — wait exactly what OpenAI says
-      if (res.status === 429) {
-        const retryAfter = parseInt(res.headers.get('retry-after') ?? '5', 10);
-        console.warn(`Rate limited. Waiting ${retryAfter}s (attempt ${attempt}/${retries})`);
-        await sleep(retryAfter * 1000);
-        continue;
-      }
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`OpenAI HTTP ${res.status}: ${text}`);
-      }
-
-      const data = await res.json() as { choices: { message: { content: string } }[] };
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) throw new Error('Empty response from OpenAI');
-
-      const parsed = JSON.parse(content) as RelevanceResult;
-
-      // Validate shape
-      const isValid = 
-        typeof parsed.score === 'number' &&
-        typeof parsed.is_matched === 'boolean' &&
-        typeof parsed.reason === 'string' &&
-        Array.isArray(parsed.matched_skills) &&
-        Array.isArray(parsed.missing_skills) &&
-        ('direct_apply' in parsed); // Ensure the field exists (even if null)
-
-      if (!isValid) {
-        throw new Error(`Invalid JSON shape: ${content}`);
-      }
-
-      return parsed;
-
-    } catch (err) {
-      if (attempt === retries) throw err;
-      const backoff = attempt * 2000; // 2s, 4s
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`Attempt ${attempt} failed for "${job.title}": ${message}. Retry in ${backoff}ms`);
-      await sleep(backoff);
-    }
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get("retry-after") ?? "5", 10);
+    console.warn(
+      `Rate limited. Waiting ${retryAfter}s (attempt ${attempt}/${retries})`,
+    );
+    await sleep(retryAfter * 1000);
+    return null;
   }
 
-  // TypeScript requires this even though the loop above always throws or returns
-  throw new Error(`All ${retries} attempts failed for job: ${job.title}`);
+  if (!res.ok) {
+    await handleOpenAIError(res);
+  }
+
+  return res;
+}
+
+/**
+ * Handles non-OK responses from OpenAI.
+ */
+async function handleOpenAIError(res: Response): Promise<never> {
+  const errorText = await res.text();
+  let errorData;
+  try {
+    errorData = JSON.parse(errorText);
+  } catch {
+    /* ignore non-json */
+  }
+
+  if (res.status === 401 && errorData?.error?.code === "invalid_api_key") {
+    throw new FatalError(`Invalid OpenAI API Key: ${errorData.error.message}`);
+  }
+
+  throw new Error(`OpenAI HTTP ${res.status}: ${errorText}`);
+}
+
+/**
+ * Parses and validates the OpenAI response content.
+ */
+async function parseAndValidateResponse(
+  res: Response,
+): Promise<RelevanceResult> {
+  const data = (await res.json()) as {
+    choices: { message: { content: string } }[];
+  };
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) throw new Error("Empty response from OpenAI");
+
+  const parsed = JSON.parse(content) as RelevanceResult;
+  if (!isValidRelevanceResult(parsed)) {
+    throw new Error(`Invalid JSON shape: ${content}`);
+  }
+
+  return parsed;
+}
+
+/**
+ * Type guard for RelevanceResult.
+ */
+function isValidRelevanceResult(parsed: any): parsed is RelevanceResult {
+  return (
+    typeof parsed.score === "number" &&
+    typeof parsed.is_matched === "boolean" &&
+    typeof parsed.reason === "string" &&
+    Array.isArray(parsed.matched_skills) &&
+    Array.isArray(parsed.missing_skills) &&
+    "direct_apply" in parsed
+  );
 }
 
 const sleep = (ms: number): Promise<void> =>
-  new Promise(resolve => setTimeout(resolve, ms));
+  new Promise((resolve) => setTimeout(resolve, ms));

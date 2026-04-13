@@ -1,187 +1,187 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Job Scrapper template
 
 # PARAMETERS
 Parameters:
-    AppEnv:
-        Type: String
-        Description: Application environment (dev/prod)
-        Default: prod
-    ApifyApiKey:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: API Key for Apify service to fetch job listings
-        Default: /job-scraper/APIFY_API_KEY
-    OpenaiApiKey:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: API Key for OpenAI service to evaluate job relevance
-        Default: /job-scraper/OPENAI_API_KEY
-    DatabaseUrl:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: Database connection URL (Postgres/Drizzle)
-        Default: /job-scraper/DATABASE_URL
-    AdminApiKey:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: API Key used to authenticate admin requests
-        Default: /job-scraper/ADMIN_API_KEY
-    MinMatchScore:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: Minimum AI match score for a job to be considered relevant
-        Default: /job-scraper/MIN_MATCH_SCORE
-    TelegramMatchedJobsBotToken:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: Telegram Bot Token for the bot that notifies about matched jobs
-        Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
-    TelegramDroppedJobsBotToken:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: Telegram Bot Token for the bot that notifies about rejected jobs
-        Default: /job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN
-    TelegramMatchedJobsChatId:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: Telegram Chat ID where matched job notifications are sent
-        Default: /job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID
-    TelegramDroppedJobsChatId:
-        Type: 'AWS::SSM::Parameter::Value<String>'
-        Description: Telegram Chat ID where rejected job notifications are sent
-        Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
+  AppEnv:
+    Type: String
+    Description: Application environment (dev/prod)
+    Default: prod
+  ApifyApiKey:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: API Key for Apify service to fetch job listings
+    Default: /job-scraper/APIFY_API_KEY
+  OpenaiApiKey:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: API Key for OpenAI service to evaluate job relevance
+    Default: /job-scraper/OPENAI_API_KEY
+  DatabaseUrl:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Database connection URL (Postgres/Drizzle)
+    Default: /job-scraper/DATABASE_URL
+  AdminApiKey:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: API Key used to authenticate admin requests
+    Default: /job-scraper/ADMIN_API_KEY
+  MinMatchScore:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Minimum AI match score for a job to be considered relevant
+    Default: /job-scraper/MIN_MATCH_SCORE
+  TelegramMatchedJobsBotToken:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Telegram Bot Token for the bot that notifies about matched jobs
+    Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
+  TelegramDroppedJobsBotToken:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Telegram Bot Token for the bot that notifies about rejected jobs
+    Default: /job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN
+  TelegramMatchedJobsChatId:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Telegram Chat ID where matched job notifications are sent
+    Default: /job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID
+  TelegramDroppedJobsChatId:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Telegram Chat ID where rejected job notifications are sent
+    Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
 
 Resources:
-    # Event Bridge Invoke Lambda
-    MainLambda:
-        Type: AWS::Serverless::Function
-        Properties:
-            Runtime: nodejs24.x
-            Architectures:
-                - arm64
-            MemorySize: 1024
-            ReservedConcurrentExecutions: 1
-            LoggingConfig:
-                LogFormat: JSON
-            CodeUri: ./
-            Handler: src/lambda.handler
-            Timeout: 600
-            Policies:
-                - AWSLambdaBasicExecutionRole
-                - SSMParameterReadPolicy:
-                      ParameterName: '/job-scraper/*'
-            Environment:
-                Variables:
-                    APIFY_API_KEY: !Ref ApifyApiKey
-                    OPENAI_API_KEY: !Ref OpenaiApiKey
-                    DATABASE_URL: !Ref DatabaseUrl
-                    MIN_MATCH_SCORE: !Ref MinMatchScore
-                    APP_ENV: !Ref AppEnv
-                    TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
-                    TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
-                    TELEGRAM_DROPPED_JOBS_BOT_TOKEN: !Ref TelegramDroppedJobsBotToken
-                    TELEGRAM_DROPPED_JOBS_CHAT_ID: !Ref TelegramDroppedJobsChatId
-                    ADMIN_API_KEY: !Ref AdminApiKey
+  # Event Bridge Invoke Lambda
+  MainLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 1024
+      ReservedConcurrentExecutions: 1
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: ./
+      Handler: src/lambda.handler
+      Timeout: 600
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SSMParameterReadPolicy:
+            ParameterName: "/job-scraper/*"
+      Environment:
+        Variables:
+          APIFY_API_KEY: !Ref ApifyApiKey
+          OPENAI_API_KEY: !Ref OpenaiApiKey
+          DATABASE_URL: !Ref DatabaseUrl
+          MIN_MATCH_SCORE: !Ref MinMatchScore
+          APP_ENV: !Ref AppEnv
+          TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
+          TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
+          TELEGRAM_DROPPED_JOBS_BOT_TOKEN: !Ref TelegramDroppedJobsBotToken
+          TELEGRAM_DROPPED_JOBS_CHAT_ID: !Ref TelegramDroppedJobsChatId
+          ADMIN_API_KEY: !Ref AdminApiKey
 
-            Events:
-                MorningRun:
-                    Type: ScheduleV2
-                    Properties:
-                        ScheduleExpression: cron(0 9 ? * MON-FRI *)
-                        ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: !Sub '{"lookbackHours": 18, "adminApiKey": "${AdminApiKey}"}'
-                        RetryPolicy:
-                            MaximumRetryAttempts: 0
-                            MaximumEventAgeInSeconds: 3600
-                AfternoonRun:
-                    Type: ScheduleV2
-                    Properties:
-                        ScheduleExpression: cron(0 13 ? * MON-FRI *)
-                        ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: !Sub '{"lookbackHours": 4, "adminApiKey": "${AdminApiKey}"}'
-                        RetryPolicy:
-                            MaximumRetryAttempts: 0
-                            MaximumEventAgeInSeconds: 3600
-                EveningRun:
-                    Type: ScheduleV2
-                    Properties:
-                        ScheduleExpression: cron(0 18 ? * MON-FRI *)
-                        ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
-                        RetryPolicy:
-                            MaximumRetryAttempts: 0
-                            MaximumEventAgeInSeconds: 3600
-                SundayMorningRun:
-                    Type: ScheduleV2
-                    Properties:
-                        ScheduleExpression: cron(0 8 ? * SUN *)
-                        ScheduleExpressionTimezone: 'Asia/Kolkata'
-                        Input: !Sub '{"lookbackHours": 48, "adminApiKey": "${AdminApiKey}"}'
-                        RetryPolicy:
-                            MaximumRetryAttempts: 0
-                            MaximumEventAgeInSeconds: 3600
-        Metadata:
-            BuildMethod: esbuild
-            BuildProperties:
-                Target: es2022
-                Format: esm
-                OutExtension:
-                    - .js=.mjs
-                Loader:
-                    - .txt=text
-                Sourcemap: true
-                Banner:
-                    - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
-                External:
-                    - '@aws-sdk/*'
-                    - 'aws-lambda'
-                EntryPoints:
-                    - src/lambda.ts
+      Events:
+        MorningRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 9 ? * MON-FRI *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 18, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        AfternoonRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 13 ? * MON-FRI *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 4, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        EveningRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 18 ? * MON-FRI *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        SundayMorningRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 8 ? * SUN *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 48, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Loader:
+          - .txt=text
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - src/lambda.ts
 
-    AdminLambda:
-        Type: AWS::Serverless::Function
-        Properties:
-            Runtime: nodejs24.x
-            Architectures:
-                - arm64
-            MemorySize: 128
-            LoggingConfig:
-                LogFormat: JSON
-            CodeUri: ./
-            Handler: src/admin.handler
-            Timeout: 30
-            Policies:
-                - AWSLambdaBasicExecutionRole
-                - SSMParameterReadPolicy:
-                      ParameterName: '/job-scraper/*'
-            Environment:
-                Variables:
-                    DATABASE_URL: !Ref DatabaseUrl
-                    APP_ENV: !Ref AppEnv
-                    ADMIN_API_KEY: !Ref AdminApiKey
-            Events:
-                AdminApi:
-                    Type: Api
-                    Properties:
-                        Path: /tokens
-                        Method: ANY
-        Metadata:
-            BuildMethod: esbuild
-            BuildProperties:
-                Target: es2022
-                Format: esm
-                OutExtension:
-                    - .js=.mjs
-                Sourcemap: true
-                Banner:
-                    - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
-                External:
-                    - '@aws-sdk/*'
-                    - 'aws-lambda'
-                EntryPoints:
-                    - src/admin.ts
+  AdminLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 128
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: ./
+      Handler: src/admin.handler
+      Timeout: 30
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SSMParameterReadPolicy:
+            ParameterName: "/job-scraper/*"
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+          APP_ENV: !Ref AppEnv
+          ADMIN_API_KEY: !Ref AdminApiKey
+      Events:
+        AdminApi:
+          Type: Api
+          Properties:
+            Path: /tokens
+            Method: ANY
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - src/admin.ts
 
-    MyLogGroup:
-        Type: AWS::Logs::LogGroup
-        Properties:
-            LogGroupName: !Sub '/aws/lambda/${MainLambda}'
-            RetentionInDays: 3
+  MyLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${MainLambda}"
+      RetentionInDays: 3
 
 Outputs:
-    ApiGatewayUrl:
-        Description: "API Gateway URL for Admin API"
-        Value: !Sub "https://${AdminLambda}.execute-api.${AWS::Region}.amazonaws.com/Prod/tokens"
+  ApiGatewayUrl:
+    Description: "API Gateway URL for Admin API"
+    Value: !Sub "https://${AdminLambda}.execute-api.${AWS::Region}.amazonaws.com/Prod/tokens"
