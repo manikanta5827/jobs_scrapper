@@ -4,6 +4,7 @@
  * Optimized for OpenAI Prompt Caching (50% discount on cached tokens).
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from "./types";
+import { setTimeout as sleep } from "node:timers/promises";
 
 export class FatalError extends Error {
   constructor(message: string) {
@@ -324,6 +325,3 @@ function isValidRelevanceResult(parsed: any): parsed is RelevanceResult {
     "direct_apply" in parsed
   );
 }
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
