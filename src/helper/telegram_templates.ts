@@ -112,6 +112,6 @@ export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: stri
   msg += `📅 <b>Date:</b> <code>${dateStr}</code>\n`;
   msg += `❌ <b>Reason:</b> <code>${errorMessage}</code>\n\n`;
   msg += `🛑 <b>Processing stopped immediately.</b>\n`;
-  msg += `🛠 <i>Please update your <code>OPENAI_API_KEY</code>.</i>`;
+  msg += `🛠 <i>Please update your <code>DEEPSEEK_API_KEY</code>.</i>`;
   return msg;
 }

@@ -23,7 +23,7 @@ Create an `env.json` in the root directory for local testing:
 {
   "MainLambda": {
     "APIFY_API_KEY_PATH": "your_apify_token",
-    "OPENAI_API_KEY_PATH": "your_openai_token",
+    "DEEPSEEK_API_KEY_PATH": "your_openai_token",
     "DATABASE_URL_PATH": "postgresql://...",
     "MASTER_EMAIL_PATH": "sender@example.com",
     "RECEIVER_EMAIL_PATH": "receiver@example.com"
@@ -34,7 +34,7 @@ Create an `env.json` in the root directory for local testing:
 ### 3. AWS SSM Parameter Store
 For deployment, the Lambda fetches secrets at runtime. Ensure these paths exist in your AWS Parameter Store:
 *   `/job-scraper/APIFY_API_KEY`
-*   `/job-scraper/OPENAI_API_KEY`
+*   `/job-scraper/DEEPSEEK_API_KEY`
 *   `/job-scraper/DATABASE_URL`
 *   `/job-scraper/MASTER_EMAIL`
 *   `/job-scraper/RECEIVER_EMAIL`

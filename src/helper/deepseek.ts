@@ -1,7 +1,7 @@
 /**
- * openai.ts
- * Checks job relevance using GPT-4o-mini with batching + retry.
- * Optimized for OpenAI Prompt Caching (50% discount on cached tokens).
+ * deepseek.ts
+ * Checks job relevance using DeepSeek Chat (deepseek-chat) with batching + retry.
+ * Benefits from DeepSeek's automatic disk-based context caching on repeated prefixes.
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -19,7 +19,7 @@ const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
 import resumeText from "../../resume.txt";
 
 /**
- * To maximize OpenAI Prompt Caching, we combine static content (Rules + Resume + Examples)
+ * To maximize DeepSeek's context caching, we combine static content (Rules + Resume + Examples)
  * into a single "system" message prefix. This stays identical across all requests.
  *
  * Requirement: Prefix must be >= 1024 tokens to trigger caching.
@@ -115,7 +115,7 @@ export async function checkRelevanceBatch(
     const totalBatches = Math.ceil(jobs.length / batchSize);
 
     console.log(
-      `OpenAI batch ${batchNum}/${totalBatches} (${batch.length} jobs)`,
+      `DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`,
     );
 
     const results = await Promise.allSettled(
@@ -146,7 +146,7 @@ export async function checkRelevanceBatch(
         };
         isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
       } else {
-        // OpenAI failed after retries
+        // DeepSeek failed after retries
         const err = result.reason;
 
         // PROPAGATE FATAL ERRORS IMMEDIATELY
@@ -155,13 +155,13 @@ export async function checkRelevanceBatch(
         }
 
         const reason = err instanceof Error ? err.message : String(err);
-        console.error(`Job failed OpenAI check: "${job.title}" | ${reason}`);
+        console.error(`Job failed DeepSeek check: "${job.title}" | ${reason}`);
         rejected.push({
           ...job,
           status: "rejected",
           ai_score: 0,
           ai_is_matched: false,
-          ai_reason: "OpenAI check failed",
+          ai_reason: "DeepSeek check failed",
           ai_matched_skills: [],
           ai_missing_skills: [],
           ai_direct_apply: null,
@@ -182,14 +182,14 @@ export async function checkSingleJob(
   job: Job,
   retries: number = 3,
 ): Promise<RelevanceResult> {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+  const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
   const userMessage = `Job Details (JSON):\n-------------------\n${JSON.stringify(prepareJobPayload(job), null, 2)}\n\nEvaluate strictly based on the system rules. Return JSON only.`;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const res = await executeOpenAICall(
+      const res = await executeDeepSeekCall(
         userMessage,
-        OPENAI_API_KEY,
+        DEEPSEEK_API_KEY,
         attempt,
         retries,
       );
@@ -230,22 +230,22 @@ function prepareJobPayload(job: Job) {
 }
 
 /**
- * Handles the fetch request and specific OpenAI error codes.
+ * Handles the fetch request and specific DeepSeek error codes.
  */
-async function executeOpenAICall(
+async function executeDeepSeekCall(
   userMessage: string,
   apiKey: string,
   attempt: number,
   retries: number,
 ): Promise<Response | null> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       response_format: { type: "json_object" },
       max_tokens: 300,
       temperature: 0,
@@ -266,33 +266,27 @@ async function executeOpenAICall(
   }
 
   if (!res.ok) {
-    await handleOpenAIError(res);
+    await handleDeepSeekError(res);
   }
 
   return res;
 }
 
 /**
- * Handles non-OK responses from OpenAI.
+ * Handles non-OK responses from DeepSeek.
  */
-async function handleOpenAIError(res: Response): Promise<never> {
+async function handleDeepSeekError(res: Response): Promise<never> {
   const errorText = await res.text();
-  let errorData;
-  try {
-    errorData = JSON.parse(errorText);
-  } catch {
-    /* ignore non-json */
+
+  if (res.status === 401) {
+    throw new FatalError(`Invalid DeepSeek API Key: ${errorText}`);
   }
 
-  if (res.status === 401 && errorData?.error?.code === "invalid_api_key") {
-    throw new FatalError(`Invalid OpenAI API Key: ${errorData.error.message}`);
-  }
-
-  throw new Error(`OpenAI HTTP ${res.status}: ${errorText}`);
+  throw new Error(`DeepSeek HTTP ${res.status}: ${errorText}`);
 }
 
 /**
- * Parses and validates the OpenAI response content.
+ * Parses and validates the DeepSeek response content.
  */
 async function parseAndValidateResponse(
   res: Response,
@@ -302,7 +296,7 @@ async function parseAndValidateResponse(
   };
   const content = data.choices?.[0]?.message?.content;
 
-  if (!content) throw new Error("Empty response from OpenAI");
+  if (!content) throw new Error("Empty response from DeepSeek");
 
   const parsed = JSON.parse(content) as RelevanceResult;
   if (!isValidRelevanceResult(parsed)) {

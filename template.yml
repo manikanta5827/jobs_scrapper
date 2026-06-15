@@ -12,10 +12,10 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: API Key for Apify service to fetch job listings
     Default: /job-scraper/APIFY_API_KEY
-  OpenaiApiKey:
+  DeepseekApiKey:
     Type: "AWS::SSM::Parameter::Value<String>"
-    Description: API Key for OpenAI service to evaluate job relevance
-    Default: /job-scraper/OPENAI_API_KEY
+    Description: API Key for DeepSeek service to evaluate job relevance
+    Default: /job-scraper/DEEPSEEK_API_KEY
   DatabaseUrl:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: Database connection URL (Postgres/Drizzle)
@@ -67,7 +67,7 @@ Resources:
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
-          OPENAI_API_KEY: !Ref OpenaiApiKey
+          DEEPSEEK_API_KEY: !Ref DeepseekApiKey
           DATABASE_URL: !Ref DatabaseUrl
           MIN_MATCH_SCORE: !Ref MinMatchScore
           APP_ENV: !Ref AppEnv

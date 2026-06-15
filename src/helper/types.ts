@@ -24,7 +24,7 @@ export interface Job {
   [key: string]:      any; // Still allow other fields but they won't be explicitly typed
 }
 
-// OpenAI relevance check result
+// DeepSeek relevance check result
 export interface RelevanceResult {
   score:               number;
   is_matched:          boolean;
@@ -36,7 +36,7 @@ export interface RelevanceResult {
   direct_apply:        string | null;
 }
 
-// Job after OpenAI enrichment
+// Job after DeepSeek enrichment
 export interface EnrichedJob extends Job {
   status:             'matched' | 'rejected' | 'binned';
   ai_score?:          number;

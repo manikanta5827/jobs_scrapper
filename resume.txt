@@ -1,45 +1,46 @@
+Summary
+Backend Engineer with experience building serverless AWS applications, AI agents, and production SaaS
+products. Founder of Assessly (CodeVerdict.io), an AI-powered code assessment platform for hiring teams.
+Skilled in Node.js, TypeScript, AWS Lambda, DynamoDB, Amazon Bedrock, and event-driven architectures.
+Experience
+Founder & AI Engineer — Assessly (CodeVerdict.io) Mar 2026 – Present
+Independent Hyderabad, India
+– Built an AI-powered hiring platform that evaluates candidate GitHub repositories and generates detailed
+engineering review reports in under one minute.
+– Designed a repository ingestion pipeline using GitHub APIs, S3, AWS Lambda, and LLM-based code analysis
+workflows.
+– Implemented a scoring framework covering code quality, architecture, security, maintainability, and technical
+decision-making.
+– Developed production infrastructure using AWS serverless services (Lambda, DynamoDB, S3, Bedrock) and Vercel
+AI SDK.
+Founding AI Engineer Apr 2026 – June 2026
+OnEasy Hyderabad, India
+– Contributed as a founding engineer to an early-stage AI product, designing and building core backend systems and
+AI workflows.
+Backend Developer Intern Nov 2025 – Jan 2026
+AntStack Remote
+– Built and maintained serverless backend services on AWS, working with Lambda, DynamoDB, and API Gateway.
+– Collaborated with senior engineers on event-driven architecture and cloud-native API development.
+Backend Developer Intern Mar 2025 – Aug 2025
+Persist Ventures Remote
+– Developed backend features and REST APIs using Node.js and TypeScript for early-stage startup products.
+– Worked on database schema design and server-side business logic for web applications.
+Education
+Sir CRR College Of Engineering Bachelor of Technology – Electronics and Communication Projects
+2019 – 2023
+Eluru, India
+Heymonsoon | SvelteKit, TypeScript, Google Gemini, Vercel AI SDK, LibSQL, WhatsApp API May 2026 - Present
+– Built an AI-powered WhatsApp accounting agent for Indian SME owners — handles invoicing, GST compliance,
+and receivables tracking via natural language conversations.
+– Designed an agentic tool-calling system (Gemini 2.0 Flash + Vercel AI SDK) with tools for customer CRM,
+GST-compliant PDF generation, payment reconciliation, and automated overdue reminders.
+Job Search Automation Engine | Node.js, Web Scraping, AI Agents, AWS Feb 2026 - Mar 2026
+– Engineered an automated pipeline that scrapes job listings, matches them against a candidate profile using
+LLM-based analysis, and surfaces the most relevant roles daily.
+– Reduced manual job search effort from hours to minutes by automating discovery and filtering.
 Technical Skills
-
-Languages: JavaScript (Node.js), TypeScript, Python
-Cloud & Serverless: AWS Lambda, SAM, API Gateway, DynamoDB, S3, RDS, IAM, Step Functions, SQS, SNS, SES,
-EventBridge, CloudWatch, CloudFront CDN
-AI / LLMs: AWS Bedrock, LangChain, Agents, MCPs, Tooling, RAG
+Languages: Node.js, TypeScript, JavaScript
+Cloud & Infrastructure: AWS Lambda, AWS Serverless , Cloudflare Serverless
+AI & ML: LLM Integration, Vercel AI SDK, Prompt Engineering, AI Agent Design, RAG, Sub Agents, MCP
 Databases & Caching: PostgreSQL, DynamoDB, Redis, Vector DB, Supabase
 DevOps & Tooling: Docker, Git, GitHub, CI/CD, Jest
-Architecture: Event-Driven Systems, REST APIs, Microservices
-
-
-Experience
-
-Backend Developer Intern | AntStack Nov 2025 – Jan 2026
-Engineered and deployed serverless backend systems using AWS Lambda, SAM, API Gateway, DynamoDB, and IAM.
-Designed and implemented robust event-driven workflows leveraging SQS, SNS, EventBridge, and SES.
-Developed and integrated LLM-based agents using AWS Bedrock, Strands, AgentCore, and MCPs.
-Ensured adherence to cloud-native security and performance best practices across scalable Node.js services.
-
-Backend Developer Intern | Persist Ventures Mar 2025 – Aug 2025
-Developed secure RESTful APIs using Node.js and Symfony, integrated with MySQL and AWS S3.
-Improved API response times by up to 80% through async processing and Redis caching.
-Automated critical background processing tasks using Symfony Messenger and cron-based workflows.
-
-
-Projects
-
-AI Research App: Developed a Perplexity-style AI research assistant with LLM-powered summarization and search.
-Implemented a $0/month serverless backend using AWS Lambda, integrating DuckDuckGo for web scraping and utilizing
-the Grok model for its high context window and fast response. Designed a simple React frontend.
-
-Job Search Automation Engine: Automated job search and resume generation using AWS Step Functions, Apify
-(LinkedIn scraping), and OpenAI. Analyzes relevance, creates tailored ATS resumes, and stores data in Google Sheets
-(0$ cost with AWS Free Tier).
-
-Leave Management System (Serverless): Developed a leave application system using AWS Lambda, Step Functions
-for approval workflow orchestration, and SES for email notifications (request and final status). Supabase served as the
-database, with SAM used for Infrastructure as Code.
-
-
-Certifications
-
-Advanced Node.js Development (Udemy)
-Troubleshooting Backend Performance (Udemy)
-Database Engineering (Udemy)

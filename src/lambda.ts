@@ -1,12 +1,12 @@
 /**
  * lambda.ts — Main Lambda Handler
  * Triggered by EventBridge daily at 2:00 AM UTC (7:30 AM IST)
- * Flow: Scrape → Clean/Dedup → DB Check → Keyword Filter → OpenAI AI Match → Notify
+ * Flow: Scrape → Clean/Dedup → DB Check → Keyword Filter → DeepSeek AI Match → Notify
  */
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { scrapeJobs } from './helper/apify';
-import { checkRelevanceBatch, FatalError } from './helper/openai';
+import { checkRelevanceBatch, FatalError } from './helper/deepseek';
 import { getExistingJobsData, trackJobs, resetHighUsageTokens } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
@@ -23,7 +23,7 @@ import {
 import type { Job, JobStats } from './helper/types';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const OPENAI_BATCH_SIZE = 10;
+const DEEPSEEK_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;
 
 const TELEGRAM_MATCHED_JOBS_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
@@ -120,7 +120,7 @@ export const handler = async (
     }
 
     // 5. AI Relevance Check
-    const { matched, rejected } = await checkRelevanceBatch(toCheck, OPENAI_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, rejected } = await checkRelevanceBatch(toCheck, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
     const aiRejected = toCheckCount - matchedCount;
     for (const job of rejected) {
