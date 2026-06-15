@@ -4,15 +4,13 @@
  */
 
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { 
-  getAllApifyTokens, 
-  addApifyToken, 
-  deleteApifyToken, 
-  updateApifyToken 
-} from './helper/db_helper';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+
+const lambdaClient = new LambdaClient({});
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const method = event.httpMethod;
+  const path = event.resource || event.path;
   const body = event.body ? JSON.parse(event.body) : {};
 
   // 🛡️ Security Check
@@ -23,35 +21,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    switch (method) {
-      case 'GET': {
-        const tokens = await getAllApifyTokens();
-        return response(200, { tokens });
-      }
+    // Trigger MainLambda asynchronously
+    if (path === '/run') {
+      if (method !== 'POST') return response(405, { error: 'Method Not Allowed' });
 
-      case 'POST': {
-        if (!body.apiKey || !body.subscriptionStartDate) {
-          return response(400, { error: 'Missing apiKey or subscriptionStartDate (YYYY-MM-DD)' });
-        }
-        const result = await addApifyToken(body.apiKey, body.subscriptionStartDate);
-        return response(201, { message: 'Token added', result });
-      }
+      const lookbackHours = body.lookbackHours ?? 24;
+      await lambdaClient.send(new InvokeCommand({
+        FunctionName: process.env.MAIN_LAMBDA_FUNCTION_NAME!,
+        InvocationType: 'Event',
+        Payload: JSON.stringify({ lookbackHours, adminApiKey: process.env.ADMIN_API_KEY }),
+      }));
 
-      case 'PATCH': {
-        if (!body.id) return response(400, { error: 'Missing token id' });
-        const result = await updateApifyToken(body.id, body);
-        return response(200, { message: 'Token updated', result });
-      }
-
-      case 'DELETE': {
-        if (!body.id) return response(400, { error: 'Missing token id' });
-        await deleteApifyToken(body.id);
-        return response(200, { message: 'Token deleted' });
-      }
-
-      default:
-        return response(405, { error: 'Method Not Allowed' });
+      return response(202, { message: 'MainLambda invoked', lookbackHours });
     }
+
+    return response(404, { error: 'Not Found' });
   } catch (err: any) {
     console.error('Admin API error:', err);
     return response(500, { error: err.message });

@@ -148,17 +148,20 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:
             ParameterName: "/job-scraper/*"
+        - LambdaInvokePolicy:
+            FunctionName: !Ref MainLambda
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
           APP_ENV: !Ref AppEnv
           ADMIN_API_KEY: !Ref AdminApiKey
+          MAIN_LAMBDA_FUNCTION_NAME: !Ref MainLambda
       Events:
-        AdminApi:
+        RunMainLambda:
           Type: Api
           Properties:
-            Path: /tokens
-            Method: ANY
+            Path: /run
+            Method: POST
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -183,5 +186,5 @@ Resources:
 
 Outputs:
   ApiGatewayUrl:
-    Description: "API Gateway URL for Admin API"
-    Value: !Sub "https://${AdminLambda}.execute-api.${AWS::Region}.amazonaws.com/Prod/tokens"
+    Description: "API Gateway base URL for Admin API"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/run"
