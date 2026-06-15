@@ -49,10 +49,18 @@ export interface EnrichedJob extends Job {
   ai_direct_apply?:   string | null;
 }
 
+// DeepSeek token usage, accumulated across all batch calls
+export interface TokenUsage {
+  promptCacheHitTokens:  number;
+  promptCacheMissTokens: number;
+  completionTokens:      number;
+}
+
 // Result from checkRelevanceBatch
 export interface BatchResult {
   matched:  EnrichedJob[];
   rejected: EnrichedJob[];
+  usage:    TokenUsage;
 }
 
 export interface JobStats {

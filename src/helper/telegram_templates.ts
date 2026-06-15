@@ -1,4 +1,4 @@
-import type { EnrichedJob, JobStats } from './types';
+import type { EnrichedJob, JobStats, TokenUsage } from './types';
 
 function getStatsSection(stats: JobStats): string {
   return `📊 <b>PROCESSING STATS:</b>\n` +
@@ -50,6 +50,7 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   msg += `────────────────────\n`;
   msg += `🏢 <b>Company:</b>  <code>${j.companyName}</code>\n`;
   msg += `📍 <b>Location:</b> <code>${j.ai_job_location ?? 'Not specified'}</code>\n`;
+  msg += `📅 <b>Posted:</b> <code>${j.postedAt ?? 'Unknown'}</code>\n`;
   msg += `⏳ <b>Experience:</b> <code>${j.ai_yoe ?? 'Not specified'}</code>\n\n`;
   
   msg += `${scoreEmoji} <b>Match Score:</b> <code>${j.ai_score}/100</code>\n`;
@@ -89,6 +90,18 @@ export function getDroppedJobMessage(j: EnrichedJob | any, reason: string): stri
   
   msg += `🔗 <a href="${j.link}">View Original Listing</a>`;
   return msg;
+}
+
+/**
+ * Formats the DeepSeek token usage / cost summary for this run.
+ */
+export function getCostSummaryMessage(usage: TokenUsage, costUsd: number): string {
+  return `💰 <b>DEEPSEEK USAGE</b>\n` +
+         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+         `├ 📦 <b>Cache hit tokens:</b> <code>${usage.promptCacheHitTokens}</code>\n` +
+         `├ 🆕 <b>Cache miss tokens:</b> <code>${usage.promptCacheMissTokens}</code>\n` +
+         `├ 📝 <b>Output tokens:</b> <code>${usage.completionTokens}</code>\n` +
+         `└ 💵 <b>Estimated cost:</b> <code>$${costUsd.toFixed(6)}</code>`;
 }
 
 /**

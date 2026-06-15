@@ -6,7 +6,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { scrapeJobs } from './helper/apify';
-import { checkRelevanceBatch, FatalError } from './helper/deepseek';
+import { checkRelevanceBatch, calculateCostUsd, FatalError } from './helper/deepseek';
 import { getExistingJobsData, trackJobs, resetHighUsageTokens } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
@@ -18,7 +18,8 @@ import {
   getDroppedJobMessage, 
   getFailureTelegramMessage,
   getZeroMatchesMessage,
-  getFatalErrorTelegramMessage
+  getFatalErrorTelegramMessage,
+  getCostSummaryMessage
 } from './helper/telegram_templates';
 import type { Job, JobStats } from './helper/types';
 
@@ -120,7 +121,7 @@ export const handler = async (
     }
 
     // 5. AI Relevance Check
-    const { matched, rejected } = await checkRelevanceBatch(toCheck, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, rejected, usage } = await checkRelevanceBatch(toCheck, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
     const aiRejected = toCheckCount - matchedCount;
     for (const job of rejected) {
@@ -148,6 +149,10 @@ export const handler = async (
       console.log(`Total ${allDropped.length} jobs are dropped.`);
       // await sendDroppedJobs(allDropped, dateStr);
     }
+
+    // Send DeepSeek cost summary as the final message
+    const costUsd = calculateCostUsd(usage);
+    await sendTelegramMessage(TELEGRAM_MATCHED_JOBS_BOT_TOKEN, TELEGRAM_MATCHED_JOBS_CHAT_ID, getCostSummaryMessage(usage, costUsd));
 
     return response(200, {
       scraped: rawCount,

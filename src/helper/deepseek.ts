@@ -3,7 +3,7 @@
  * Checks job relevance using DeepSeek Chat (deepseek-chat) with batching + retry.
  * Benefits from DeepSeek's automatic disk-based context caching on repeated prefixes.
  */
-import type { Job, EnrichedJob, RelevanceResult, BatchResult } from "./types";
+import type { Job, EnrichedJob, RelevanceResult, BatchResult, TokenUsage } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
 
 export class FatalError extends Error {
@@ -14,6 +14,20 @@ export class FatalError extends Error {
 }
 
 const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
+
+// "deepseek-chat" is an alias for DeepSeek V4 Flash (non-thinking), price per 1M tokens (USD).
+// ponytail: alias deprecates 2026-07-24 — re-check pricing/model name after that.
+const PRICE_PER_M_CACHE_HIT_TOKENS = 0.0028;
+const PRICE_PER_M_CACHE_MISS_TOKENS = 0.14;
+const PRICE_PER_M_OUTPUT_TOKENS = 0.28;
+
+export function calculateCostUsd(usage: TokenUsage): number {
+  return (
+    (usage.promptCacheHitTokens / 1_000_000) * PRICE_PER_M_CACHE_HIT_TOKENS +
+    (usage.promptCacheMissTokens / 1_000_000) * PRICE_PER_M_CACHE_MISS_TOKENS +
+    (usage.completionTokens / 1_000_000) * PRICE_PER_M_OUTPUT_TOKENS
+  );
+}
 
 // @ts-ignore
 import resumeText from "../../resume.txt";
@@ -120,6 +134,7 @@ export async function checkRelevanceBatch(
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
+  const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0 };
 
   for (let i = 0; i < jobs.length; i += batchSize) {
     const batch = jobs.slice(i, i + batchSize);
@@ -132,7 +147,11 @@ export async function checkRelevanceBatch(
 
     let results: Map<number, RelevanceResult>;
     try {
-      results = await checkBatch(batch);
+      const batchResult = await checkBatch(batch);
+      results = batchResult.results;
+      usage.promptCacheHitTokens += batchResult.usage.promptCacheHitTokens;
+      usage.promptCacheMissTokens += batchResult.usage.promptCacheMissTokens;
+      usage.completionTokens += batchResult.usage.completionTokens;
     } catch (err) {
       // PROPAGATE FATAL ERRORS IMMEDIATELY
       if (err instanceof FatalError) throw err;
@@ -184,7 +203,7 @@ export async function checkRelevanceBatch(
     }
   }
 
-  return { matched, rejected };
+  return { matched, rejected, usage };
 }
 
 /**
@@ -194,7 +213,7 @@ export async function checkRelevanceBatch(
 async function checkBatch(
   batch: Job[],
   retries: number = 3,
-): Promise<Map<number, RelevanceResult>> {
+): Promise<{ results: Map<number, RelevanceResult>; usage: TokenUsage }> {
   const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
   const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
   const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules. Return JSON only, with one result per job tagged by "id".`;
@@ -309,9 +328,14 @@ async function handleDeepSeekError(res: Response): Promise<never> {
 async function parseAndValidateResponse(
   res: Response,
   expectedCount: number,
-): Promise<Map<number, RelevanceResult>> {
+): Promise<{ results: Map<number, RelevanceResult>; usage: TokenUsage }> {
   const data = (await res.json()) as {
     choices: { message: { content: string } }[];
+    usage?: {
+      completion_tokens?: number;
+      prompt_cache_hit_tokens?: number;
+      prompt_cache_miss_tokens?: number;
+    };
   };
   const content = data.choices?.[0]?.message?.content;
 
@@ -338,7 +362,13 @@ async function parseAndValidateResponse(
     console.warn(`DeepSeek returned ${results.size}/${expectedCount} results`);
   }
 
-  return results;
+  const usage: TokenUsage = {
+    promptCacheHitTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
+    promptCacheMissTokens: data.usage?.prompt_cache_miss_tokens ?? 0,
+    completionTokens: data.usage?.completion_tokens ?? 0,
+  };
+
+  return { results, usage };
 }
 
 /**
