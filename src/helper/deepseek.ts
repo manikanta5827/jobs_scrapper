@@ -41,11 +41,11 @@ ${resumeText}
 ### 2. SKILL ALIGNMENT
 - HARD REJECT: Job says "must have", "required", "strong knowledge of" a skill the candidate clearly lacks (e.g., "Must have Java" → candidate has no Java)
 - SOFT MISS (not a reject): Nice-to-haves or preferred skills the candidate lacks → deduct points only
-- NATURAL ALIGNMENT: Count adjacent skills as matches (e.g., "React" asked, candidate has "Next.js/Frontend" → match; "cloud experience" asked, candidate has AWS → match)
+- NATURAL ALIGNMENT: Count adjacent skills as matches (e.g., "React" asked, candidate has "Next.js/Frontend" → match; "cloud experience" asked, candidate has AWS → match; "CI/CD, Linux, Docker, monitoring, Terraform/IaC" asked for a DevOps/Cloud role, candidate has AWS Lambda Serverless, Docker, Cloudflare Serverless → match as DevOps-adjacent; "LangChain/LangGraph/AutoGen/CrewAI/OpenAI Agents SDK/AI Agent Engineer" asked, candidate has "Vercel AI SDK, MCP, Sub-Agent design, RAG, Prompt Engineering" → match as agentic-AI-adjacent)
 - OPTIONAL SKILLS: "Java, Python, or Node.js" → candidate has Node.js → full match
 
 ### 3. DOMAIN RELEVANCE
-- Must be related to: Backend Development, Cloud/AWS, AI/LLM, Fullstack, DevOps, or Software Engineering broadly
+- Must be related to: Backend Development, Cloud/AWS, AI/LLM/Agentic Engineering (LLM apps, AI agents, MCP, RAG, sub-agents), Fullstack, DevOps, or Software Engineering broadly
 - REJECT: Completely unrelated fields (e.g., sales, marketing, finance, hardware)
 
 ---
@@ -64,6 +64,7 @@ ${resumeText}
 ---
 
 ## FEW-SHOT EXAMPLES
+Each example shows the per-job evaluation logic. In your actual response, wrap each job's result as one item of "results" with its "id" added.
 
 **Example 1 — REJECT (experience)**
 Input: { "title": "Node.js Developer", "seniorityLevel": "Mid-Senior", "descriptionText": "3+ years of backend experience required..." }
@@ -83,22 +84,33 @@ Output: { "score": 97, "is_matched": true, "reason": "Excellent match on stack a
 
 ---
 
+## INPUT FORMAT
+You will receive a JSON array of jobs, each with a unique "id" field. Evaluate EVERY job in the array independently, applying the rules above to each one.
+
 ## OUTPUT FORMAT
 Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
 
 {
-  "score": number (0–100),
-  "is_matched": boolean,
-  "reason": "1–2 sentences. Be specific about why it passed or failed.",
-  "matched_skills": ["list of skills from JD that candidate has"],
-  "missing_skills": ["list of skills from JD that candidate lacks — label as (required) or (nice-to-have)"],
-  "job_location": "city, country, or Remote — null if not mentioned",
-  "years_of_experience": "exact text from JD or 'not specified'",
-  "direct_apply": "full instruction string or null"
-}`;
+  "results": [
+    {
+      "id": number (must match the input job's "id"),
+      "score": number (0–100),
+      "is_matched": boolean,
+      "reason": "1–2 sentences. Be specific about why it passed or failed.",
+      "matched_skills": ["list of skills from JD that candidate has"],
+      "missing_skills": ["list of skills from JD that candidate lacks — label as (required) or (nice-to-have)"],
+      "job_location": "city, country, or Remote — null if not mentioned",
+      "years_of_experience": "exact text from JD or 'not specified'",
+      "direct_apply": "full instruction string or null"
+    }
+  ]
+}
+
+"results" must contain exactly one object per input job, tagged with the matching "id". Order does not matter.`;
 
 /**
- * Process jobs in batches. Each batch fires in parallel.
+ * Process jobs in batches. Each batch is sent to DeepSeek as a SINGLE call
+ * containing all jobs in the batch (tagged with an "id" for response mapping).
  * Delay between batches to respect TPM limits.
  */
 export async function checkRelevanceBatch(
@@ -118,17 +130,23 @@ export async function checkRelevanceBatch(
       `DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`,
     );
 
-    const results = await Promise.allSettled(
-      batch.map((job) => checkSingleJob(job)),
-    );
+    let results: Map<number, RelevanceResult>;
+    try {
+      results = await checkBatch(batch);
+    } catch (err) {
+      // PROPAGATE FATAL ERRORS IMMEDIATELY
+      if (err instanceof FatalError) throw err;
 
-    for (let j = 0; j < results.length; j++) {
-      const result = results[j];
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
+      results = new Map();
+    }
+
+    for (let j = 0; j < batch.length; j++) {
       const job = batch[j];
+      const parsed = results.get(j);
 
-      if (result.status === "fulfilled") {
-        const parsed: RelevanceResult = result.value;
-
+      if (parsed) {
         const isGoodMatch =
           parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
 
@@ -146,16 +164,7 @@ export async function checkRelevanceBatch(
         };
         isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
       } else {
-        // DeepSeek failed after retries
-        const err = result.reason;
-
-        // PROPAGATE FATAL ERRORS IMMEDIATELY
-        if (err instanceof FatalError) {
-          throw err;
-        }
-
-        const reason = err instanceof Error ? err.message : String(err);
-        console.error(`Job failed DeepSeek check: "${job.title}" | ${reason}`);
+        console.error(`Job missing from DeepSeek response: "${job.title}"`);
         rejected.push({
           ...job,
           status: "rejected",
@@ -178,36 +187,43 @@ export async function checkRelevanceBatch(
   return { matched, rejected };
 }
 
-export async function checkSingleJob(
-  job: Job,
+/**
+ * Sends one batch of jobs to DeepSeek in a single call.
+ * Returns a map of input array index -> parsed result.
+ */
+async function checkBatch(
+  batch: Job[],
   retries: number = 3,
-): Promise<RelevanceResult> {
+): Promise<Map<number, RelevanceResult>> {
   const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
-  const userMessage = `Job Details (JSON):\n-------------------\n${JSON.stringify(prepareJobPayload(job), null, 2)}\n\nEvaluate strictly based on the system rules. Return JSON only.`;
+  const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
+  const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules. Return JSON only, with one result per job tagged by "id".`;
+  const maxTokens = Math.min(8192, batch.length * 300 + 200);
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await executeDeepSeekCall(
         userMessage,
         DEEPSEEK_API_KEY,
+        maxTokens,
         attempt,
         retries,
       );
       if (!res) continue; // Handled 429 and waiting
 
-      return await parseAndValidateResponse(res);
+      return await parseAndValidateResponse(res, batch.length);
     } catch (err) {
       if (err instanceof FatalError || attempt === retries) throw err;
 
       const backoff = attempt * 2000;
       console.warn(
-        `Attempt ${attempt} failed for "${job.title}": ${err instanceof Error ? err.message : String(err)}. Retry in ${backoff}ms`,
+        `Attempt ${attempt} failed for batch of ${batch.length}: ${err instanceof Error ? err.message : String(err)}. Retry in ${backoff}ms`,
       );
       await sleep(backoff);
     }
   }
 
-  throw new Error(`All ${retries} attempts failed for job: ${job.title}`);
+  throw new Error(`All ${retries} attempts failed for batch of ${batch.length} jobs`);
 }
 
 /**
@@ -235,6 +251,7 @@ function prepareJobPayload(job: Job) {
 async function executeDeepSeekCall(
   userMessage: string,
   apiKey: string,
+  maxTokens: number,
   attempt: number,
   retries: number,
 ): Promise<Response | null> {
@@ -247,7 +264,7 @@ async function executeDeepSeekCall(
     body: JSON.stringify({
       model: "deepseek-chat",
       response_format: { type: "json_object" },
-      max_tokens: 300,
+      max_tokens: maxTokens,
       temperature: 0,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -286,11 +303,13 @@ async function handleDeepSeekError(res: Response): Promise<never> {
 }
 
 /**
- * Parses and validates the DeepSeek response content.
+ * Parses and validates a batch DeepSeek response (`{"results": [{id, ...}]}`)
+ * into a map of input array index -> result.
  */
 async function parseAndValidateResponse(
   res: Response,
-): Promise<RelevanceResult> {
+  expectedCount: number,
+): Promise<Map<number, RelevanceResult>> {
   const data = (await res.json()) as {
     choices: { message: { content: string } }[];
   };
@@ -298,12 +317,28 @@ async function parseAndValidateResponse(
 
   if (!content) throw new Error("Empty response from DeepSeek");
 
-  const parsed = JSON.parse(content) as RelevanceResult;
-  if (!isValidRelevanceResult(parsed)) {
-    throw new Error(`Invalid JSON shape: ${content}`);
+  const parsed = JSON.parse(content);
+  const items = parsed?.results;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error(`Invalid batch response shape: ${content}`);
   }
 
-  return parsed;
+  const results = new Map<number, RelevanceResult>();
+  for (const item of items) {
+    const id = item?.id;
+    if (typeof id !== "number" || !isValidRelevanceResult(item)) {
+      console.warn(`Skipping invalid result item: ${JSON.stringify(item)}`);
+      continue;
+    }
+    results.set(id, item);
+  }
+
+  if (results.size < expectedCount) {
+    console.warn(`DeepSeek returned ${results.size}/${expectedCount} results`);
+  }
+
+  return results;
 }
 
 /**
