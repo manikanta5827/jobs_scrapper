@@ -211,14 +211,6 @@ Resources:
     Properties:
       VisibilityTimeout: 300
       MessageRetentionPeriod: 345600
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt PostDLQ.Arn
-        maxReceiveCount: 3
-
-  PostDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      MessageRetentionPeriod: 1209600
 
   PostSchedulerLambda:
     Type: AWS::Serverless::Function
@@ -242,7 +234,6 @@ Resources:
               Action:
                 - sqs:ReceiveMessage
                 - sqs:DeleteMessage
-                - sqs:GetQueueAttributes
               Resource: !GetAtt PostQueue.Arn
       Environment:
         Variables:
