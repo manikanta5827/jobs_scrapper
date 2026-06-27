@@ -11,7 +11,7 @@ import { getExistingJobsData, trackJobs, resetHighUsageTokens } from './helper/d
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
-import { pushToLinkedInQueue } from './helper/sqs_helper';
+import { pushToPostQueue } from './helper/sqs_helper';
 import { 
   getSuccessHeader, 
   getDroppedHeader,
@@ -145,13 +145,15 @@ export const handler = async (
     };
     await sendMatchedJobs(matched, dateStr, stats);
 
-    // Push matched jobs to LinkedIn posting queue (one per 30-min interval)
+    // Push matched jobs to posting queue (one per 30-min interval)
     if (matched.length > 0) {
       try {
-        await pushToLinkedInQueue(matched);
-        console.log(`Pushed ${matched.length} matched jobs to LinkedIn post queue`);
+        await pushToPostQueue('linkedin', matched);
+        await pushToPostQueue('twitter', matched);
+        // await pushToPostQueue('reddit', matched); // disabled until Reddit app creation bug is fixed
+        console.log(`Pushed ${matched.length} matched jobs to post queues (linkedin, twitter)`);
       } catch (err) {
-        console.error('Failed to push jobs to LinkedIn queue:', err);
+        console.error('Failed to push jobs to post queues:', err);
       }
     }
 

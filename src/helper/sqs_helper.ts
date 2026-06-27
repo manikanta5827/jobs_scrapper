@@ -2,16 +2,20 @@ import { SQSClient, SendMessageBatchCommand, ReceiveMessageCommand, DeleteMessag
 import type { EnrichedJob } from './types';
 
 const sqs = new SQSClient({});
-const QUEUE_URL = process.env.LINKEDIN_POST_QUEUE_URL!;
+const QUEUE_URL = process.env.POST_QUEUE_URL!;
 
-export interface LinkedInPostMessage {
+export type Platform = 'linkedin' | 'twitter' | 'reddit';
+
+export interface PostMessage {
+  platform: Platform;
   job: Pick<EnrichedJob, 'title' | 'companyName' | 'link' | 'ai_matched_skills' | 'ai_job_location' | 'ai_yoe' | 'location'>;
 }
 
-export async function pushToLinkedInQueue(jobs: EnrichedJob[]): Promise<void> {
+export async function pushToPostQueue(platform: Platform, jobs: EnrichedJob[]): Promise<void> {
   const entries = jobs.map((job, i) => ({
-    Id: `job-${i}`,
+    Id: `${platform}-job-${i}`,
     MessageBody: JSON.stringify({
+      platform,
       job: {
         title: job.title,
         companyName: job.companyName,
@@ -24,18 +28,14 @@ export async function pushToLinkedInQueue(jobs: EnrichedJob[]): Promise<void> {
     }),
   }));
 
-  // SQS batch send supports up to 10 messages per call
   for (let i = 0; i < entries.length; i += 10) {
     const batch = entries.slice(i, i + 10);
-    await sqs.send(new SendMessageBatchCommand({
-      QueueUrl: QUEUE_URL,
-      Entries: batch,
-    }));
-    console.log(`Pushed batch of ${batch.length} jobs to LinkedIn post queue`);
+    await sqs.send(new SendMessageBatchCommand({ QueueUrl: QUEUE_URL, Entries: batch }));
+    console.log(`Pushed batch of ${batch.length} jobs to ${platform} post queue`);
   }
 }
 
-export async function receiveJobFromQueue(): Promise<{ message: LinkedInPostMessage; receiptHandle: string } | null> {
+export async function receiveJobFromQueue(): Promise<{ message: PostMessage; receiptHandle: string } | null> {
   const res = await sqs.send(new ReceiveMessageCommand({
     QueueUrl: QUEUE_URL,
     MaxNumberOfMessages: 1,
@@ -46,13 +46,10 @@ export async function receiveJobFromQueue(): Promise<{ message: LinkedInPostMess
   if (!res.Messages || res.Messages.length === 0) return null;
 
   const msg = res.Messages[0];
-  const body = JSON.parse(msg.Body!) as LinkedInPostMessage;
+  const body = JSON.parse(msg.Body!) as PostMessage;
   return { message: body, receiptHandle: msg.ReceiptHandle! };
 }
 
 export async function deleteMessageFromQueue(receiptHandle: string): Promise<void> {
-  await sqs.send(new DeleteMessageCommand({
-    QueueUrl: QUEUE_URL,
-    ReceiptHandle: receiptHandle,
-  }));
+  await sqs.send(new DeleteMessageCommand({ QueueUrl: QUEUE_URL, ReceiptHandle: receiptHandle }));
 }

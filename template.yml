@@ -52,6 +52,19 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: LinkedIn OAuth Access Token
     Default: /job-scraper/LINKEDIN_ACCESS_TOKEN
+  TwitterAccessToken:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Twitter/X OAuth Bearer Token
+    Default: /job-scraper/TWITTER_ACCESS_TOKEN
+  # Reddit - disabled until https://www.reddit.com/r/redditdev/comments/1mnu3hw/ is fixed
+  # RedditAccessToken:
+  #   Type: "AWS::SSM::Parameter::Value<String>"
+  #   Description: Reddit OAuth Access Token
+  #   Default: /job-scraper/REDDIT_ACCESS_TOKEN
+  # RedditSubreddit:
+  #   Type: "AWS::SSM::Parameter::Value<String>"
+  #   Description: Subreddit to post jobs to (e.g. jobpostings)
+  #   Default: /job-scraper/REDDIT_SUBREDDIT
 
 Resources:
   # Event Bridge Invoke Lambda
@@ -77,7 +90,7 @@ Resources:
               Action:
                 - sqs:SendMessage
                 - sqs:SendMessageBatch
-              Resource: !GetAtt LinkedInPostQueue.Arn
+              Resource: !GetAtt PostQueue.Arn
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
@@ -90,7 +103,7 @@ Resources:
           TELEGRAM_DROPPED_JOBS_BOT_TOKEN: !Ref TelegramDroppedJobsBotToken
           TELEGRAM_DROPPED_JOBS_CHAT_ID: !Ref TelegramDroppedJobsChatId
           ADMIN_API_KEY: !Ref AdminApiKey
-          LINKEDIN_POST_QUEUE_URL: !Ref LinkedInPostQueue
+          POST_QUEUE_URL: !Ref PostQueue
 
       Events:
         MorningRun:
@@ -193,21 +206,21 @@ Resources:
         EntryPoints:
           - src/admin.ts
 
-  LinkedInPostQueue:
+  PostQueue:
     Type: AWS::SQS::Queue
     Properties:
       VisibilityTimeout: 300
       MessageRetentionPeriod: 345600
       RedrivePolicy:
-        deadLetterTargetArn: !GetAtt LinkedInPostDLQ.Arn
+        deadLetterTargetArn: !GetAtt PostDLQ.Arn
         maxReceiveCount: 3
 
-  LinkedInPostDLQ:
+  PostDLQ:
     Type: AWS::SQS::Queue
     Properties:
       MessageRetentionPeriod: 1209600
 
-  LinkedInPosterLambda:
+  PostSchedulerLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs24.x
@@ -218,7 +231,7 @@ Resources:
       LoggingConfig:
         LogFormat: JSON
       CodeUri: ./
-      Handler: src/linkedin_poster.handler
+      Handler: src/post_scheduler.handler
       Timeout: 30
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -230,17 +243,20 @@ Resources:
                 - sqs:ReceiveMessage
                 - sqs:DeleteMessage
                 - sqs:GetQueueAttributes
-              Resource: !GetAtt LinkedInPostQueue.Arn
+              Resource: !GetAtt PostQueue.Arn
       Environment:
         Variables:
-          LINKEDIN_POST_QUEUE_URL: !Ref LinkedInPostQueue
+          POST_QUEUE_URL: !Ref PostQueue
           LINKEDIN_PERSON_URN: !Ref LinkedInPersonUrn
           LINKEDIN_ACCESS_TOKEN: !Ref LinkedInAccessToken
+          TWITTER_ACCESS_TOKEN: !Ref TwitterAccessToken
+          # REDDIT_ACCESS_TOKEN: !Ref RedditAccessToken
+          # REDDIT_SUBREDDIT: !Ref RedditSubreddit
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
           APP_ENV: !Ref AppEnv
       Events:
-        LinkedInPostSchedule:
+        PostSchedule:
           Type: ScheduleV2
           Properties:
             ScheduleExpression: cron(0/30 * * * ? *)
@@ -262,7 +278,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/linkedin_poster.ts
+          - src/post_scheduler.ts
 
   MyLogGroup:
     Type: AWS::Logs::LogGroup

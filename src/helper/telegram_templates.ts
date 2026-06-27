@@ -130,7 +130,15 @@ export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: stri
 }
 
 export function getLinkedInPostFailedMessage(jobTitle: string, status: number, errorDetail: string): string {
-  let msg = `🔴 <b>LINKEDIN POST FAILED</b>\n`;
+  return getPlatformPostFailedMessage('LINKEDIN', jobTitle, status, errorDetail);
+}
+
+export function getLinkedInTokenExpiredMessage(): string {
+  return getPlatformTokenExpiredMessage('LinkedIn', 'npx tsx scripts/linkedin-oauth-setup.ts', '/job-scraper/LINKEDIN_ACCESS_TOKEN');
+}
+
+export function getPlatformPostFailedMessage(platform: string, jobTitle: string, status: number, errorDetail: string): string {
+  let msg = `🔴 <b>${platform} POST FAILED</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📋 <b>Job:</b> <code>${jobTitle}</code>\n`;
   msg += `📡 <b>Status:</b> <code>${status}</code>\n`;
@@ -141,9 +149,9 @@ export function getLinkedInPostFailedMessage(jobTitle: string, status: number, e
   return msg;
 }
 
-export function getLinkedInTokenExpiredMessage(): string {
-  return `⏰ <b>LINKEDIN TOKEN EXPIRED</b>\n` +
+export function getPlatformTokenExpiredMessage(platform: string, setupCmd: string, ssmParam: string): string {
+  return `⏰ <b>${platform.toUpperCase()} TOKEN EXPIRED</b>\n` +
          `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-         `🔑 The LinkedIn access token has expired.\n\n` +
-         `🛠 <i>Run </i><code>npx tsx scripts/linkedin-oauth-setup.ts</code><i> and update </i><code>/job-scraper/LINKEDIN_ACCESS_TOKEN</code><i> in SSM.</i>`;
+         `🔑 The ${platform} access token has expired.\n\n` +
+         `🛠 <i>Run </i><code>${setupCmd}</code><i> and update </i><code>${ssmParam}</code><i> in SSM.</i>`;
 }
