@@ -48,6 +48,10 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: LinkedIn Person URN (e.g. urn:li:person:xxxxx)
     Default: /job-scraper/LINKEDIN_PERSON_URN
+  LinkedInAccessToken:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: LinkedIn OAuth Access Token
+    Default: /job-scraper/LINKEDIN_ACCESS_TOKEN
 
 Resources:
   # Event Bridge Invoke Lambda
@@ -231,6 +235,7 @@ Resources:
         Variables:
           LINKEDIN_POST_QUEUE_URL: !Ref LinkedInPostQueue
           LINKEDIN_PERSON_URN: !Ref LinkedInPersonUrn
+          LINKEDIN_ACCESS_TOKEN: !Ref LinkedInAccessToken
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
           APP_ENV: !Ref AppEnv

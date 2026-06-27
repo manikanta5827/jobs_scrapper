@@ -1,5 +1,4 @@
 import type { ScheduledEvent, Context } from 'aws-lambda';
-import { getAccessToken } from './helper/linkedin_oauth';
 import { postToLinkedIn } from './helper/linkedin_post';
 import { formatJobPost } from './helper/linkedin_templates';
 import { receiveJobFromQueue, deleteMessageFromQueue } from './helper/sqs_helper';
@@ -9,6 +8,8 @@ import { getLinkedInPostFailedMessage, getLinkedInTokenExpiredMessage } from './
 const PERSON_URN = process.env.LINKEDIN_PERSON_URN!;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
+const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
+  if (!accessToken) throw new Error('LINKEDIN_ACCESS_TOKEN env var is empty');
 
 export const handler = async (_event: ScheduledEvent, _context: Context) => {
   console.log('LinkedInPosterLambda invoked', new Date().toISOString());
@@ -23,7 +24,6 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
   const jobTitle = message.job.title || 'Unknown Job';
 
   try {
-    const accessToken = await getAccessToken();
     const postText = formatJobPost(message.job as any);
     const result = await postToLinkedIn(postText, accessToken, PERSON_URN);
 
