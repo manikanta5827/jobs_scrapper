@@ -17,7 +17,7 @@ const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
 
 // "deepseek-chat" is an alias for DeepSeek V4 Flash (non-thinking), price per 1M tokens (USD).
 // ponytail: alias deprecates 2026-07-24 — re-check pricing/model name after that.
-const PRICE_PER_M_CACHE_HIT_TOKENS = 0.0028;
+const PRICE_PER_M_CACHE_HIT_TOKENS = 0.014;
 const PRICE_PER_M_CACHE_MISS_TOKENS = 0.14;
 const PRICE_PER_M_OUTPUT_TOKENS = 0.28;
 

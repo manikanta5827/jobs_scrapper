@@ -44,6 +44,10 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: Telegram Chat ID where rejected job notifications are sent
     Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
+  LinkedInPersonUrn:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: LinkedIn Person URN (e.g. urn:li:person:xxxxx)
+    Default: /job-scraper/LINKEDIN_PERSON_URN
 
 Resources:
   # Event Bridge Invoke Lambda
@@ -64,6 +68,12 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:
             ParameterName: "/job-scraper/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+                - sqs:SendMessageBatch
+              Resource: !GetAtt LinkedInPostQueue.Arn
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
@@ -76,6 +86,7 @@ Resources:
           TELEGRAM_DROPPED_JOBS_BOT_TOKEN: !Ref TelegramDroppedJobsBotToken
           TELEGRAM_DROPPED_JOBS_CHAT_ID: !Ref TelegramDroppedJobsChatId
           ADMIN_API_KEY: !Ref AdminApiKey
+          LINKEDIN_POST_QUEUE_URL: !Ref LinkedInPostQueue
 
       Events:
         MorningRun:
@@ -177,6 +188,76 @@ Resources:
           - "aws-lambda"
         EntryPoints:
           - src/admin.ts
+
+  LinkedInPostQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt LinkedInPostDLQ.Arn
+        maxReceiveCount: 3
+
+  LinkedInPostDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  LinkedInPosterLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 256
+      ReservedConcurrentExecutions: 1
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: ./
+      Handler: src/linkedin_poster.handler
+      Timeout: 30
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SSMParameterReadPolicy:
+            ParameterName: "/job-scraper/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sqs:ReceiveMessage
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+              Resource: !GetAtt LinkedInPostQueue.Arn
+      Environment:
+        Variables:
+          LINKEDIN_POST_QUEUE_URL: !Ref LinkedInPostQueue
+          LINKEDIN_PERSON_URN: !Ref LinkedInPersonUrn
+          TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
+          TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
+          APP_ENV: !Ref AppEnv
+      Events:
+        LinkedInPostSchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0/30 * * * ? *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - src/linkedin_poster.ts
 
   MyLogGroup:
     Type: AWS::Logs::LogGroup

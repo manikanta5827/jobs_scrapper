@@ -128,3 +128,22 @@ export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: stri
   msg += `🛠 <i>Please update your <code>DEEPSEEK_API_KEY</code>.</i>`;
   return msg;
 }
+
+export function getLinkedInPostFailedMessage(jobTitle: string, status: number, errorDetail: string): string {
+  let msg = `🔴 <b>LINKEDIN POST FAILED</b>\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `📋 <b>Job:</b> <code>${jobTitle}</code>\n`;
+  msg += `📡 <b>Status:</b> <code>${status}</code>\n`;
+  if (errorDetail) {
+    msg += `❌ <b>Error:</b> <code>${errorDetail.substring(0, 500)}</code>\n`;
+  }
+  msg += `\n🛠 <i>Check CloudWatch logs for details.</i>`;
+  return msg;
+}
+
+export function getLinkedInTokenExpiredMessage(): string {
+  return `⏰ <b>LINKEDIN TOKEN EXPIRED</b>\n` +
+         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+         `🔑 The LinkedIn access token has expired.\n\n` +
+         `🛠 <i>Run </i><code>npx tsx scripts/linkedin-oauth-setup.ts</code><i> and update </i><code>/job-scraper/LINKEDIN_ACCESS_TOKEN</code><i> in SSM.</i>`;
+}

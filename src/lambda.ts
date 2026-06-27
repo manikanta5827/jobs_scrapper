@@ -11,6 +11,7 @@ import { getExistingJobsData, trackJobs, resetHighUsageTokens } from './helper/d
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, prepareSearchUrls } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
+import { pushToLinkedInQueue } from './helper/sqs_helper';
 import { 
   getSuccessHeader, 
   getDroppedHeader,
@@ -143,6 +144,16 @@ export const handler = async (
       matched: matchedCount
     };
     await sendMatchedJobs(matched, dateStr, stats);
+
+    // Push matched jobs to LinkedIn posting queue (one per 30-min interval)
+    if (matched.length > 0) {
+      try {
+        await pushToLinkedInQueue(matched);
+        console.log(`Pushed ${matched.length} matched jobs to LinkedIn post queue`);
+      } catch (err) {
+        console.error('Failed to push jobs to LinkedIn queue:', err);
+      }
+    }
 
     // Send All Dropped at once
     if(allDropped.length > 0) {
