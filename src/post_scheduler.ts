@@ -7,9 +7,23 @@ import { formatJobPost } from './helper/linkedin_templates';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
+const IMAGE_WORKER_URL = process.env.CLOUDFLARE_IMAGE_WORKER_URL;
 
 const RETRY_DELAYS_MS = [30_000, 60_000, 120_000];
 const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
+
+async function fetchCompanyImage(companyName: string): Promise<Buffer> {
+  if (!IMAGE_WORKER_URL) throw new Error('CLOUDFLARE_IMAGE_WORKER_URL is not set');
+
+  const url = new URL(IMAGE_WORKER_URL);
+  url.searchParams.set('text', companyName);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Image worker returned ${res.status}: ${await res.text()}`);
+
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
 
 export const handler = async (_event: ScheduledEvent, _context: Context) => {
   console.log('PostSchedulerLambda invoked', new Date().toISOString());
@@ -41,7 +55,20 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
       const token = process.env.LINKEDIN_ACCESS_TOKEN;
       if (!token) throw new Error('LINKEDIN_ACCESS_TOKEN is not set');
       const personUrn = process.env.LINKEDIN_PERSON_URN!;
-      const result = await postToLinkedIn(formatJobPost(job as any), token, personUrn);
+
+      let imageBuffer: Buffer | undefined;
+      const companyName = job.companyName || '';
+      if (companyName && IMAGE_WORKER_URL) {
+        try {
+          imageBuffer = await fetchCompanyImage(companyName);
+          console.log(`Fetched image for "${companyName}" from worker (${imageBuffer.length} bytes)`);
+        } catch (imgErr) {
+          console.warn(`Image fetch failed for "${jobTitle}", posting text-only:`, imgErr);
+        }
+      }
+
+      const postText = formatJobPost(job as any);
+      const result = await postToLinkedIn(postText, token, personUrn, imageBuffer);
       success = result.success;
       lastStatus = result.status;
       lastError = result.error || '';
