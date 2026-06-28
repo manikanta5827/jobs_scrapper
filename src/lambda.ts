@@ -149,9 +149,7 @@ export const handler = async (
     if (matched.length > 0) {
       try {
         await pushToPostQueue('linkedin', matched);
-        await pushToPostQueue('twitter', matched);
-        // await pushToPostQueue('reddit', matched); // disabled until Reddit app creation bug is fixed
-        console.log(`Pushed ${matched.length} matched jobs to post queues (linkedin, twitter)`);
+        console.log(`Pushed ${matched.length} matched jobs to post queue`);
       } catch (err) {
         console.error('Failed to push jobs to post queues:', err);
       }

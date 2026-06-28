@@ -129,14 +129,6 @@ export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: stri
   return msg;
 }
 
-export function getLinkedInPostFailedMessage(jobTitle: string, status: number, errorDetail: string): string {
-  return getPlatformPostFailedMessage('LINKEDIN', jobTitle, status, errorDetail);
-}
-
-export function getLinkedInTokenExpiredMessage(): string {
-  return getPlatformTokenExpiredMessage('LinkedIn', 'npx tsx scripts/linkedin-oauth-setup.ts', '/job-scraper/LINKEDIN_ACCESS_TOKEN');
-}
-
 export function getPlatformPostFailedMessage(platform: string, jobTitle: string, status: number, errorDetail: string): string {
   let msg = `🔴 <b>${platform} POST FAILED</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;

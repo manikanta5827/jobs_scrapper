@@ -4,7 +4,7 @@ import type { EnrichedJob } from './types';
 const sqs = new SQSClient({});
 const QUEUE_URL = process.env.POST_QUEUE_URL!;
 
-export type Platform = 'linkedin' | 'twitter' | 'reddit';
+export type Platform = 'linkedin';
 
 export interface PostMessage {
   platform: Platform;

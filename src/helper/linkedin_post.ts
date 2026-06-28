@@ -12,22 +12,23 @@ export async function postToLinkedIn(
   accessToken: string,
   personUrn: string
 ): Promise<LinkedInPostResult> {
-  const author = personUrn.startsWith('urn:li:person:') ? personUrn : `urn:li:person:${personUrn}`;
+  const author = personUrn.startsWith('urn:li:') ? personUrn : `urn:li:person:${personUrn}`;
 
-  const requestBody = {
+  const body = {
     author,
-    commentary: text,
-    visibility: 'PUBLIC',
-    distribution: {
-      feedDistribution: 'MAIN_FEED',
-      targetEntities: [],
-      thirdPartyDistributionChannels: [],
-    },
     lifecycleState: 'PUBLISHED',
-    isReshareDisabledByAuthor: false,
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text },
+        shareMediaCategory: 'NONE',
+      },
+    },
+    visibility: {
+      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+    },
   };
 
-  const res = await fetch(`${LINKEDIN_API_BASE}/posts`, {
+  const res = await fetch(`${LINKEDIN_API_BASE}/ugcPosts`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,7 +36,7 @@ export async function postToLinkedIn(
       'LinkedIn-Version': '202505',
       'X-Restli-Protocol-Version': '2.0.0',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify(body),
   });
 
   if (res.ok) {

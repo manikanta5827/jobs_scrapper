@@ -52,19 +52,6 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: LinkedIn OAuth Access Token
     Default: /job-scraper/LINKEDIN_ACCESS_TOKEN
-  TwitterAccessToken:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: Twitter/X OAuth Bearer Token
-    Default: /job-scraper/TWITTER_ACCESS_TOKEN
-  # Reddit - disabled until https://www.reddit.com/r/redditdev/comments/1mnu3hw/ is fixed
-  # RedditAccessToken:
-  #   Type: "AWS::SSM::Parameter::Value<String>"
-  #   Description: Reddit OAuth Access Token
-  #   Default: /job-scraper/REDDIT_ACCESS_TOKEN
-  # RedditSubreddit:
-  #   Type: "AWS::SSM::Parameter::Value<String>"
-  #   Description: Subreddit to post jobs to (e.g. jobpostings)
-  #   Default: /job-scraper/REDDIT_SUBREDDIT
 
 Resources:
   # Event Bridge Invoke Lambda
@@ -171,7 +158,7 @@ Resources:
         LogFormat: JSON
       CodeUri: ./
       Handler: src/admin.handler
-      Timeout: 30
+      Timeout: 300
       Policies:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:
@@ -240,9 +227,6 @@ Resources:
           POST_QUEUE_URL: !Ref PostQueue
           LINKEDIN_PERSON_URN: !Ref LinkedInPersonUrn
           LINKEDIN_ACCESS_TOKEN: !Ref LinkedInAccessToken
-          TWITTER_ACCESS_TOKEN: !Ref TwitterAccessToken
-          # REDDIT_ACCESS_TOKEN: !Ref RedditAccessToken
-          # REDDIT_SUBREDDIT: !Ref RedditSubreddit
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
           APP_ENV: !Ref AppEnv
