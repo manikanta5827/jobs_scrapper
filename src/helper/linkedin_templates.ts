@@ -5,6 +5,10 @@ export function formatJobPost(job: EnrichedJob): string {
   const company = job.companyName || 'a company';
   const location = job.ai_job_location || job.location || 'India';
   const experience = job.ai_yoe || '';
+  const employmentType = job.employmentType || '';
+  const seniorityLevel = job.seniorityLevel || '';
+  const salary = job.salary || '';
+  const directApply = job.ai_direct_apply || '';
   const skills = job.ai_matched_skills || [];
   const applyLink = job.link || '';
 
@@ -15,8 +19,17 @@ export function formatJobPost(job: EnrichedJob): string {
     post += `📍 Location : ${location}\n`;
   }
 
+  if (employmentType || seniorityLevel) {
+    const label = [employmentType, seniorityLevel && `(${seniorityLevel})`].filter(Boolean).join(' ');
+    post += `💼 Employment : ${label}\n`;
+  }
+
   if (experience) {
     post += `⏳ Experience : ${experience}\n`;
+  }
+
+  if (salary) {
+    post += `💰 Salary : ${salary}\n`;
   }
 
   if (skills.length > 0) {
@@ -30,7 +43,10 @@ export function formatJobPost(job: EnrichedJob): string {
     post += `\nApply link : ${applyLink}\n`;
   }
 
-  post += '\n⚠️ Disclaimer: I am not a recruiter. I just share jobs I find online. Please verify details before applying.\n';
+  if (directApply) {
+    post += `📧 Direct Apply : ${directApply}\n`;
+  }
+
   post += '💬 Found this helpful? Like Comment & share to help others!\n';
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
