@@ -30,6 +30,8 @@ export function formatJobPost(job: EnrichedJob): string {
     post += `\nApply link : ${applyLink}\n`;
   }
 
+  post += '\n⚠️ Disclaimer: I am not a recruiter. I just share jobs I find online. Please verify details before applying.\n';
+  post += '💬 Found this helpful? Like Comment & share to help others!\n';
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
 }
