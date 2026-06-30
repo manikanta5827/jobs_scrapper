@@ -135,9 +135,11 @@ export async function getExistingJobsData(): Promise<{ links: Set<string>, finge
  */
 export async function trackJobs(jobsToTrack: { link: string; fingerprint: string }[]): Promise<void> {
   if (jobsToTrack.length === 0) return;
+  // ponytail: same link with two different fingerprints causes "ON CONFLICT DO UPDATE command cannot affect row a second time"
+  const deduped = [...new Map(jobsToTrack.map(j => [j.link, j])).values()];
   await initDb();
   await db.insert(jobs)
-    .values(jobsToTrack.map(j => ({ jobLink: j.link, fingerprint: j.fingerprint })))
+    .values(deduped.map(j => ({ jobLink: j.link, fingerprint: j.fingerprint })))
     .onConflictDoUpdate({ 
       target: [jobs.jobLink],
       set: { fingerprint: sql`excluded.fingerprint` }
