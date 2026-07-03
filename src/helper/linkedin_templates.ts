@@ -47,6 +47,7 @@ export function formatJobPost(job: EnrichedJob): string {
     post += `📧 Direct Apply : ${directApply}\n`;
   }
 
+  post += 'Disclaimer: We are not affiliated to any company. Please check the job posting twice before applying.\n';
   post += '💬 Found this helpful? Like Comment & share to help others!\n';
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
