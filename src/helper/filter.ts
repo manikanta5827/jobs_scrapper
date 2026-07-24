@@ -16,7 +16,11 @@ export function prepareSearchUrls(urls: string[], lookbackSeconds: number): stri
   });
 }
 
-// Keyword pre-filtering using candidate's excludeKeywords fetched from user DB row across both title & description
+/**
+ * Keyword pre-filtering using candidate's excludeTitleKeywords.
+ * Strictly matches exclude keywords against the job Title and Seniority Level,
+ * preventing false positives caused by words like "Senior" or "Lead" inside job description text.
+ */
 export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = []): FilterResult {
   const relevant: Job[] = [];
   const binned: Job[] = [];
@@ -26,11 +30,11 @@ export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = 
 
   for (const job of jobs) {
     const title = (job.title ?? '').toLowerCase();
-    const descriptionText = (job.descriptionText ?? '').toLowerCase();
-    const combinedText = `${title} ${descriptionText}`;
-
-    // Check candidate's exclude keywords against both job title and description text
-    const matchedExcludes = excludes.filter(kw => combinedText.includes(kw));
+    const seniorityLevel = (job.seniorityLevel ?? '').toLowerCase();
+    
+    // Check exclude keywords ONLY against job title and seniority level string
+    const targetText = `${title} ${seniorityLevel}`;
+    const matchedExcludes = excludes.filter(kw => targetText.includes(kw));
 
     if (matchedExcludes.length > 0) {
       binned.push({ ...job, keyword_bin_reason: matchedExcludes.join(', ') });

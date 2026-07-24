@@ -38,8 +38,6 @@ ${resumeText}
 
 ---
 
-## EVALUATION CRITERIA (ALL must pass for is_matched: true)
-
 ### 1. EXPERIENCE LEVEL — STRICT GATE
 - ACCEPT: 0, 1, or 1–2 years | "Entry level" | "Junior" | "Fresher" | "Intern"
 - REJECT IMMEDIATELY (score: 0): "2+ years", "3+ years", "at least 2 years", "minimum 2 years", or any Senior/Mid-level designation
@@ -75,19 +73,19 @@ Each example shows the per-job evaluation logic. In your actual response, wrap e
 
 **Example 1 — REJECT (experience)**
 Input: { "title": "Node.js Developer", "seniorityLevel": "Mid-Senior", "descriptionText": "3+ years of backend experience required..." }
-Output: { "score": 0, "is_matched": false, "reason": "Requires 3+ years experience; candidate is entry-level.", "matched_skills": [], "missing_skills": [], "job_location": null, "years_of_experience": "3+ years", "direct_apply": null }
+Output: { "score": 0, "reason": "Requires 3+ years experience; candidate is entry-level.", "matched_skills": [], "missing_skills": [], "job_location": null, "years_of_experience": "3+ years", "direct_apply": null }
 
 **Example 2 — REJECT (mandatory missing skill)**
 Input: { "title": "Backend Developer", "descriptionText": "Must have strong Java and Spring Boot. AWS is a plus." }
-Output: { "score": 15, "is_matched": false, "reason": "Java and Spring Boot are mandatory but absent from candidate's profile.", "matched_skills": ["AWS"], "missing_skills": ["Java", "Spring Boot"], "job_location": null, "years_of_experience": "not specified", "direct_apply": null }
+Output: { "score": 15, "reason": "Java and Spring Boot are mandatory but absent from candidate's profile.", "matched_skills": ["AWS"], "missing_skills": ["Java", "Spring Boot"], "job_location": null, "years_of_experience": "not specified", "direct_apply": null }
 
 **Example 3 — MATCH (core stack)**
 Input: { "title": "Backend Intern", "seniorityLevel": "Entry level", "descriptionText": "Node.js, AWS Lambda, REST APIs. 0–1 years. Nice to have: Python." }
-Output: { "score": 92, "is_matched": true, "reason": "Strong match — candidate's Node.js and AWS Lambda experience directly aligns. Python is a soft miss only.", "matched_skills": ["Node.js", "AWS Lambda", "REST APIs"], "missing_skills": ["Python (nice-to-have)"], "job_location": null, "years_of_experience": "0–1 years", "direct_apply": null }
+Output: { "score": 92,"reason": "Strong match — candidate's Node.js and AWS Lambda experience directly aligns. Python is a soft miss only.", "matched_skills": ["Node.js", "AWS Lambda", "REST APIs"], "missing_skills": ["Python (nice-to-have)"], "job_location": null, "years_of_experience": "0–1 years", "direct_apply": null }
 
 **Example 4 — MATCH (direct apply boost)**
 Input: { "title": "Junior Backend Developer", "descriptionText": "1–2 years exp, Node.js, SQL. Apply by sending your CV and GitHub to hiring@startup.com" }
-Output: { "score": 97, "is_matched": true, "reason": "Excellent match on stack and experience level. Direct apply path found.", "matched_skills": ["Node.js", "SQL"], "missing_skills": [], "job_location": null, "years_of_experience": "1–2 years", "direct_apply": "Send CV and GitHub profile to hiring@startup.com" }
+Output: { "score": 97,"reason": "Excellent match on stack and experience level. Direct apply path found.", "matched_skills": ["Node.js", "SQL"], "missing_skills": [], "job_location": null, "years_of_experience": "1–2 years", "direct_apply": "Send CV and GitHub profile to hiring@startup.com" }
 
 ---
 
@@ -102,7 +100,6 @@ Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
     {
       "id": number (must match the input job's "id"),
       "score": number (0–100),
-      "is_matched": boolean,
       "reason": "1–2 sentences. Be specific about why it passed or failed.",
       "matched_skills": ["list of skills from JD that candidate has"],
       "missing_skills": ["list of skills from JD that candidate lacks — label as (required) or (nice-to-have)"],
@@ -154,12 +151,11 @@ export async function checkRelevanceBatch(
       const parsed = results.get(j);
 
       if (parsed) {
-        const isGoodMatch = parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
+        const isGoodMatch = parsed.score >= MIN_MATCH_SCORE;
         const enriched: EnrichedJob = {
           ...job,
           status: isGoodMatch ? "matched" : "rejected",
           ai_score: parsed.score,
-          ai_is_matched: parsed.is_matched,
           ai_reason: parsed.reason,
           ai_matched_skills: parsed.matched_skills,
           ai_missing_skills: parsed.missing_skills,
@@ -174,7 +170,6 @@ export async function checkRelevanceBatch(
           ...job,
           status: "rejected",
           ai_score: 0,
-          ai_is_matched: false,
           ai_reason: "DeepSeek check failed",
           ai_matched_skills: [],
           ai_missing_skills: [],
@@ -345,7 +340,6 @@ async function parseAndValidateResponse(
 function isValidRelevanceResult(parsed: any): parsed is RelevanceResult {
   return (
     typeof parsed.score === "number" &&
-    typeof parsed.is_matched === "boolean" &&
     typeof parsed.reason === "string" &&
     Array.isArray(parsed.matched_skills) &&
     Array.isArray(parsed.missing_skills) &&

@@ -1,0 +1,1 @@
+ALTER TABLE "user_runs" DROP COLUMN "new_jobs_count";

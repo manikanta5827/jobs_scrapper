@@ -66,12 +66,13 @@ export const userRuns = pgTable("user_runs", {
   runAt: timestamp("run_at", { withTimezone: true }).defaultNow().notNull(), // Execution timestamp
   status: text("status").notNull(), // Status: 'SUCCESS' | 'SKIPPED_LOW_BALANCE' | 'SKIPPED_INACTIVE' | 'FAILED'
   
-  // Scraped and filtered job counts
+  // Scraped and filtered job counts (Sum equation: scraped = batchDedup + dbDedup + keywordFiltered + rejected + matched)
   scrapedJobsCount: integer("scraped_jobs_count").default(0).notNull(),
-  newJobsCount: integer("new_jobs_count").default(0).notNull(),
+  batchDedupCount: integer("batch_dedup_count").default(0).notNull(),
+  dbDedupCount: integer("db_dedup_count").default(0).notNull(),
   keywordFilteredCount: integer("keyword_filtered_count").default(0).notNull(),
-  matchedJobsCount: integer("matched_jobs_count").default(0).notNull(),
   rejectedJobsCount: integer("rejected_jobs_count").default(0).notNull(),
+  matchedJobsCount: integer("matched_jobs_count").default(0).notNull(),
   
   // Financial audit metrics
   actualLlmCostUsd: doublePrecision("actual_llm_cost_usd").default(0).notNull(), // Actual DeepSeek API cost incurred

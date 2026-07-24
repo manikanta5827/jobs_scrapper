@@ -213,7 +213,8 @@ export async function recordAndDeductUserRun(
   runData: {
     status: string;
     scrapedJobsCount: number;
-    newJobsCount: number;
+    batchDedupCount?: number;
+    dbDedupCount?: number;
     keywordFilteredCount: number;
     matchedJobsCount: number;
     rejectedJobsCount: number;
@@ -232,7 +233,8 @@ export async function recordAndDeductUserRun(
     userId,
     status: runData.status,
     scrapedJobsCount: runData.scrapedJobsCount,
-    newJobsCount: runData.newJobsCount,
+    batchDedupCount: runData.batchDedupCount ?? 0,
+    dbDedupCount: runData.dbDedupCount ?? 0,
     keywordFilteredCount: runData.keywordFilteredCount,
     matchedJobsCount: runData.matchedJobsCount,
     rejectedJobsCount: runData.rejectedJobsCount,

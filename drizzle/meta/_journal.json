@@ -78,6 +78,20 @@
       "when": 1784919533725,
       "tag": "0010_overconfident_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784930663467,
+      "tag": "0011_plain_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784930729348,
+      "tag": "0012_tired_nebula",
+      "breakpoints": true
     }
   ]
 }

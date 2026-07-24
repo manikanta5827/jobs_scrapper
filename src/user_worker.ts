@@ -85,7 +85,8 @@ export const handler = async (
     await recordAndDeductUserRun(user.id, {
       status: 'SKIPPED_LOW_BALANCE',
       scrapedJobsCount: 0,
-      newJobsCount: 0,
+      batchDedupCount:0,
+      dbDedupCount: 0,
       keywordFilteredCount: 0,
       matchedJobsCount: 0,
       rejectedJobsCount: 0,
@@ -112,7 +113,8 @@ export const handler = async (
       await recordAndDeductUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: 0,
-        newJobsCount: 0,
+        batchDedupCount: 0,
+        dbDedupCount: 0,
         keywordFilteredCount: 0,
         matchedJobsCount: 0,
         rejectedJobsCount: 0,
@@ -125,7 +127,7 @@ export const handler = async (
     // 4. Batch deduplication (within single scraped batch)
     const uniqueRawJobs = getUniqueJobsFromBatch(rawJobs);
     const uniqueCount = uniqueRawJobs.length;
-    const duplicateRemoved = rawCount - uniqueCount;
+    // const batchDedupCount = rawCount - uniqueCount;
 
     // 5. Per-User Database deduplication (against candidate's personal seen jobs history)
     const existingData = await getExistingJobsData(user.id);
@@ -133,15 +135,16 @@ export const handler = async (
       return !existingData.links.has(job.link!) && !existingData.fingerprints.has(job.fingerprint!);
     });
     const newCount = newJobs.length;
-    const dbDeduplicated = uniqueCount - newCount;
+    // const dbDedupCount = uniqueCount - newCount;
 
     if (newCount === 0) {
-      const stats: JobStats = { scraped: rawCount, duplicateRemoved, dbDeduplicated, keywordFiltered: 0, aiRejected: 0, matched: 0 };
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: uniqueCount, dbDeduplicated: newCount, keywordFiltered: 0, aiRejected: 0, matched: 0 };
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
       await recordAndDeductUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
-        newJobsCount: 0,
+        batchDedupCount: uniqueCount,
+        dbDedupCount: newCount,
         keywordFilteredCount: 0,
         matchedJobsCount: 0,
         rejectedJobsCount: 0,
@@ -155,16 +158,17 @@ export const handler = async (
     const excludeList = (user.excludeTitleKeywords as string[]) || [];
     const { relevant: toCheck } = keywordFilter(newJobs, excludeList);
     const toCheckCount = toCheck.length;
-    const keywordFiltered = newCount - toCheckCount;
+    // const keywordFilteredCount = newCount - toCheckCount;
 
     if (toCheckCount === 0) {
-      const stats: JobStats = { scraped: rawCount, duplicateRemoved, dbDeduplicated, keywordFiltered, aiRejected: 0, matched: 0 };
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: uniqueCount, dbDeduplicated: newCount, keywordFiltered: toCheckCount, aiRejected: 0, matched: 0 };
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
       await recordAndDeductUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
-        newJobsCount: newCount,
-        keywordFilteredCount: keywordFiltered,
+        batchDedupCount: uniqueCount,
+        dbDedupCount: newCount,
+        keywordFilteredCount: toCheckCount,
         matchedJobsCount: 0,
         rejectedJobsCount: 0,
         actualLlmCostUsd: 0,
@@ -176,7 +180,7 @@ export const handler = async (
     // 7. DeepSeek AI Relevance Evaluation using candidate resume text
     const { matched, usage } = await checkRelevanceBatch(toCheck, user.resumeText, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
-    const aiRejected = toCheckCount - matchedCount;
+    const aiRejectedCount = toCheckCount - matchedCount;
 
     // 8. Calculate actual DeepSeek LLM cost
     const actualLlmCostUsd = calculateCostUsd(usage);
@@ -188,17 +192,18 @@ export const handler = async (
     await recordAndDeductUserRun(user.id, {
       status: 'SUCCESS',
       scrapedJobsCount: rawCount,
-      newJobsCount: newCount,
-      keywordFilteredCount: keywordFiltered,
+      batchDedupCount: uniqueCount,
+      dbDedupCount: newCount,
+      keywordFilteredCount: toCheckCount,
       matchedJobsCount: matchedCount,
-      rejectedJobsCount: aiRejected,
+      rejectedJobsCount: aiRejectedCount,
       actualLlmCostUsd,
       actualApifyCostUsd: 0
     }, user.customRunCostUsd);
 
     // 11. Send simplified matched jobs summary to CANDIDATE Telegram chat if Chat ID exists
     if (chatId) {
-      const stats: JobStats = { scraped: rawCount, duplicateRemoved, dbDeduplicated, keywordFiltered, aiRejected, matched: matchedCount };
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: uniqueCount, dbDeduplicated: newCount, keywordFiltered: toCheckCount, aiRejected: aiRejectedCount, matched: matchedCount };
       await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, matched, dateStr, stats);
     }
 
@@ -223,7 +228,8 @@ export const handler = async (
     await recordAndDeductUserRun(user.id, {
       status: 'FAILED',
       scrapedJobsCount: 0,
-      newJobsCount: 0,
+      batchDedupCount: 0,
+      dbDedupCount: 0,
       keywordFilteredCount: 0,
       matchedJobsCount: 0,
       rejectedJobsCount: 0,
