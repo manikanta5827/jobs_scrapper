@@ -260,7 +260,7 @@ async function executeDeepSeekCall(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: "deepseek-v4-flash", 
       response_format: { type: "json_object" },
       max_tokens: maxTokens,
       temperature: 0,
