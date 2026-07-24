@@ -59,7 +59,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Link candidate's Telegram Chat ID to user record in database
       const updated = await updateUser(candidateId, { telegramChatId: chatId, isActive: true });
       const u = updated[0] || pendingUser;
-      const balanceInr = Math.round((u.balanceUsd || 0) * 85);
+      const balanceInr = Math.round((u.balanceUsd || 0) * 100);
 
       await sendTelegramMessage(
         botToken,
@@ -100,7 +100,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // 4. Process /start command to resume job alerts
     if (text.startsWith("/start")) {
       await setUserActiveStatus(user.id, true);
-      const balanceInr = Math.round(user.balanceUsd * 85);
+      const balanceInr = Math.round(user.balanceUsd * 100);
       await sendTelegramMessage(
         botToken,
         chatId,
@@ -112,7 +112,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // 5. Process /balance or /status command to check wallet balance and run statistics
     if (text.startsWith("/balance") || text.startsWith("/status")) {
       const statusText = user.isActive ? "Active ✅" : "Paused ⏸️";
-      const balanceInr = Math.round(user.balanceUsd * 85);
+      const balanceInr = Math.round(user.balanceUsd * 100);
       const msg = `📊 <b>Account Status & Wallet Balance</b>\n\n` +
         `👤 <b>User:</b> ${escapeHtml(user.name || user.email)}\n` +
         `🆔 <b>ID:</b> ${user.id}\n` +

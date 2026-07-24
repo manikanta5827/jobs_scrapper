@@ -475,7 +475,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('kpiUsers').innerText = s.totalUsersCount;
         document.getElementById('kpiActiveUsers').innerText = \`\${s.activeUsersCount} active users\`;
         document.getElementById('kpiRevenue').innerText = \`$\${s.totalBilledRevenueUsd.toFixed(2)}\`;
-        document.getElementById('kpiRevenueInr').innerText = \`≈ ₹\${(s.totalBilledRevenueUsd * 85).toFixed(0)} INR\`;
+        document.getElementById('kpiRevenueInr').innerText = \`≈ ₹\${(s.totalBilledRevenueUsd * 100).toFixed(0)} INR\`;
         document.getElementById('kpiCost').innerText = \`$\${s.totalActualCostUsd.toFixed(4)}\`;
         document.getElementById('kpiProfit').innerText = \`$\${s.totalProfitUsd.toFixed(2)}\`;
         

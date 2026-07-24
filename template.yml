@@ -63,7 +63,7 @@ Parameters:
 
 Resources:
 
-  # ─── API GATEWAY WITH CUSTOM RESPONSES & CORS ──────────────────────────────
+  # ─── API GATEWAY WITH CUSTOM RESPONSES & NATIVE CORS ───────────────────────
   APIGateway:
     Type: AWS::Serverless::Api
     Properties:
@@ -277,12 +277,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /stats
             Method: GET
-        OptionsStats:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /stats
-            Method: OPTIONS
 
         # POST /run — Trigger main scraper Lambda
         RunMainLambda:
@@ -291,12 +285,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /run
             Method: POST
-        OptionsRun:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /run
-            Method: OPTIONS
 
         # GET /users & POST /users
         GetUsers:
@@ -311,12 +299,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /users
             Method: POST
-        OptionsUsers:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /users
-            Method: OPTIONS
 
         # GET /users/{id}, PUT /users/{id}, DELETE /users/{id}
         GetUser:
@@ -337,12 +319,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /users/{id}
             Method: DELETE
-        OptionsUserParam:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /users/{id}
-            Method: OPTIONS
 
         # POST /users/{id}/topup — Recharge user wallet balance
         TopupUser:
@@ -351,12 +327,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /users/{id}/topup
             Method: POST
-        OptionsUserTopup:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /users/{id}/topup
-            Method: OPTIONS
 
         # GET /apify-keys & POST /apify-keys
         GetApifyKeys:
@@ -371,12 +341,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /apify-keys
             Method: POST
-        OptionsApifyKeys:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /apify-keys
-            Method: OPTIONS
 
         # PUT /apify-keys/{id} & DELETE /apify-keys/{id}
         UpdateApifyKey:
@@ -391,12 +355,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /apify-keys/{id}
             Method: DELETE
-        OptionsApifyKeyParam:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /apify-keys/{id}
-            Method: OPTIONS
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
