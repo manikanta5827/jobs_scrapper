@@ -83,11 +83,14 @@ async function scrapeUrlWithRotation(url: string): Promise<Job[]> {
       const message = err instanceof Error ? err.message : String(err);
       
       // If error indicates monthly usage hard limit exceeded (403) or invalid token (401)
-      const isInvalidOrExhausted = 
-        message.includes("403") || 
+      const isInvalidOrExhausted =
+        message.includes("403") ||
         message.includes("401") ||
         message.toLowerCase().includes("monthly usage hard limit exceeded") ||
-        message.toLowerCase().includes("unauthorized");
+        message.toLowerCase().includes("unauthorized") ||
+        // Pay-per-result actor: account credit exhausted → Apify computes
+        // "Maximum charged results" = 0 and rejects the run with HTTP 400.
+        message.includes("max-items-must-be-greater-than-zero");
       
       if (isInvalidOrExhausted) {
         console.warn(`Token ID ${tokenData.id} is invalid or exhausted. Marking as expired and rotating...`);

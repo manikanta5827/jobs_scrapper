@@ -19,7 +19,7 @@ import * as readline from 'node:readline';
 import { exec } from 'node:child_process';
 
 const REDIRECT_URI = 'http://localhost:8080/callback';
-const SCOPES = ['w_member_social', 'openid', 'profile'];
+const SCOPES = ['w_member_social', 'w_organization_social', 'openid', 'profile'];
 const LINKEDIN_OAUTH_BASE = 'https://www.linkedin.com/oauth/v2';
 
 function prompt(question: string): Promise<string> {
@@ -146,6 +146,27 @@ async function main() {
       }
     }
 
+    // Step 3: Fetch org pages you admin
+    console.log('\n🏢 Fetching LinkedIn Pages you admin...');
+    let orgLines = '';
+    const orgRes = await fetch(
+      'https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName)))',
+      { headers: { Authorization: `Bearer ${accessToken}`, 'LinkedIn-Version': '202505' } },
+    );
+    if (orgRes.ok) {
+      const orgData = await orgRes.json() as { elements?: Array<{ 'organization~'?: { id: string; localizedName?: string } }> };
+      const orgs = (orgData.elements ?? []).map(e => e['organization~']).filter(Boolean);
+      if (orgs.length) {
+        orgLines = orgs.map(o => `  urn:li:organization:${o!.id}  (${o!.localizedName ?? 'unknown'})`).join('\n');
+        console.log('Admin orgs:\n' + orgLines);
+      } else {
+        console.log('No admin orgs found — check Page admin role.');
+      }
+    } else {
+      const errText = await orgRes.text();
+      console.log(`Org lookup failed: ${orgRes.status} — ${errText.substring(0, 300)}`);
+    }
+
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎉 Setup complete!\n');
     console.log('Store these in AWS SSM Parameter Store:\n');
@@ -154,6 +175,7 @@ async function main() {
     console.log('  /job-scraper/LINKEDIN_ACCESS_TOKEN    = ', accessToken);
     console.log('  /job-scraper/LINKEDIN_PERSON_URN      = ', personUrn || 'urn:li:person:{YOUR_ID}');
     if (personName) console.log(`  (Account: ${personName})`);
+    if (orgLines) console.log('\nFor Page posting, use one of the org URNs above as LINKEDIN_PERSON_URN.');
     console.log('\nToken expires in ~60 days — re-run this script to refresh.');
     console.log('CLIENT_ID, CLIENT_SECRET, and ACCESS_TOKEN should be SecureString.');
     console.log('PERSON_URN should be String type.');

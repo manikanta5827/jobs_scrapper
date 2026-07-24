@@ -40,15 +40,15 @@ export function formatJobPost(job: EnrichedJob): string {
   }
 
   if (applyLink) {
-    post += `\nApply link : ${applyLink}\n`;
+    post += `\n\n🔗 Apply link : ${applyLink}\n\n`;
   }
 
   if (directApply) {
-    post += `📧 Direct Apply : ${directApply}\n`;
+    post += `📧 Direct Apply : ${directApply}\n\n`;
   }
 
-  post += 'Disclaimer: We are not affiliated to any company. Please check the job posting twice before applying.\n';
-  post += '💬 Found this helpful? Like Comment & share to help others!\n';
+  post += 'Disclaimer: We are not affiliated to any company. Please check the job posting twice before applying.\n\n';
+  post += '💬 Found this helpful? Like Comment & share to help others!\n\n';
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
 }
