@@ -1,6 +1,7 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq } from "drizzle-orm";
+import { convertInrToUsd } from "./currency_helper";
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ export async function setUserActiveStatus(userId: string, isActive: boolean) {
 
 // Recharge user wallet balance converting INR payment to USD balance
 export async function topUpUserBalance(userId: string, amountInr: number) {
-  const usdAmount = Number((amountInr / 100).toFixed(2));
+  const usdAmount = convertInrToUsd(amountInr);
   await initDb();
   return await db.update(users)
     .set({ 

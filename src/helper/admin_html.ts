@@ -213,7 +213,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       <p style="font-size: 14px; color: var(--text-muted); line-height: 1.6;">
         • <b>Global Default Per-Run Charge:</b> Managed via environment variable <code>DEFAULT_BILLED_RUN_COST_USD</code> (Default: <b>$0.10 USD</b> / ~₹8.50 INR per execution turn).<br>
         • <b>Custom Candidate Rate Override:</b> Can be customized per candidate via <code>customRunCostUsd</code> in candidate record.<br>
-        • <b>Wallet Top-Up Rate:</b> Standard exchange rate conversion applies (₹500 INR ≈ +$5.88 USD).<br>
+        • <b>Wallet Top-Up Rate:</b> Standard exchange rate conversion applies (1 USD = ₹100 INR).<br>
         • <b>Apify Scraping Cost:</b> $0.00 (uses 20-account rotated free monthly credits).
       </p>
     </div>
@@ -325,8 +325,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         </div>
         <div class="form-group">
           <label>Recharge Amount (₹10 to ₹100,000 INR) *</label>
-          <input type="number" id="topupAmountInr" min="10" max="100000" value="500" required placeholder="500">
-          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">₹500 INR = +$5.88 USD wallet balance</span>
+          <input type="number" id="topupAmountInr" min="10" max="100000" value="500" required placeholder="500" oninput="updateTopupHint(this.value)">
+          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;" id="topupInrHint">₹500 INR = +$5.88 USD wallet balance</span>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('topupModal')">Cancel</button>
@@ -368,6 +368,23 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   <div id="toast"></div>
 
   <script>
+    const INR_PER_USD = 100; // Central exchange rate variable (1 USD = 85 INR)
+
+    // Currency conversion helpers
+    function convertUsdToInr(usdAmount) {
+      return Math.round((usdAmount || 0) * INR_PER_USD);
+    }
+
+    function convertInrToUsd(inrAmount) {
+      if (!inrAmount || inrAmount <= 0) return 0;
+      return parseFloat((inrAmount / INR_PER_USD).toFixed(2));
+    }
+
+    function updateTopupHint(inrVal) {
+      const usd = convertInrToUsd(parseFloat(inrVal || 0));
+      document.getElementById('topupInrHint').innerText = \`₹\${inrVal || 0} INR = +\$\${usd.toFixed(2)} USD wallet balance\`;
+    }
+
     let apiBase = localStorage.getItem('ADMIN_API_BASE') || window.location.origin + window.location.pathname.replace(/\\/(admin\\.html|admin)?$/, '');
     let apiKey = localStorage.getItem('ADMIN_API_KEY') || '';
     let addedUrlsList = []; // Interactive state array for LinkedIn search URLs
@@ -475,7 +492,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('kpiUsers').innerText = s.totalUsersCount;
         document.getElementById('kpiActiveUsers').innerText = \`\${s.activeUsersCount} active users\`;
         document.getElementById('kpiRevenue').innerText = \`$\${s.totalBilledRevenueUsd.toFixed(2)}\`;
-        document.getElementById('kpiRevenueInr').innerText = \`≈ ₹\${(s.totalBilledRevenueUsd * 100).toFixed(0)} INR\`;
+        document.getElementById('kpiRevenueInr').innerText = \`≈ ₹\${convertUsdToInr(s.totalBilledRevenueUsd).toLocaleString('en-IN')} INR\`;
         document.getElementById('kpiCost').innerText = \`$\${s.totalActualCostUsd.toFixed(4)}\`;
         document.getElementById('kpiProfit').innerText = \`$\${s.totalProfitUsd.toFixed(2)}\`;
         
@@ -515,7 +532,9 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           return;
         }
 
-        tbody.innerHTML = usersList.map(u => \`
+        tbody.innerHTML = usersList.map(u => {
+          const balanceInr = convertUsdToInr(u.balanceUsd);
+          return \`
           <tr>
             <td style="font-size: 11px; font-family: monospace;">\${u.id.substring(0, 8)}...</td>
             <td>
@@ -528,6 +547,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
             </td>
             <td>
               <b style="color: \${u.balanceUsd < 0.1 ? 'var(--danger)' : 'var(--success)'}">$\${u.balanceUsd.toFixed(2)}</b>
+              <span style="font-size: 11px; color: var(--text-muted); margin-left: 4px;">(~₹\${balanceInr})</span>
               <button class="btn btn-secondary btn-sm" style="margin-left: 6px;" onclick="openTopupModal('\${u.id}', '\${u.email}')">+ Top Up</button>
             </td>
             <td>\${u.customRunCostUsd ? \`$\${u.customRunCostUsd.toFixed(2)}\` : '<span style="color: var(--text-muted)">Default ($0.10)</span>'}</td>
@@ -543,7 +563,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
               </div>
             </td>
           </tr>
-        \`).join('');
+        \`;
+        }).join('');
       } catch (err) {
         tbody.innerHTML = \`<tr><td colspan="8" style="color: var(--danger)">Failed to load candidates: \${err.message}\`;
       }
@@ -752,6 +773,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     function openTopupModal(id, email) {
       document.getElementById('topupUserId').value = id;
       document.getElementById('topupUserLabel').value = \`\${email} (\${id.substring(0, 8)})\`;
+      updateTopupHint(500);
       openModal('topupModal');
     }
 

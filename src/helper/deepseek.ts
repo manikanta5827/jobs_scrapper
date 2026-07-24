@@ -16,7 +16,7 @@ export class FatalError extends Error {
 const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
 
 // "deepseek-chat" pricing per 1M tokens (USD)
-const PRICE_PER_M_CACHE_HIT_TOKENS = 0.014;
+const PRICE_PER_M_CACHE_HIT_TOKENS = 0.0028;
 const PRICE_PER_M_CACHE_MISS_TOKENS = 0.14;
 const PRICE_PER_M_OUTPUT_TOKENS = 0.28;
 
