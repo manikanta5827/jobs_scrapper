@@ -1,34 +1,40 @@
-import type { EnrichedJob, JobStats, TokenUsage } from './types';
+import type { EnrichedJob, JobStats } from './types';
 
-function getStatsSection(stats: JobStats): string {
-  return `📊 <b>PROCESSING STATS:</b>\n` +
-         `├ 📥 <b>Scraped:</b> <code>${stats.scraped}</code>\n` +
-         `├ 🧹 <b>Dupes removed:</b> <code>${stats.duplicateRemoved}</code>\n` +
-         `├ 🗄️ <b>DB Deduplicated:</b> <code>${stats.dbDeduplicated}</code>\n` +
-         `├ 🔑 <b>Keyword Filtered:</b> <code>${stats.keywordFiltered}</code>\n` +
-         `├ 🤖 <b>AI Rejected:</b> <code>${stats.aiRejected}</code>\n` +
-         `└ 🎯 <b>Final Matches:</b> <b>${stats.matched}</b>`;
+// Candidate User info structure for failure alerts sent to Admin
+export interface CandidateUserInfo {
+  id?: number;
+  name?: string | null;
+  email?: string;
+}
+
+// Helper function to format candidate user details header for admin alerts
+function formatUserInfoHeader(user?: CandidateUserInfo): string {
+  if (!user || (!user.id && !user.email)) return '';
+  const idStr = user.id ? `#${user.id}` : '';
+  const nameStr = user.name ? ` — ${user.name}` : '';
+  const emailStr = user.email ? ` (${user.email})` : '';
+  return `👤 <b>Candidate User:</b> <code>${idStr}${nameStr}${emailStr}</code>\n`;
 }
 
 /**
- * Returns a message for when zero jobs matched the candidate's profile.
+ * Returns a clean header message for when zero jobs matched the candidate's profile.
  */
-export function getZeroMatchesMessage(dateStr: string, stats: JobStats): string {
-  return `🔎 <b>NO JOB MATCHES FOUND</b> • <code>${dateStr}</code>\n` +
+export function getZeroMatchesMessage(dateTimeStr: string, stats: JobStats): string {
+  return `🔎 <b>JOB MATCH SUMMARY</b> • <code>${dateTimeStr}</code>\n` +
          `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-         `${getStatsSection(stats)}\n\n` +
-         `😴 No new jobs met your criteria in this run.\n` +
-         `☕️ <i>Check back later!</i>`;
+         `📥 <b>Total Jobs Scraped:</b> <code>${stats.scraped}</code>\n` +
+         `🎯 <b>Final Matches Found:</b> <code>0</code>\n\n` +
+         `☕️ <i>No matching jobs found in this run. Check back later!</i>`;
 }
 
 /**
- * Returns a header message for successful job matches.
+ * Returns a clean header message for successful job matches.
  */
-export function getSuccessHeader(dateStr: string, stats: JobStats): string {
-  return `✨ <b>JOB MATCH SUMMARY</b> • <code>${dateStr}</code>\n` +
+export function getSuccessHeader(dateTimeStr: string, stats: JobStats): string {
+  return `✨ <b>JOB MATCH SUMMARY</b> • <code>${dateTimeStr}</code>\n` +
          `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-         `${getStatsSection(stats)}\n\n` +
-         `🎯 Found <b>${stats.matched}</b> matching opportunities!`;
+         `📥 <b>Total Jobs Scraped:</b> <code>${stats.scraped}</code>\n` +
+         `🎯 <b>Final Matches Found:</b> <b>${stats.matched}</b>`;
 }
 
 /**
@@ -67,7 +73,7 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
     msg += `❌ <b>Missing Skills:</b> <i>${j.ai_missing_skills.join(', ')}</i>\n`;
   }
 
-  if(j.ai_reason) {
+  if (j.ai_reason) {
     msg += `📝 <b>AI Reason:</b> <i>${j.ai_reason}</i>\n`;
   }
 
@@ -93,45 +99,45 @@ export function getDroppedJobMessage(j: EnrichedJob | any, reason: string): stri
 }
 
 /**
- * Formats the DeepSeek token usage / cost summary for this run.
+ * Formats failure alert for Admin Telegram channel including candidate User ID and Name.
  */
-export function getCostSummaryMessage(usage: TokenUsage, costUsd: number): string {
-  return `💰 <b>DEEPSEEK USAGE</b>\n` +
-         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-         `├ 📦 <b>Cache hit tokens:</b> <code>${usage.promptCacheHitTokens}</code>\n` +
-         `├ 🆕 <b>Cache miss tokens:</b> <code>${usage.promptCacheMissTokens}</code>\n` +
-         `├ 📝 <b>Output tokens:</b> <code>${usage.completionTokens}</code>\n` +
-         `└ 💵 <b>Estimated cost:</b> <code>$${costUsd.toFixed(6)}</code>`;
-}
-
-/**
- * Formats failure alert for Telegram.
- */
-export function getFailureTelegramMessage(errorMessage: string, dateStr: string): string {
+export function getFailureTelegramMessage(errorMessage: string, dateStr: string, userInfo?: CandidateUserInfo): string {
   let msg = `🚨 <b>CRITICAL SYSTEM FAILURE</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📅 <b>Date:</b> <code>${dateStr}</code>\n`;
+  if (userInfo) {
+    msg += formatUserInfoHeader(userInfo);
+  }
   msg += `❌ <b>Error:</b>\n<code>${errorMessage.substring(0, 3000)}</code>\n\n`;
   msg += `🛠 <i>Please check the AWS Lambda logs for details.</i>`;
   return msg;
 }
 
 /**
- * Formats fatal error alert for Telegram.
+ * Formats fatal error alert for Admin Telegram channel including candidate User ID and Name.
  */
-export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: string): string {
+export function getFatalErrorTelegramMessage(errorMessage: string, dateStr: string, userInfo?: CandidateUserInfo): string {
   let msg = `⚠️ <b>FATAL API ERROR</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `📅 <b>Date:</b> <code>${dateStr}</code>\n`;
+  if (userInfo) {
+    msg += formatUserInfoHeader(userInfo);
+  }
   msg += `❌ <b>Reason:</b> <code>${errorMessage}</code>\n\n`;
   msg += `🛑 <b>Processing stopped immediately.</b>\n`;
-  msg += `🛠 <i>Please update your <code>DEEPSEEK_API_KEY</code>.</i>`;
+  msg += `🛠 <i>Please update system configuration or API key.</i>`;
   return msg;
 }
 
-export function getPlatformPostFailedMessage(platform: string, jobTitle: string, status: number, errorDetail: string): string {
+/**
+ * Formats LinkedIn posting failure alert for Admin Telegram including candidate User ID and Name.
+ */
+export function getPlatformPostFailedMessage(platform: string, jobTitle: string, status: number, errorDetail: string, userInfo?: CandidateUserInfo): string {
   let msg = `🔴 <b>${platform} POST FAILED</b>\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  if (userInfo) {
+    msg += formatUserInfoHeader(userInfo);
+  }
   msg += `📋 <b>Job:</b> <code>${jobTitle}</code>\n`;
   msg += `📡 <b>Status:</b> <code>${status}</code>\n`;
   if (errorDetail) {
@@ -141,9 +147,16 @@ export function getPlatformPostFailedMessage(platform: string, jobTitle: string,
   return msg;
 }
 
-export function getPlatformTokenExpiredMessage(platform: string, setupCmd: string, ssmParam: string): string {
-  return `⏰ <b>${platform.toUpperCase()} TOKEN EXPIRED</b>\n` +
-         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-         `🔑 The ${platform} access token has expired.\n\n` +
-         `🛠 <i>Run </i><code>${setupCmd}</code><i> and update </i><code>${ssmParam}</code><i> in SSM.</i>`;
+/**
+ * Formats LinkedIn token expired alert for Admin Telegram including candidate User ID and Name.
+ */
+export function getPlatformTokenExpiredMessage(platform: string, setupCmd: string, ssmParam: string, userInfo?: CandidateUserInfo): string {
+  let msg = `⏰ <b>${platform.toUpperCase()} TOKEN EXPIRED</b>\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  if (userInfo) {
+    msg += formatUserInfoHeader(userInfo);
+  }
+  msg += `🔑 The ${platform} access token has expired.\n\n`;
+  msg += `🛠 <i>Run </i><code>${setupCmd}</code><i> and update </i><code>${ssmParam}</code><i>.</i>`;
+  return msg;
 }

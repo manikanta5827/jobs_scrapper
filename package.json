@@ -1,17 +1,17 @@
 {
     "name": "job-scraper-lambda",
     "version": "1.0.0",
-    "description": "job scraper — Apify + OpenAI + Neon (TypeScript)",
+    "description": "job scraper — Apify + DeepSeek + Neon (TypeScript)",
     "type": "module",
     "main": ".eslintrc.js",
     "scripts": {
         "sam:build": "sam validate --lint && sam build --parallel",
         "sam:deploy": "sam deploy --no-confirm-changeset",
         "sam:delete": "aws cloudformation delete-stack --stack-name ",
-        "sam:sync": "sam sync --config-env dev",
+        "sam:sync": "sam sync --watch --config-env prod --stack-name job-scrapper",
         "typecheck": "tsc --noEmit",
         "db:generate": "npx drizzle-kit generate",
-        "db:migrate": "npx drizzle-kit migrate",
+        "db:migrate": "npx tsx scripts/migrate.ts",
         "lambda": "sam local invoke MainLambda --env-vars env.json -e event.json --container-host-interface 0.0.0.0"
     },
     "dependencies": {
@@ -21,7 +21,8 @@
         "@neondatabase/serverless": "^0.10.4",
         "drizzle-orm": "^0.45.1",
         "esbuild": "^0.27.3",
-        "pg": "^8.19.0"
+        "pg": "^8.19.0",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@types/aws-lambda": "^8.10.145",

@@ -1,41 +1,27 @@
 # CLAUDE.md
 
-Daily LinkedIn job scraper on AWS Lambda. Scrapes via Apify, filters, scores with DeepSeek, pushes matches to Telegram.
+Multi-Tenant Automated LinkedIn Job Scraper & AI Evaluator on AWS Lambda. Scrapes via Apify, filters dynamically per candidate, scores with DeepSeek, and notifies via Telegram.
 
-> README.md is stale — it says OpenAI/GPT-4o-mini + AWS SES email. The code uses **DeepSeek** (`deepseek-chat`) + **Telegram**. Trust the code.
+## Architecture Pipeline
 
-## Pipeline (`src/lambda.ts` handler)
+Dispatcher Orchestrator (`src/lambda.ts`) → Per-Candidate Workers (`src/user_worker.ts`) → SQS Posting Queue (`src/post_scheduler.ts`).
 
-Scrape → dedup batch → DB dedup → keyword filter → DeepSeek AI match → persist + Telegram notify → cost summary.
-
-1. **Scrape** — `helper/apify.ts`, LinkedIn search URLs from `helper/filter.ts` (`SEARCH_URLS`, lookback injected via `f_TPR`).
-2. **Dedup** — `getUniqueJobsFromBatch` (within batch), then `getExistingJobsData` checks `link` + `fingerprint` against Postgres.
-3. **Keyword filter** — `keywordFilter` drops by `EXCLUDE_*` lists + `EXCLUDE_TITLE_PATTERNS` (level codes SDE2/L3/II).
-4. **AI** — `deepseek.checkRelevanceBatch`, batch size 10, 3s delay. `MIN_MATCH_SCORE` default 60. Resume + rules form a >1024-token static prefix for DeepSeek context caching.
-5. **Notify** — `helper/telegram_helper.ts` + `telegram_templates.ts`. Matched + cost summary to one chat; dropped-jobs path exists but is commented out.
+1. **Dispatcher** — `src/lambda.ts` queries active candidates in `users` table and dispatches `UserWorkerLambda` invocations asynchronously.
+2. **Worker** — `src/user_worker.ts` handles scraping, per-candidate job deduplication, candidate-specific keyword filtering, and DeepSeek AI evaluation.
+3. **Scrape** — `src/helper/apify.ts` uses a rotated pool of Apify API keys (`key_rotation` table) to scrape candidate-configured search URLs.
+4. **Per-Candidate Dedup** — `getExistingJobsData(userId)` checks job link and fingerprint against `jobs` table strictly per candidate (`(user_id, job_link)` unique index).
+5. **Keyword Filter** — `keywordFilter(jobs, user.excludeTitleKeywords)` filters title keywords dynamically configured per candidate in their `users` DB row (no hardcoded static arrays).
+6. **DeepSeek AI Match** — `deepseek.checkRelevanceBatch` evaluates candidate resume plain text against job descriptions dynamically, scoring match (0-100) and checking experience compatibility.
+7. **Telegram Onboarding & Delivery**:
+   - Admin creates candidate via Admin Dashboard (`AdminLambda` / `GET /admin.html`).
+   - Candidate links their Telegram account by sending `/register <ID>` (e.g. `/register 12`) to the Telegram bot (`src/telegram_webhook.ts`).
+   - Matched jobs are sent to candidate's Telegram Chat ID. Technical errors route strictly to Admin Telegram (`process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID`).
 
 ## Stack
 
 - Node 24 / TypeScript / ESM, AWS Lambda via SAM.
-- Neon serverless Postgres + Drizzle ORM (`src/db/`).
-- DeepSeek API (scoring), Apify (scrape), Telegram Bot API (delivery).
-- `resume.txt` is imported as a string at build time (`import resumeText from "../../resume.txt"`, esbuild text loader). It must exist to build.
-
-## Infra (`template.yml`)
-
-- **MainLambda** (`src/lambda.handler`) — 4 EventBridge ScheduleV2 crons (Asia/Kolkata): weekdays 09:00/13:00/18:00, Sun 08:00.
-- **AdminLambda** (`src/admin.handler`) — API Gateway. `POST /run` invokes MainLambda async with `{ lookbackHours }`.
-- Secrets via SSM Parameter Store params (`Type: AWS::SSM::Parameter::Value<String>`), injected as env vars.
-
-## Auth
-
-- MainLambda: event must carry `adminApiKey === process.env.ADMIN_API_KEY`. Unauthorized → 401, no work done.
-- AdminLambda: `x-api-key` header must equal `ADMIN_API_KEY`.
-
-## DB schema (`src/db/schema.ts`)
-
-- `jobs` — `job_link` PK, `fingerprint` unique, `seen_at`. Dedup ledger.
-- `key_rotation` — Apify API tokens with `usage_cost`, `subscription_start_date`. `resetHighUsageTokens()` clears usage on expired subscriptions each run; `getValidApifyToken()` rotates.
+- Neon Serverless Postgres + Drizzle ORM (`src/db/`).
+- DeepSeek API (AI scoring), Apify (Scraping), Telegram Bot API (Alerts & Webhook).
 
 ## Commands
 
@@ -43,15 +29,6 @@ Scrape → dedup batch → DB dedup → keyword filter → DeepSeek AI match →
 npm run typecheck          # tsc --noEmit
 npm run sam:build          # sam validate --lint && sam build --parallel
 npm run sam:deploy         # sam deploy --no-confirm-changeset
-npm run lambda             # local invoke MainLambda (env.json + event.json)
 npm run db:generate        # drizzle-kit generate
-npm run db:migrate         # drizzle-kit migrate
+npm run db:migrate         # npx tsx scripts/migrate.ts
 ```
-
-Local invoke needs `env.json` (secrets) + `event.json` (must include valid `adminApiKey`). See `docs/RUN.md`.
-
-## Gotchas
-
-- DeepSeek `deepseek-chat` alias + pricing constants in `deepseek.ts` have a noted deprecation date (2026-07-24) — re-check before then.
-- Filter lists in `filter.ts` are aggressive (exclude Java/React/Frontend/Senior/big-tech companies, etc.) — tuned for one fresher/junior backend profile. Editing them changes what surfaces.
-- `event.adminApiKey` is required even for scheduled invokes — the EventBridge targets pass it.

@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Job Scrapper template
+Description: Multi-Tenant Job Scrapper template (Fan-Out Dispatcher + Per-User Worker Architecture)
 
 # PARAMETERS
 Parameters:
@@ -8,6 +8,10 @@ Parameters:
     Type: String
     Description: Application environment (dev/prod)
     Default: prod
+  LogRetentionDays:
+    Type: Number
+    Description: CloudWatch Log retention in days
+    Default: 3
   ApifyApiKey:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: API Key for Apify service to fetch job listings
@@ -58,19 +62,134 @@ Parameters:
     Default: /job-scraper/CLOUDFLARE_IMAGE_WORKER_URL
 
 Resources:
-  # Event Bridge Invoke Lambda
+
+  # ─── API GATEWAY WITH CUSTOM RESPONSES & CORS ──────────────────────────────
+  APIGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      MinimumCompressionSize: 1024
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type,X-Api-Key,Authorization,x-api-key'"
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      GatewayResponses:
+        UNAUTHORIZED:
+          StatusCode: 401
+          ResponseTemplates:
+            application/json: '{"error": "Unauthorized: Invalid or missing API key.", "type": "UNAUTHORIZED"}'
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key,Authorization,x-api-key'"
+        ACCESS_DENIED:
+          StatusCode: 403
+          ResponseTemplates:
+            application/json: '{"error": "Access Denied.", "type": "ACCESS_DENIED"}'
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key,Authorization,x-api-key'"
+        MISSING_AUTHENTICATION_TOKEN:
+          StatusCode: 404
+          ResponseTemplates:
+            application/json: '{"error": "Route or Method not found.", "type": "NOT_FOUND"}'
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key,Authorization,x-api-key'"
+        DEFAULT_4XX:
+          ResponseTemplates:
+            application/json: '{"error": "$context.error.messageString", "type": "$context.error.responseType"}'
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key,Authorization,x-api-key'"
+        DEFAULT_5XX:
+          ResponseTemplates:
+            application/json: '{"error": "$context.error.messageString", "type": "$context.error.responseType"}'
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key,Authorization,x-api-key'"
+
+  # ─── LAMBDA FUNCTIONS ──────────────────────────────────────────────────────
+
+  # Main Orchestrator / Dispatcher Lambda triggered 2x daily (Mon-Sat)
   MainLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs24.x
       Architectures:
         - arm64
-      MemorySize: 1024
-      ReservedConcurrentExecutions: 1
+      MemorySize: 256
       LoggingConfig:
         LogFormat: JSON
       CodeUri: ./
       Handler: src/lambda.handler
+      Timeout: 60
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SSMParameterReadPolicy:
+            ParameterName: "/job-scraper/*"
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UserWorkerLambda
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+          ADMIN_API_KEY: !Ref AdminApiKey
+          USER_WORKER_FUNCTION_NAME: !Ref UserWorkerLambda
+          APP_ENV: !Ref AppEnv
+
+      Events:
+        # Morning run at 9:00 AM IST, Monday through Saturday
+        MorningRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 9 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 15, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        # Evening run at 5:00 PM IST, Monday through Saturday
+        EveningRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 17 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 8, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - src/lambda.ts
+
+  # Isolated Per-User Worker Lambda (Invoked asynchronously per candidate user)
+  UserWorkerLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 256
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: ./
+      Handler: src/user_worker.handler
       Timeout: 600
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -90,49 +209,10 @@ Resources:
           MIN_MATCH_SCORE: !Ref MinMatchScore
           APP_ENV: !Ref AppEnv
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
-          TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
-          TELEGRAM_DROPPED_JOBS_BOT_TOKEN: !Ref TelegramDroppedJobsBotToken
-          TELEGRAM_DROPPED_JOBS_CHAT_ID: !Ref TelegramDroppedJobsChatId
           ADMIN_API_KEY: !Ref AdminApiKey
           POST_QUEUE_URL: !Ref PostQueue
-
-      Events:
-        MorningRun:
-          Type: ScheduleV2
-          Properties:
-            ScheduleExpression: cron(0 9 ? * MON-FRI *)
-            ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 18, "adminApiKey": "${AdminApiKey}"}'
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-              MaximumEventAgeInSeconds: 3600
-        AfternoonRun:
-          Type: ScheduleV2
-          Properties:
-            ScheduleExpression: cron(0 13 ? * MON-FRI *)
-            ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 4, "adminApiKey": "${AdminApiKey}"}'
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-              MaximumEventAgeInSeconds: 3600
-        EveningRun:
-          Type: ScheduleV2
-          Properties:
-            ScheduleExpression: cron(0 18 ? * MON-FRI *)
-            ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-              MaximumEventAgeInSeconds: 3600
-        SundayMorningRun:
-          Type: ScheduleV2
-          Properties:
-            ScheduleExpression: cron(0 8 ? * SUN *)
-            ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 48, "adminApiKey": "${AdminApiKey}"}'
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-              MaximumEventAgeInSeconds: 3600
+          DEFAULT_BILLED_RUN_COST_USD: "0.1"
+          MIN_RUN_BALANCE: "0.1"
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -140,8 +220,6 @@ Resources:
         Format: esm
         OutExtension:
           - .js=.mjs
-        Loader:
-          - .txt=text
         Sourcemap: true
         Banner:
           - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
@@ -149,15 +227,16 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/lambda.ts
+          - src/user_worker.ts
 
+  # Admin Lambda Endpoint for manual triggers and RESTful user CRUD API
   AdminLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs24.x
       Architectures:
         - arm64
-      MemorySize: 128
+      MemorySize: 256
       LoggingConfig:
         LogFormat: JSON
       CodeUri: ./
@@ -172,15 +251,152 @@ Resources:
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
+          DEEPSEEK_API_KEY: !Ref DeepseekApiKey
           APP_ENV: !Ref AppEnv
           ADMIN_API_KEY: !Ref AdminApiKey
           MAIN_LAMBDA_FUNCTION_NAME: !Ref MainLambda
       Events:
+        # GET /admin.html & GET /admin — Serve static Web Dashboard HTML page
+        GetAdminHtml:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /admin.html
+            Method: GET
+        GetAdminRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /admin
+            Method: GET
+
+        # GET /stats — Financial analytics & profit dashboard
+        GetStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /stats
+            Method: GET
+        OptionsStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /stats
+            Method: OPTIONS
+
+        # POST /run — Trigger main scraper Lambda
         RunMainLambda:
           Type: Api
           Properties:
+            RestApiId: !Ref APIGateway
             Path: /run
             Method: POST
+        OptionsRun:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /run
+            Method: OPTIONS
+
+        # GET /users & POST /users
+        GetUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users
+            Method: GET
+        CreateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users
+            Method: POST
+        OptionsUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users
+            Method: OPTIONS
+
+        # GET /users/{id}, PUT /users/{id}, DELETE /users/{id}
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}
+            Method: GET
+        UpdateUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}
+            Method: PUT
+        DeleteUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}
+            Method: DELETE
+        OptionsUserParam:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}
+            Method: OPTIONS
+
+        # POST /users/{id}/topup — Recharge user wallet balance
+        TopupUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}/topup
+            Method: POST
+        OptionsUserTopup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}/topup
+            Method: OPTIONS
+
+        # GET /apify-keys & POST /apify-keys
+        GetApifyKeys:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /apify-keys
+            Method: GET
+        CreateApifyKey:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /apify-keys
+            Method: POST
+        OptionsApifyKeys:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /apify-keys
+            Method: OPTIONS
+
+        # PUT /apify-keys/{id} & DELETE /apify-keys/{id}
+        UpdateApifyKey:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /apify-keys/{id}
+            Method: PUT
+        DeleteApifyKey:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /apify-keys/{id}
+            Method: DELETE
+        OptionsApifyKeyParam:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /apify-keys/{id}
+            Method: OPTIONS
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -196,6 +412,51 @@ Resources:
           - "aws-lambda"
         EntryPoints:
           - src/admin.ts
+
+  # Telegram Bot Webhook Lambda for /start, /stop, /balance commands
+  TelegramWebhookLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 256
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: ./
+      Handler: src/telegram_webhook.handler
+      Timeout: 30
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SSMParameterReadPolicy:
+            ParameterName: "/job-scraper/*"
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+          TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
+          APP_ENV: !Ref AppEnv
+      Events:
+        TelegramWebhookApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /webhook/telegram
+            Method: POST
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - src/telegram_webhook.ts
 
   PostQueue:
     Type: AWS::SQS::Queue
@@ -260,13 +521,54 @@ Resources:
         EntryPoints:
           - src/post_scheduler.ts
 
+  # ─── CLOUDWATCH LOG GROUPS WITH 3-DAY RETENTION ────────────────────────────
   MyLogGroup:
     Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub "/aws/lambda/${MainLambda}"
-      RetentionInDays: 3
+      RetentionInDays: !Ref LogRetentionDays
+
+  UserWorkerLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${UserWorkerLambda}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  AdminLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AdminLambda}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  TelegramWebhookLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${TelegramWebhookLambda}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  PostSchedulerLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${PostSchedulerLambda}"
+      RetentionInDays: !Ref LogRetentionDays
 
 Outputs:
+  AdminDashboardUrl:
+    Description: "Direct URL to open Admin Web Dashboard in browser"
+    Value: !Sub "https://${APIGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/admin.html"
   ApiGatewayUrl:
     Description: "API Gateway base URL for Admin API"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/run"
+    Value: !Sub "https://${APIGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  TelegramWebhookUrl:
+    Description: "API Gateway base URL for Telegram Webhook"
+    Value: !Sub "https://${APIGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook/telegram"

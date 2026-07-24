@@ -4,14 +4,15 @@ import { sendTelegramMessage } from './helper/telegram_helper';
 import { getPlatformPostFailedMessage, getPlatformTokenExpiredMessage } from './helper/telegram_templates';
 import { postToLinkedIn } from './helper/linkedin_post';
 import { formatJobPost } from './helper/linkedin_templates';
+import { getUserById } from './helper/db_helper';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
+const ADMIN_TELEGRAM_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
 const IMAGE_WORKER_URL = process.env.CLOUDFLARE_IMAGE_WORKER_URL;
-
 const RETRY_DELAYS_MS = [30_000, 60_000, 120_000];
 const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
 
+// Fetch company name image preview from Cloudflare Worker
 async function fetchCompanyImage(companyName: string): Promise<Buffer> {
   if (!IMAGE_WORKER_URL) throw new Error('CLOUDFLARE_IMAGE_WORKER_URL is not set');
 
@@ -25,9 +26,11 @@ async function fetchCompanyImage(companyName: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
+// Scheduled Lambda handler to post queued jobs to candidate's LinkedIn profile
 export const handler = async (_event: ScheduledEvent, _context: Context) => {
   console.log('PostSchedulerLambda invoked', new Date().toISOString());
 
+  // Receive next job message from SQS queue
   const jobMsg = await receiveJobFromQueue();
   if (!jobMsg) {
     console.log('No jobs in queue, exiting');
@@ -35,14 +38,35 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
   }
 
   const { message, receiptHandle } = jobMsg;
-  const { job } = message;
+  const { job, userId } = message;
   const jobTitle = job.title || 'Unknown Job';
+
+  // Fetch fresh candidate user details & OAuth tokens directly from database by userId
+  const user = await getUserById(userId);
+  if (!user) {
+    console.warn(`User ID ${userId} not found in database for job "${jobTitle}". Deleting message.`);
+    await deleteMessageFromQueue(receiptHandle);
+    return { statusCode: 200, body: 'User not found' };
+  }
+
+  const linkedinCreds = user.linkedinCredentials as { accessToken?: string; personUrn?: string } | undefined;
+  const token = linkedinCreds?.accessToken;
+  const personUrn = linkedinCreds?.personUrn;
+  const userInfo = { id: user.id, name: user.name, email: user.email };
+
+  // Skip posting if user does not have custom LinkedIn credentials in database
+  if (!token || !personUrn) {
+    console.log(`User ID ${user.id} (${user.email}) does not have custom LinkedIn credentials for job "${jobTitle}". Deleting message.`);
+    await deleteMessageFromQueue(receiptHandle);
+    return { statusCode: 200, body: 'Skipped: Candidate has no LinkedIn credentials' };
+  }
 
   let attempt = 0;
   let success = false;
   let lastStatus = 0;
   let lastError = '';
 
+  // Retry loop for posting job to candidate's LinkedIn profile
   while (!success && attempt < MAX_ATTEMPTS) {
     attempt++;
     if (attempt > 1) {
@@ -52,10 +76,6 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
     }
 
     try {
-      const token = process.env.LINKEDIN_ACCESS_TOKEN;
-      if (!token) throw new Error('LINKEDIN_ACCESS_TOKEN is not set');
-      const personUrn = process.env.LINKEDIN_PERSON_URN!;
-
       let imageBuffer: Buffer | undefined;
       const companyName = job.companyName || '';
       if (companyName && IMAGE_WORKER_URL) {
@@ -67,6 +87,7 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
         }
       }
 
+      // Format post text and call LinkedIn API with candidate credentials
       const postText = formatJobPost(job as any);
       const result = await postToLinkedIn(postText, token, personUrn, imageBuffer);
       success = result.success;
@@ -83,30 +104,36 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
     }
   }
 
+  // Delete message from queue upon successful posting
   if (success) {
     await deleteMessageFromQueue(receiptHandle);
-    console.log(`Posted "${jobTitle}" to LinkedIn (attempts: ${attempt})`);
+    console.log(`Posted "${jobTitle}" to LinkedIn for User ID ${user.id} (attempts: ${attempt})`);
     return { statusCode: 200, body: `Posted to LinkedIn: ${jobTitle}` };
   }
 
+  // Delete message from queue after max attempts failed
   await deleteMessageFromQueue(receiptHandle);
 
-  if (lastStatus === 401) {
-    await sendTelegramMessage(
-      TELEGRAM_BOT_TOKEN,
-      TELEGRAM_CHAT_ID,
-      getPlatformTokenExpiredMessage(
-        'LinkedIn',
-        'npx tsx scripts/linkedin-oauth-setup.ts',
-        '/job-scraper/LINKEDIN_ACCESS_TOKEN'
-      )
-    );
-  } else {
-    await sendTelegramMessage(
-      TELEGRAM_BOT_TOKEN,
-      TELEGRAM_CHAT_ID,
-      getPlatformPostFailedMessage('LinkedIn', jobTitle, lastStatus, lastError)
-    );
+  // Send technical failure alert strictly to ADMIN Telegram channel with candidate User ID & Name
+  if (ADMIN_TELEGRAM_CHAT_ID) {
+    if (lastStatus === 401) {
+      await sendTelegramMessage(
+        TELEGRAM_BOT_TOKEN,
+        ADMIN_TELEGRAM_CHAT_ID,
+        getPlatformTokenExpiredMessage(
+          `LinkedIn (Job: ${jobTitle})`,
+          'Check candidate OAuth credentials',
+          'users.linkedin_credentials',
+          userInfo
+        )
+      );
+    } else {
+      await sendTelegramMessage(
+        TELEGRAM_BOT_TOKEN,
+        ADMIN_TELEGRAM_CHAT_ID,
+        getPlatformPostFailedMessage('LinkedIn', jobTitle, lastStatus, lastError, userInfo)
+      );
+    }
   }
 
   console.error(`LinkedIn post failed after ${MAX_ATTEMPTS} attempts — message deleted`);

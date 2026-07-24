@@ -1,8 +1,8 @@
-Summary
+--ABOUT--
 Backend Engineer with experience building serverless AWS applications, AI agents, and production SaaS
 products. Founder of Assessly (CodeVerdict.io), an AI-powered code assessment platform for hiring teams.
 Skilled in Node.js, TypeScript, AWS Lambda, DynamoDB, Amazon Bedrock, and event-driven architectures.
-Experience
+--EXPERIENCE--
 Founder & AI Engineer — Assessly (CodeVerdict.io) Mar 2026 – Present
 Independent Hyderabad, India
 – Built an AI-powered hiring platform that evaluates candidate GitHub repositories and generates detailed
@@ -25,10 +25,7 @@ Backend Developer Intern Mar 2025 – Aug 2025
 Persist Ventures Remote
 – Developed backend features and REST APIs using Node.js and TypeScript for early-stage startup products.
 – Worked on database schema design and server-side business logic for web applications.
-Education
-Sir CRR College Of Engineering Bachelor of Technology – Electronics and Communication Projects
-2019 – 2023
-Eluru, India
+--PROJECTS--
 Heymonsoon | SvelteKit, TypeScript, Google Gemini, Vercel AI SDK, LibSQL, WhatsApp API May 2026 - Present
 – Built an AI-powered WhatsApp accounting agent for Indian SME owners — handles invoicing, GST compliance,
 and receivables tracking via natural language conversations.

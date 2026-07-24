@@ -1,0 +1,1 @@
+CREATE INDEX "users_telegram_chat_id_idx" ON "users" USING btree ("telegram_chat_id");

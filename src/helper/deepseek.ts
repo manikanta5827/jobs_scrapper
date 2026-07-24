@@ -15,12 +15,12 @@ export class FatalError extends Error {
 
 const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
 
-// "deepseek-chat" is an alias for DeepSeek V4 Flash (non-thinking), price per 1M tokens (USD).
-// ponytail: alias deprecates 2026-07-24 — re-check pricing/model name after that.
+// "deepseek-chat" pricing per 1M tokens (USD)
 const PRICE_PER_M_CACHE_HIT_TOKENS = 0.014;
 const PRICE_PER_M_CACHE_MISS_TOKENS = 0.14;
 const PRICE_PER_M_OUTPUT_TOKENS = 0.28;
 
+// Calculate actual USD cost incurred from DeepSeek token usage counts
 export function calculateCostUsd(usage: TokenUsage): number {
   return (
     (usage.promptCacheHitTokens / 1_000_000) * PRICE_PER_M_CACHE_HIT_TOKENS +
@@ -29,16 +29,9 @@ export function calculateCostUsd(usage: TokenUsage): number {
   );
 }
 
-// @ts-ignore
-import resumeText from "../../resume.txt";
-
-/**
- * To maximize DeepSeek's context caching, we combine static content (Rules + Resume + Examples)
- * into a single "system" message prefix. This stays identical across all requests.
- *
- * Requirement: Prefix must be >= 1024 tokens to trigger caching.
- */
-const SYSTEM_PROMPT = `You are a strict job-fit evaluator. Your only job is to determine if a job posting is worth applying to for this specific candidate. Be conservative — it's better to reject a borderline job than to waste the candidate's time.
+// Dynamically construct system prompt prefix using candidate's resume text from DB
+export function buildSystemPrompt(resumeText: string): string {
+  return `You are a strict job-fit evaluator. Your only job is to determine if a job posting is worth applying to for this specific candidate. Be conservative — it's better to reject a borderline job than to waste the candidate's time.
 
 ## CANDIDATE RESUME
 ${resumeText}
@@ -121,41 +114,36 @@ Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
 }
 
 "results" must contain exactly one object per input job, tagged with the matching "id". Order does not matter.`;
+}
 
-/**
- * Process jobs in batches. Each batch is sent to DeepSeek as a SINGLE call
- * containing all jobs in the batch (tagged with an "id" for response mapping).
- * Delay between batches to respect TPM limits.
- */
+// Process jobs in batches using candidate's resume text dynamically
 export async function checkRelevanceBatch(
   jobs: Job[],
+  resumeText: string,
   batchSize: number = 10,
   delayMs: number = 3000,
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
   const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0 };
+  const systemPrompt = buildSystemPrompt(resumeText);
 
   for (let i = 0; i < jobs.length; i += batchSize) {
     const batch = jobs.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(jobs.length / batchSize);
 
-    console.log(
-      `DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`,
-    );
+    console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
     let results: Map<number, RelevanceResult>;
     try {
-      const batchResult = await checkBatch(batch);
+      const batchResult = await checkBatch(batch, systemPrompt);
       results = batchResult.results;
       usage.promptCacheHitTokens += batchResult.usage.promptCacheHitTokens;
       usage.promptCacheMissTokens += batchResult.usage.promptCacheMissTokens;
       usage.completionTokens += batchResult.usage.completionTokens;
     } catch (err) {
-      // PROPAGATE FATAL ERRORS IMMEDIATELY
       if (err instanceof FatalError) throw err;
-
       const reason = err instanceof Error ? err.message : String(err);
       console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
       results = new Map();
@@ -166,9 +154,7 @@ export async function checkRelevanceBatch(
       const parsed = results.get(j);
 
       if (parsed) {
-        const isGoodMatch =
-          parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
-
+        const isGoodMatch = parsed.is_matched && parsed.score >= MIN_MATCH_SCORE;
         const enriched: EnrichedJob = {
           ...job,
           status: isGoodMatch ? "matched" : "rejected",
@@ -206,12 +192,10 @@ export async function checkRelevanceBatch(
   return { matched, rejected, usage };
 }
 
-/**
- * Sends one batch of jobs to DeepSeek in a single call.
- * Returns a map of input array index -> parsed result.
- */
+// Sends one batch of jobs to DeepSeek in a single call using candidate's system prompt
 async function checkBatch(
   batch: Job[],
+  systemPrompt: string,
   retries: number = 3,
 ): Promise<{ results: Map<number, RelevanceResult>; usage: TokenUsage }> {
   const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
@@ -223,21 +207,19 @@ async function checkBatch(
     try {
       const res = await executeDeepSeekCall(
         userMessage,
+        systemPrompt,
         DEEPSEEK_API_KEY,
         maxTokens,
         attempt,
         retries,
       );
-      if (!res) continue; // Handled 429 and waiting
+      if (!res) continue;
 
       return await parseAndValidateResponse(res, batch.length);
     } catch (err) {
       if (err instanceof FatalError || attempt === retries) throw err;
-
       const backoff = attempt * 2000;
-      console.warn(
-        `Attempt ${attempt} failed for batch of ${batch.length}: ${err instanceof Error ? err.message : String(err)}. Retry in ${backoff}ms`,
-      );
+      console.warn(`Attempt ${attempt} failed: ${err instanceof Error ? err.message : String(err)}. Retry in ${backoff}ms`);
       await sleep(backoff);
     }
   }
@@ -245,9 +227,7 @@ async function checkBatch(
   throw new Error(`All ${retries} attempts failed for batch of ${batch.length} jobs`);
 }
 
-/**
- * Extracts and cleans job data for the LLM.
- */
+// Prepare cleaned job payload attributes for LLM input
 function prepareJobPayload(job: Job) {
   return {
     title: job.title,
@@ -264,11 +244,10 @@ function prepareJobPayload(job: Job) {
   };
 }
 
-/**
- * Handles the fetch request and specific DeepSeek error codes.
- */
+// HTTP fetch request execution to DeepSeek completions API
 async function executeDeepSeekCall(
   userMessage: string,
+  systemPrompt: string,
   apiKey: string,
   maxTokens: number,
   attempt: number,
@@ -286,7 +265,7 @@ async function executeDeepSeekCall(
       max_tokens: maxTokens,
       temperature: 0,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
     }),
@@ -294,9 +273,7 @@ async function executeDeepSeekCall(
 
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("retry-after") ?? "5", 10);
-    console.warn(
-      `Rate limited. Waiting ${retryAfter}s (attempt ${attempt}/${retries})`,
-    );
+    console.warn(`Rate limited. Waiting ${retryAfter}s (attempt ${attempt}/${retries})`);
     await sleep(retryAfter * 1000);
     return null;
   }
@@ -308,23 +285,16 @@ async function executeDeepSeekCall(
   return res;
 }
 
-/**
- * Handles non-OK responses from DeepSeek.
- */
+// Handle non-200 DeepSeek HTTP errors
 async function handleDeepSeekError(res: Response): Promise<never> {
   const errorText = await res.text();
-
   if (res.status === 401) {
     throw new FatalError(`Invalid DeepSeek API Key: ${errorText}`);
   }
-
   throw new Error(`DeepSeek HTTP ${res.status}: ${errorText}`);
 }
 
-/**
- * Parses and validates a batch DeepSeek response (`{"results": [{id, ...}]}`)
- * into a map of input array index -> result.
- */
+// Parse and validate DeepSeek JSON output into RelevanceResult objects
 async function parseAndValidateResponse(
   res: Response,
   expectedCount: number,
@@ -371,9 +341,7 @@ async function parseAndValidateResponse(
   return { results, usage };
 }
 
-/**
- * Type guard for RelevanceResult.
- */
+// Type guard for RelevanceResult JSON schema validation
 function isValidRelevanceResult(parsed: any): parsed is RelevanceResult {
   return (
     typeof parsed.score === "number" &&

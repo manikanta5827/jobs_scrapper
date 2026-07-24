@@ -1,0 +1,1 @@
+ALTER TABLE "users" DROP COLUMN "total_llm_cost_usd";
