@@ -5,7 +5,7 @@ Description: Multi-Tenant Job Scrapper template (Fan-Out Dispatcher + Per-User W
 # PARAMETERS
 Parameters:
   AdminEmail:
-    Type: String
+    Type: "AWS::SSM::Parameter::Value<String>"
     Description: Email address for admin alerts
     Default: /job-scraper/ADMIN_EMAIL
   AppEnv:
