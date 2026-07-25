@@ -184,7 +184,7 @@ Resources:
         LogFormat: JSON
       CodeUri: ./
       Handler: src/user_worker.handler
-      Timeout: 600
+      Timeout: 900
       Policies:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:

@@ -156,81 +156,95 @@ const batchResponseSchema = z.object({
   results: z.array(relevanceResultSchema),
 });
 
+// ponytail: process batches in parallel chunks of 3 to avoid exceeding Lambda 15min execution limit; upgrade path is worker pool queue if RPM exceeds provider limits.
 export async function checkRelevanceBatch(
   jobs: Job[],
   resumeText: string,
   batchSize: number = 10,
-  delayMs: number = 3000,
+  delayMs: number = 1000,
+  concurrency: number = 3,
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
   const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0 };
   const systemPrompt = buildSystemPrompt(resumeText);
 
+  // Group jobs into batches
+  const batches: Job[][] = [];
   for (let i = 0; i < jobs.length; i += batchSize) {
-    const batch = jobs.slice(i, i + batchSize);
-    const batchNum = Math.floor(i / batchSize) + 1;
-    const totalBatches = Math.ceil(jobs.length / batchSize);
+    batches.push(jobs.slice(i, i + batchSize));
+  }
 
-    console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
+  const totalBatches = batches.length;
 
-    let results = new Map<number, RelevanceResult>();
-    try {
-      const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
-      const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
-      
-      const res = await executellmCall(
-        batchResponseSchema,
-        userMessage,
-        systemPrompt
-      );
-      
-      usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
-      usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
-      usage.completionTokens += res.usage.completionTokens;
-      
-      for (const item of res.object.results) {
-         results.set(item.id, item as RelevanceResult);
-      }
-    } catch (err) {
-      if (err instanceof FatalError) throw err;
-      const reason = err instanceof Error ? err.message : String(err);
-      console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
-    }
+  // Process batches in chunks with controlled concurrency
+  for (let i = 0; i < batches.length; i += concurrency) {
+    const chunk = batches.slice(i, i + concurrency);
 
-    for (let j = 0; j < batch.length; j++) {
-      const job = batch[j];
-      const parsed = results.get(j);
+    await Promise.all(
+      chunk.map(async (batch, indexWithinChunk) => {
+        const batchNum = i + indexWithinChunk + 1;
+        console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
-      if (parsed) {
-        const isGoodMatch = parsed.score >= MIN_MATCH_SCORE;
-        const enriched: EnrichedJob = {
-          ...job,
-          status: isGoodMatch ? "matched" : "rejected",
-          ai_score: parsed.score,
-          ai_reason: parsed.reason,
-          ai_matched_skills: parsed.matched_skills,
-          ai_missing_skills: parsed.missing_skills,
-          ai_job_location: parsed.job_location || null,
-          ai_yoe: parsed.years_of_experience,
-          ai_direct_apply: parsed.direct_apply || null,
-        };
-        isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
-      } else {
-        console.error(`Job missing from DeepSeek response: "${job.title}"`);
-        rejected.push({
-          ...job,
-          status: "rejected",
-          ai_score: 0,
-          ai_reason: "DeepSeek check failed",
-          ai_matched_skills: [],
-          ai_missing_skills: [],
-          ai_direct_apply: null,
-        });
-      }
-    }
+        let results = new Map<number, RelevanceResult>();
+        try {
+          const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
+          const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
 
-    if (i + batchSize < jobs.length) {
+          const res = await executellmCall(
+            batchResponseSchema,
+            userMessage,
+            systemPrompt
+          );
+
+          usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
+          usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
+          usage.completionTokens += res.usage.completionTokens;
+
+          for (const item of res.object.results) {
+            results.set(item.id, item as RelevanceResult);
+          }
+        } catch (err) {
+          if (err instanceof FatalError) throw err;
+          const reason = err instanceof Error ? err.message : String(err);
+          console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
+        }
+
+        for (let j = 0; j < batch.length; j++) {
+          const job = batch[j];
+          const parsed = results.get(j);
+
+          if (parsed) {
+            const isGoodMatch = parsed.score >= MIN_MATCH_SCORE;
+            const enriched: EnrichedJob = {
+              ...job,
+              status: isGoodMatch ? "matched" : "rejected",
+              ai_score: parsed.score,
+              ai_reason: parsed.reason,
+              ai_matched_skills: parsed.matched_skills,
+              ai_missing_skills: parsed.missing_skills,
+              ai_job_location: parsed.job_location || null,
+              ai_yoe: parsed.years_of_experience,
+              ai_direct_apply: parsed.direct_apply || null,
+            };
+            isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
+          } else {
+            console.error(`Job missing from DeepSeek response: "${job.title}"`);
+            rejected.push({
+              ...job,
+              status: "rejected",
+              ai_score: 0,
+              ai_reason: "DeepSeek check failed",
+              ai_matched_skills: [],
+              ai_missing_skills: [],
+              ai_direct_apply: null,
+            });
+          }
+        }
+      })
+    );
+
+    if (i + concurrency < batches.length && delayMs > 0) {
       await sleep(delayMs);
     }
   }
