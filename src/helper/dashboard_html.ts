@@ -1,7 +1,10 @@
 /**
  * dashboard_html.ts
  * Self-contained static Web Dashboard HTML for candidates to view matched jobs for their User UUID.
- * Includes Date Range Filtering, Score Bounds (Min Score & Max Score), and Items-Per-Page Selector.
+ * Features:
+ * - Match Quality Dropdown (≥ 70%, ≥ 80%, ≥ 90%)
+ * - Date Range Filters (From / To Date)
+ * - Server-Side Pagination (50 items/page default)
  */
 
 export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
@@ -172,11 +175,6 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       border-color: var(--accent-blue);
     }
 
-    .number-input {
-      width: 70px;
-      text-align: center;
-    }
-
     .select-input {
       background: rgba(15, 23, 42, 0.6);
       color: var(--text-main);
@@ -223,7 +221,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
     .search-box {
       flex: 1;
-      min-width: 220px;
+      min-width: 200px;
       position: relative;
     }
 
@@ -412,7 +410,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     <header>
       <div class="logo-group">
         <h1>Matched Jobs Dashboard</h1>
-        <p>Curated AI-matched job postings with flexible score range and date filters</p>
+        <p>Curated AI-matched job postings with quality and date range filters</p>
       </div>
       <div class="user-badge" id="userBadge">Candidate ID: Loading...</div>
     </header>
@@ -443,15 +441,14 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
           <input type="text" id="searchInput" class="filter-input" placeholder="Search page results..." onkeyup="filterLocalJobs()">
         </div>
 
-        <!-- AI Match Score Bounds -->
+        <!-- Single Match Quality Dropdown (≥ 70%, ≥ 80%, ≥ 90%) -->
         <div class="filter-group">
-          <label for="minScore">Min Score %:</label>
-          <input type="number" id="minScore" class="filter-input number-input" min="0" max="100" value="70">
-        </div>
-
-        <div class="filter-group">
-          <label for="maxScore">Max Score %:</label>
-          <input type="number" id="maxScore" class="filter-input number-input" min="0" max="100" value="100">
+          <label for="minScoreSelect">Match Quality:</label>
+          <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
+            <option value="70" selected>&ge; 70% (All Matched)</option>
+            <option value="80">&ge; 80% (Great Matches)</option>
+            <option value="90">&ge; 90% (Top Matches)</option>
+          </select>
         </div>
 
         <!-- Date Bounds -->
@@ -494,8 +491,8 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       </div>
 
       <div id="emptyState" class="empty-state" style="display: none;">
-        <p>No matched jobs found for the selected filter bounds.</p>
-        <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">Try broadening your score range or date filters.</p>
+        <p>No matched jobs found for the selected filter criteria.</p>
+        <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">Try adjusting your Match Quality dropdown or date range.</p>
       </div>
 
       <table id="jobsTable" style="display: none;">
@@ -558,13 +555,12 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
       try {
         const limit = parseInt(document.getElementById('limitSelect').value, 10) || 50;
-        const minScore = parseInt(document.getElementById('minScore').value, 10) ?? 70;
-        const maxScore = parseInt(document.getElementById('maxScore').value, 10) ?? 100;
+        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 70;
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
 
         const apiBaseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf('/dashboard'));
-        let url = \`\${apiBaseUrl}/users/\${userId}/jobs?page=\${page}&limit=\${limit}&minScore=\${minScore}&maxScore=\${maxScore}\`;
+        let url = \`\${apiBaseUrl}/users/\${userId}/jobs?page=\${page}&limit=\${limit}&minScore=\${minScore}&maxScore=100\`;
 
         if (fromDate) url += \`&fromDate=\${encodeURIComponent(fromDate)}\`;
         if (toDate) url += \`&toDate=\${encodeURIComponent(toDate)}\`;
@@ -630,8 +626,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     function resetFilters() {
-      document.getElementById('minScore').value = 70;
-      document.getElementById('maxScore').value = 100;
+      document.getElementById('minScoreSelect').value = '70';
       document.getElementById('fromDate').value = '';
       document.getElementById('toDate').value = '';
       document.getElementById('searchInput').value = '';

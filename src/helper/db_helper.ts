@@ -1,6 +1,6 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
-import { sql, lt, desc, and, eq, gte, lte } from "drizzle-orm";
+import { sql, lt, desc, and, eq, gte, lte, or, isNull } from "drizzle-orm";
 import { convertInrToUsd } from "./currency_helper";
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export async function getExistingJobsData(userId: string): Promise<{ links: Set<
   };
 }
 
-// Insert newly processed job links into candidate's personal ledger using ON CONFLICT DO NOTHING (UUID)
+// Insert newly processed job links into candidate's personal ledger using ON CONFLICT DO NOTHING (UUID) inside an atomic transaction
 export async function trackJobs(
   userId: string, 
   jobsToTrack: { 
@@ -116,20 +116,56 @@ export async function trackJobs(
   if (jobsToTrack.length === 0) return;
   const deduped = [...new Map(jobsToTrack.map(j => [j.link, j])).values()];
   await initDb();
-  await db.insert(jobs)
-    .values(deduped.map(j => ({ 
-      userId, 
-      jobLink: j.link, 
-      fingerprint: j.fingerprint,
-      jobTitle: j.jobTitle,
-      companyName: j.companyName,
-      location: j.location,
-      postedAt: j.postedAt,
-      salary: j.salary,
-      aiScore: j.aiScore,
-      aiReason: j.aiReason,
-    })))
-    .onConflictDoNothing();
+
+  try {
+    await db.transaction(async (tx: any) => {
+      await tx.insert(jobs)
+        .values(deduped.map(j => ({ 
+          userId, 
+          jobLink: j.link, 
+          fingerprint: j.fingerprint,
+          jobTitle: j.jobTitle,
+          companyName: j.companyName,
+          location: j.location,
+          postedAt: j.postedAt,
+          salary: j.salary,
+          aiScore: j.aiScore,
+          aiReason: j.aiReason,
+        })))
+        .onConflictDoNothing();
+    });
+  } catch (err) {
+    console.error(`Transaction failed in trackJobs for user ID ${userId}:`, err);
+    throw err;
+  }
+}
+
+// Automatically delete unmatched/rejected jobs older than N days (default 7 days) to keep DB lean using an atomic transaction
+export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
+  await initDb();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  try {
+    return await db.transaction(async (tx: any) => {
+      const deleted = await tx.delete(jobs)
+        .where(
+          and(
+            lt(jobs.seenAt, cutoff),
+            or(
+              isNull(jobs.aiScore),
+              lt(jobs.aiScore, 70)
+            )
+          )
+        )
+        .returning({ id: jobs.id });
+
+      console.log(`Purged ${deleted.length} unmatched jobs older than ${days} days.`);
+      return deleted.length;
+    });
+  } catch (err) {
+    console.error(`Transaction failed in purgeOldUnmatchedJobs(${days}):`, err);
+    throw err;
+  }
 }
 
 // Retrieve matched jobs with pagination, date range, and min/max score filtering

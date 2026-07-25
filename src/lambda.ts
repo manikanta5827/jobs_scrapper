@@ -5,7 +5,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { resetHighUsageTokens, getActiveUsers, getUserById } from './helper/db_helper';
+import { resetHighUsageTokens, purgeOldUnmatchedJobs, getActiveUsers, getUserById } from './helper/db_helper';
 
 const lambdaClient = new LambdaClient({});
 
@@ -25,8 +25,9 @@ export const handler = async (
 
   console.log(`MainLambda Dispatcher started. Lookback: ${lookbackHours}h`, new Date().toISOString());
 
-  // Reset expired high-usage Apify tokens in shared pool
+  // 1. Reset expired high-usage Apify tokens & purge 7-day-old unmatched jobs
   await resetHighUsageTokens();
+  await purgeOldUnmatchedJobs(7);
 
   // Fetch active users to process
   let usersToProcess: any[] = [];
