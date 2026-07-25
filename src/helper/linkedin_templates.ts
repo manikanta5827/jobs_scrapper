@@ -49,6 +49,14 @@ export function formatJobPost(job: EnrichedJob): string {
 
   post += 'Disclaimer: We are not affiliated to any company. Please check the job posting twice before applying.\n\n';
   post += '💬 Found this helpful? Like Comment & share to help others!\n\n';
+  post += '---\n\n';
+  post += '🎯 Tired of scrolling through job boards & Telegram channels that don\'t match your profile?\n\n';
+  post += 'I set up a system that sends you jobs 100% matched to your resume — straight to you.\n';
+  post += 'No more reading descriptions wondering "is this even for me?" Just apply.\n\n';
+  post += '✅ Perfectly matched to your resume\n';
+  post += '✅ No searching. No filtering. Jobs come to you.\n';
+  post += '✅ 1 week FREE trial — pay only if you love it\n';
+  post += '📩 WhatsApp me: +91 8309497947\n\n';
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
 }
