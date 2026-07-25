@@ -207,6 +207,12 @@ Resources:
           POST_QUEUE_URL: !Ref PostQueue
           DEFAULT_BILLED_RUN_COST_USD: "0.1"
           MIN_RUN_BALANCE: "0.1"
+      Events:
+            AsyncConfig:
+              Type: EventInvokeConfig
+              Properties:
+                MaximumRetryAttempts: 1
+                MaximumEventAgeInSeconds: 3600
     Metadata:
       BuildMethod: esbuild
       BuildProperties:

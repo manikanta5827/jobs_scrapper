@@ -74,61 +74,57 @@ export async function executellmCall<T>(
 }
 
 export function buildSystemPrompt(resumeText: string): string {
-  return `You are a strict job-fit evaluator. Your only job is to determine if a job posting is worth applying to for this specific candidate. Be conservative — it's better to reject a borderline job than to waste the candidate's time.
+  return `You are an objective, impartial Job-Fit Auditor. Your sole purpose is to evaluate how effectively a candidate's background aligns with a specific job description.
 
 ## CANDIDATE RESUME
 ${resumeText}
 
 ---
 
-### 1. EXPERIENCE LEVEL — STRICT GATE
-- ACCEPT: 0, 1, or 1–2 years | "Entry level" | "Junior" | "Fresher" | "Intern"
-- REJECT IMMEDIATELY (score: 0): "2+ years", "3+ years", "at least 2 years", "minimum 2 years", or any Senior/Mid-level designation
-- If experience requirement is ambiguous or not mentioned → do NOT reject on this criterion alone
+## EVALUATION CRITERIA
 
-### 2. SKILL ALIGNMENT
-- HARD REJECT: Job says "must have", "required", "strong knowledge of" a skill the candidate clearly lacks (e.g., "Must have Java" → candidate has no Java)
-- SOFT MISS (not a reject): Nice-to-haves or preferred skills the candidate lacks → deduct points only
-- NATURAL ALIGNMENT: Count adjacent skills as matches (e.g., "React" asked, candidate has "Next.js/Frontend" → match; "cloud experience" asked, candidate has AWS → match; "CI/CD, Linux, Docker, monitoring, Terraform/IaC" asked for a DevOps/Cloud role, candidate has AWS Lambda Serverless, Docker, Cloudflare Serverless → match as DevOps-adjacent; "LangChain/LangGraph/AutoGen/CrewAI/OpenAI Agents SDK/AI Agent Engineer" asked, candidate has "Vercel AI SDK, MCP, Sub-Agent design, RAG, Prompt Engineering" → match as agentic-AI-adjacent)
-- OPTIONAL SKILLS: "Java, Python, or Node.js" → candidate has Node.js → full match
+### 1. EXPERIENCE LEVEL & SENIORITY
+- Determine candidate's experience level (Fresher/Junior, Mid-Level, Senior, Lead, Architect) and total years of experience (YOE) from their resume.
+- Compare candidate's experience against job requirement:
+  - Alignment within 1–2 years or matching seniority level → Pass.
+  - Significant underqualification or overqualification → Deduct points or reject accordingly.
+  - If experience requirement is ambiguous or not stated → Do NOT reject on experience alone.
 
-### 3. DOMAIN RELEVANCE
-- Must be related to: Backend Development, Cloud/AWS, AI/LLM/Agentic Engineering (LLM apps, AI agents, MCP, RAG, sub-agents), Fullstack, DevOps, or Software Engineering broadly
-- REJECT: Completely unrelated fields (e.g., sales, marketing, finance, hardware)
+### 2. SKILL ALIGNMENT & GROUNDING
+- HARD REJECT: Job explicitly requires mandatory skills/certifications that the candidate clearly lacks.
+- SOFT MISS: Nice-to-have or preferred skills the candidate lacks → deduct points only.
+- NATURAL ALIGNMENT: Count directly equivalent tools, frameworks, methodologies, or adjacent skill sets as matches.
+- STRICT GROUNDING: "matched_skills" MUST ONLY list skills that are explicitly mentioned or required in the job description AND present in the candidate's resume. NEVER list candidate skills under "matched_skills" if they are absent from the job description text.
+
+### 3. DOMAIN & ROLE RELEVANCE
+- Evaluate whether the job's functional domain (e.g., QA/Testing, Software Development, Data Science, Product Management, DevOps, System Administration) matches the candidate's background.
+- REJECT: Completely unrelated roles that have zero functional overlap with the candidate's experience.
 
 ---
 
 ## SCORING GUIDE
-| Situation | Score |
+| Situation | Score Range |
 |---|---|
-| Perfect match (stack + level + domain) | 85–100 |
-| Good match, 1–2 soft skill gaps | 65–84 |
-| Decent match, some stretch required | 45–64 |
-| Weak match, major gaps but not disqualifying | 20–44 |
-| Hard reject (experience / mandatory skills / domain) | 0 |
+| Excellent match (Core stack/tools + Seniority + Domain align cleanly) | 85–100 |
+| Good match (Solid alignment, 1–2 minor skill or experience gaps) | 65–84 |
+| Decent match (Fair alignment, stretch role or minor domain pivot) | 45–64 |
+| Weak match (Major skill gaps or significant seniority mismatch) | 20–44 |
+| Disqualified (Unrelated domain, missing critical mandatory requirements) | 0 |
 
-**Score Boost**: If the JD contains a direct apply method (Google Form, Typeform, email like "send CV to x@company.com") → boost score by +15 (cap at 100) and extract full instructions into "direct_apply".
+Evaluate all jobs strictly and impartially based solely on skill, experience level, and domain fit. Do NOT apply any score boosts for direct apply links or application methods; simply extract application instructions into "direct_apply" if present.
 
 ---
 
 ## FEW-SHOT EXAMPLES
 Each example shows the per-job evaluation logic. In your actual response, wrap each job's result as one item of "results" with its "id" added.
 
-**Example 1 — REJECT (experience)**
-Input: { "title": "Node.js Developer", "seniorityLevel": "Mid-Senior", "descriptionText": "3+ years of backend experience required..." }
-Output: { "score": 0, "reason": "Requires 3+ years experience; candidate is entry-level.", "matched_skills": [], "missing_skills": [], "job_location": null, "years_of_experience": "3+ years", "direct_apply": null }
+**Example 1 — REJECT (Mandatory missing skill / domain mismatch)**
+Input: { "title": "Senior QA Automation Engineer", "descriptionText": "Must have 5+ years experience with Selenium, Java, and Cypress." }
+Output: { "score": 0, "reason": "Requires Selenium and Java QA automation experience, absent from candidate's profile.", "matched_skills": [], "missing_skills": ["Selenium", "Java"], "job_location": null, "years_of_experience": "5+ years", "direct_apply": null }
 
-**Example 2 — REJECT (mandatory missing skill)**
-Input: { "title": "Backend Developer", "descriptionText": "Must have strong Java and Spring Boot. AWS is a plus." }
-Output: { "score": 15, "reason": "Java and Spring Boot are mandatory but absent from candidate's profile.", "matched_skills": ["AWS"], "missing_skills": ["Java", "Spring Boot"], "job_location": null, "years_of_experience": "not specified", "direct_apply": null }
-
-**Example 3 — MATCH (core stack)**
-Input: { "title": "Backend Intern", "seniorityLevel": "Entry level", "descriptionText": "Node.js, AWS Lambda, REST APIs. 0–1 years. Nice to have: Python." }
-Output: { "score": 92,"reason": "Strong match — candidate's Node.js and AWS Lambda experience directly aligns. Python is a soft miss only.", "matched_skills": ["Node.js", "AWS Lambda", "REST APIs"], "missing_skills": ["Python (nice-to-have)"], "job_location": null, "years_of_experience": "0–1 years", "direct_apply": null }
-
-**Example 4 — MATCH (direct apply boost)**
-Input: { "title": "Junior Backend Developer", "descriptionText": "1–2 years exp, Node.js, SQL. Apply by sending your CV and GitHub to hiring@startup.com" }
-Output: { "score": 97,"reason": "Excellent match on stack and experience level. Direct apply path found.", "matched_skills": ["Node.js", "SQL"], "missing_skills": [], "job_location": null, "years_of_experience": "1–2 years", "direct_apply": "Send CV and GitHub profile to hiring@startup.com" }
+**Example 2 — MATCH (Skill & Seniority Alignment)**
+Input: { "title": "Software Engineer", "seniorityLevel": "Mid-Senior", "descriptionText": "Required: 2-4 years experience, TypeScript, Node.js, SQL. Direct apply: send CV to jobs@company.com" }
+Output: { "score": 88, "reason": "Good match — candidate's TypeScript and Node.js background aligns with required experience level.", "matched_skills": ["TypeScript", "Node.js", "SQL"], "missing_skills": [], "job_location": null, "years_of_experience": "2-4 years", "direct_apply": "Send CV to jobs@company.com" }
 
 ---
 
@@ -160,16 +156,16 @@ const batchResponseSchema = z.object({
 export async function checkRelevanceBatch(
   jobs: Job[],
   resumeText: string,
-  batchSize: number = 10,
-  delayMs: number = 1000,
-  concurrency: number = 3,
+  batchSize: number = 5,  // How many jobs per single LLM API call (e.g. 5 jobs in 1 prompt)
+  delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
+  concurrency: number = 3,  // How many batches (LLM API calls) to execute simultaneously in parallel
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
   const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0 };
   const systemPrompt = buildSystemPrompt(resumeText);
 
-  // Group jobs into batches
+  // STEP 1: Split total jobs into smaller batches (e.g., 149 jobs -> 15 batches of 10 jobs each)
   const batches: Job[][] = [];
   for (let i = 0; i < jobs.length; i += batchSize) {
     batches.push(jobs.slice(i, i + batchSize));
@@ -177,30 +173,39 @@ export async function checkRelevanceBatch(
 
   const totalBatches = batches.length;
 
-  // Process batches in chunks with controlled concurrency
+  // STEP 2: Process batches in controlled concurrency groups (chunks)
+  // Instead of running 1 batch at a time (sequential) or all 15 at once (rate limit/memory risk),
+  // we pick `concurrency` (e.g. 3) batches at a time and run them in parallel.
   for (let i = 0; i < batches.length; i += concurrency) {
+    // Slice out the current chunk of up to `concurrency` batches (e.g., batches 1, 2, and 3)
     const chunk = batches.slice(i, i + concurrency);
 
+    // `Promise.all` fires off API calls for all batches in `chunk` simultaneously and waits until all complete.
     await Promise.all(
       chunk.map(async (batch, indexWithinChunk) => {
+        // Calculate 1-based index for logging (e.g. Batch 1, Batch 2...)
         const batchNum = i + indexWithinChunk + 1;
         console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
         let results = new Map<number, RelevanceResult>();
         try {
+          // Prepare lightweight payload for each job in this batch, attaching a temporary numeric ID (0..9)
           const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
           const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
 
+          // Call DeepSeek LLM for this batch
           const res = await executellmCall(
             batchResponseSchema,
             userMessage,
             systemPrompt
           );
 
+          // Track cumulative token usage across all parallel calls
           usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
           usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
           usage.completionTokens += res.usage.completionTokens;
 
+          // Store AI evaluation results keyed by job ID (0..9)
           for (const item of res.object.results) {
             results.set(item.id, item as RelevanceResult);
           }
@@ -210,6 +215,7 @@ export async function checkRelevanceBatch(
           console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
         }
 
+        // STEP 3: Map AI evaluations back to original job objects and classify as matched vs rejected
         for (let j = 0; j < batch.length; j++) {
           const job = batch[j];
           const parsed = results.get(j);
@@ -244,6 +250,7 @@ export async function checkRelevanceBatch(
       })
     );
 
+    // Pause briefly between chunk groups to avoid hitting provider Rate Limits (RPM)
     if (i + concurrency < batches.length && delayMs > 0) {
       await sleep(delayMs);
     }
@@ -255,15 +262,13 @@ export async function checkRelevanceBatch(
 function prepareJobPayload(job: Job) {
   return {
     title: job.title,
-    companyName: job.companyName,
-    companyDescription: job.companyDescription,
     location: job.location,
     seniorityLevel: job.seniorityLevel,
     employmentType: job.employmentType,
     jobFunction: job.jobFunction,
     industries: job.industries,
     salary: job.salary,
-    descriptionText: (job.descriptionText ?? "").slice(0, 5000),
+    descriptionText: (job.descriptionText ?? ""),
     benefits: job.benefits,
   };
 }
