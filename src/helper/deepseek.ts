@@ -1,10 +1,13 @@
 /**
  * deepseek.ts
- * Checks job relevance using DeepSeek Chat (deepseek-chat) with batching + retry.
- * Benefits from DeepSeek's automatic disk-based context caching on repeated prefixes.
+ * DeepSeek AI helper functions for relevance checking and keyword generation.
+ * Migrated to Vercel AI SDK for robust JSON parsing.
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult, TokenUsage } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
+import { generateObject } from 'ai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
+import { z } from 'zod';
 
 export class FatalError extends Error {
   constructor(message: string) {
@@ -20,7 +23,6 @@ const PRICE_PER_M_CACHE_HIT_TOKENS = 0.0028;
 const PRICE_PER_M_CACHE_MISS_TOKENS = 0.14;
 const PRICE_PER_M_OUTPUT_TOKENS = 0.28;
 
-// Calculate actual USD cost incurred from DeepSeek token usage counts
 export function calculateCostUsd(usage: TokenUsage): number {
   return (
     (usage.promptCacheHitTokens / 1_000_000) * PRICE_PER_M_CACHE_HIT_TOKENS +
@@ -29,7 +31,45 @@ export function calculateCostUsd(usage: TokenUsage): number {
   );
 }
 
-// Dynamically construct system prompt prefix using candidate's resume text from DB
+// Core helper to execute DeepSeek via Vercel AI SDK and parse token usage reliably
+export async function executellmCall<T>(
+  schema: z.ZodType<T>,
+  prompt: string,
+  systemPrompt?: string,
+  temperature?: number
+): Promise<{ object: T; usage: TokenUsage }> {
+  if (!process.env.DEEPSEEK_API_KEY) {
+    throw new FatalError("Missing DEEPSEEK_API_KEY");
+  }
+
+  const deepseek = createDeepSeek({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+  });
+
+  const { object, usage: apiUsage } = await generateObject({
+    model: deepseek('deepseek-chat'),
+    system: systemPrompt,
+    prompt: prompt,
+    schema: schema,
+    maxRetries: 3,
+    temperature: temperature,
+  });
+
+  const anyUsage = apiUsage as any;
+  const inputTokens = anyUsage.promptTokens ?? apiUsage.inputTokens ?? 0;
+  const cachedTokens = anyUsage.promptTokensDetails?.cachedTokens ?? anyUsage.cachedInputTokens ?? 0;
+  const outputTokens = anyUsage.completionTokens ?? apiUsage.outputTokens ?? 0;
+  
+  return {
+    object,
+    usage: {
+      promptCacheHitTokens: cachedTokens,
+      promptCacheMissTokens: inputTokens - cachedTokens,
+      completionTokens: outputTokens,
+    }
+  };
+}
+
 export function buildSystemPrompt(resumeText: string): string {
   return `You are a strict job-fit evaluator. Your only job is to determine if a job posting is worth applying to for this specific candidate. Be conservative — it's better to reject a borderline job than to waste the candidate's time.
 
@@ -95,25 +135,24 @@ You will receive a JSON array of jobs, each with a unique "id" field. Evaluate E
 ## OUTPUT FORMAT
 Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
 
-{
-  "results": [
-    {
-      "id": number (must match the input job's "id"),
-      "score": number (0–100),
-      "reason": "1–2 sentences. Be specific about why it passed or failed.",
-      "matched_skills": ["list of skills from JD that candidate has"],
-      "missing_skills": ["list of skills from JD that candidate lacks — label as (required) or (nice-to-have)"],
-      "job_location": "city, country, or Remote — null if not mentioned",
-      "years_of_experience": "exact text from JD or 'not specified'",
-      "direct_apply": "full instruction string or null"
-    }
-  ]
-}
-
 "results" must contain exactly one object per input job, tagged with the matching "id". Order does not matter.`;
 }
 
-// Process jobs in batches using candidate's resume text dynamically
+const relevanceResultSchema = z.object({
+  id: z.number(),
+  score: z.number(),
+  reason: z.string(),
+  matched_skills: z.array(z.string()),
+  missing_skills: z.array(z.string()),
+  job_location: z.string().nullable().optional(),
+  years_of_experience: z.string(),
+  direct_apply: z.string().nullable().optional(),
+});
+
+const batchResponseSchema = z.object({
+  results: z.array(relevanceResultSchema),
+});
+
 export async function checkRelevanceBatch(
   jobs: Job[],
   resumeText: string,
@@ -132,18 +171,28 @@ export async function checkRelevanceBatch(
 
     console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
-    let results: Map<number, RelevanceResult>;
+    let results = new Map<number, RelevanceResult>();
     try {
-      const batchResult = await checkBatch(batch, systemPrompt);
-      results = batchResult.results;
-      usage.promptCacheHitTokens += batchResult.usage.promptCacheHitTokens;
-      usage.promptCacheMissTokens += batchResult.usage.promptCacheMissTokens;
-      usage.completionTokens += batchResult.usage.completionTokens;
+      const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
+      const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
+      
+      const res = await executellmCall(
+        batchResponseSchema,
+        userMessage,
+        systemPrompt
+      );
+      
+      usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
+      usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
+      usage.completionTokens += res.usage.completionTokens;
+      
+      for (const item of res.object.results) {
+         results.set(item.id, item as RelevanceResult);
+      }
     } catch (err) {
       if (err instanceof FatalError) throw err;
       const reason = err instanceof Error ? err.message : String(err);
       console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
-      results = new Map();
     }
 
     for (let j = 0; j < batch.length; j++) {
@@ -159,9 +208,9 @@ export async function checkRelevanceBatch(
           ai_reason: parsed.reason,
           ai_matched_skills: parsed.matched_skills,
           ai_missing_skills: parsed.missing_skills,
-          ai_job_location: parsed.job_location,
+          ai_job_location: parsed.job_location || null,
           ai_yoe: parsed.years_of_experience,
-          ai_direct_apply: parsed.direct_apply,
+          ai_direct_apply: parsed.direct_apply || null,
         };
         isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
       } else {
@@ -178,7 +227,6 @@ export async function checkRelevanceBatch(
       }
     }
 
-    // Delay between batches (skip after last batch)
     if (i + batchSize < jobs.length) {
       await sleep(delayMs);
     }
@@ -187,42 +235,6 @@ export async function checkRelevanceBatch(
   return { matched, rejected, usage };
 }
 
-// Sends one batch of jobs to DeepSeek in a single call using candidate's system prompt
-async function checkBatch(
-  batch: Job[],
-  systemPrompt: string,
-  retries: number = 3,
-): Promise<{ results: Map<number, RelevanceResult>; usage: TokenUsage }> {
-  const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
-  const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
-  const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules. Return JSON only, with one result per job tagged by "id".`;
-  const maxTokens = Math.min(8192, batch.length * 300 + 200);
-
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const res = await executeDeepSeekCall(
-        userMessage,
-        systemPrompt,
-        DEEPSEEK_API_KEY,
-        maxTokens,
-        attempt,
-        retries,
-      );
-      if (!res) continue;
-
-      return await parseAndValidateResponse(res, batch.length);
-    } catch (err) {
-      if (err instanceof FatalError || attempt === retries) throw err;
-      const backoff = attempt * 2000;
-      console.warn(`Attempt ${attempt} failed: ${err instanceof Error ? err.message : String(err)}. Retry in ${backoff}ms`);
-      await sleep(backoff);
-    }
-  }
-
-  throw new Error(`All ${retries} attempts failed for batch of ${batch.length} jobs`);
-}
-
-// Prepare cleaned job payload attributes for LLM input
 function prepareJobPayload(job: Job) {
   return {
     title: job.title,
@@ -239,110 +251,44 @@ function prepareJobPayload(job: Job) {
   };
 }
 
-// HTTP fetch request execution to DeepSeek completions API
-async function executeDeepSeekCall(
-  userMessage: string,
-  systemPrompt: string,
-  apiKey: string,
-  maxTokens: number,
-  attempt: number,
-  retries: number,
-): Promise<Response | null> {
-  const res = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "deepseek-v4-flash", 
-      response_format: { type: "json_object" },
-      max_tokens: maxTokens,
-      temperature: 0,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-    }),
-  });
+// Generate a comprehensive list of job title keywords and level codes to drop based on candidate resume
+export async function generateExcludeKeywordsWithLLM(
+  resumeText: string
+): Promise<string[]> {
+  const prompt = `You are an expert HR sourcer analyzing a candidate's resume plain text.
+Your goal is to extract a comprehensive JSON array "excludeTitleKeywords" containing words, phrases, level codes, and tech stacks that must be REJECTED in job titles for this candidate.
 
-  if (res.status === 429) {
-    const retryAfter = parseInt(res.headers.get("retry-after") ?? "5", 10);
-    console.warn(`Rate limited. Waiting ${retryAfter}s (attempt ${attempt}/${retries})`);
-    await sleep(retryAfter * 1000);
-    return null;
-  }
+Consider:
+1. Seniority & Management Titles: Senior, Sr, Lead, Principal, Architect, Staff, Manager, Director, Head of, VP, Vice President, Founder, Co-Founder, Executive.
+2. Numerical Level Codes: SDE2, SDE-2, SDE3, SDE-3, L2, L3, L4, L5, IC2, IC3, IC4, II, III, IV, Engineer 2, Engineer 3.
+3. Experience Indicators: 5+ years, 6+ years, 7+ years, 8+ years, 10+ years, 5+ YOE, 10+ YOE.
+4. Non-matching Stacks & Specializations: If candidate is a Backend/Cloud engineer, exclude non-backend roles like Frontend, UI/UX, Designer, Mobile, iOS, Android, Flutter, React Native, QA, Tester, Support, IT Helpdesk, Data Scientist, Data Engineer, Hardware, Embedded, Sales.
 
-  if (!res.ok) {
-    await handleDeepSeekError(res);
-  }
+CANDIDATE RESUME:
+${resumeText.slice(0, 4000)}`;
 
-  return res;
-}
+  const fallbackList = [
+    "Senior", "Sr.", "Lead", "Principal", "Architect", "Manager", "Staff", "Director", "VP", 
+    "Head of", "SDE2", "SDE-2", "SDE3", "SDE-3", "L2", "L3", "L4", "II", "III", "IV", 
+    "5+ years", "8+ years", "10+ years"
+  ];
 
-// Handle non-200 DeepSeek HTTP errors
-async function handleDeepSeekError(res: Response): Promise<never> {
-  const errorText = await res.text();
-  if (res.status === 401) {
-    throw new FatalError(`Invalid DeepSeek API Key: ${errorText}`);
-  }
-  throw new Error(`DeepSeek HTTP ${res.status}: ${errorText}`);
-}
+  try {
+    const res = await executellmCall(
+      z.object({ excludeTitleKeywords: z.array(z.string()) }),
+      prompt,
+      undefined,
+      0.1
+    );
 
-// Parse and validate DeepSeek JSON output into RelevanceResult objects
-async function parseAndValidateResponse(
-  res: Response,
-  expectedCount: number,
-): Promise<{ results: Map<number, RelevanceResult>; usage: TokenUsage }> {
-  const data = (await res.json()) as {
-    choices: { message: { content: string } }[];
-    usage?: {
-      completion_tokens?: number;
-      prompt_cache_hit_tokens?: number;
-      prompt_cache_miss_tokens?: number;
-    };
-  };
-  const content = data.choices?.[0]?.message?.content;
-
-  if (!content) throw new Error("Empty response from DeepSeek");
-
-  const parsed = JSON.parse(content);
-  const items = parsed?.results;
-
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new Error(`Invalid batch response shape: ${content}`);
-  }
-
-  const results = new Map<number, RelevanceResult>();
-  for (const item of items) {
-    const id = item?.id;
-    if (typeof id !== "number" || !isValidRelevanceResult(item)) {
-      console.warn(`Skipping invalid result item: ${JSON.stringify(item)}`);
-      continue;
+    const extracted = res.object.excludeTitleKeywords;
+    if (!extracted || extracted.length === 0) {
+      return fallbackList;
     }
-    results.set(id, item);
+
+    return extracted.map((s) => String(s).trim()).filter(Boolean);
+  } catch (err) {
+    console.error("Error parsing LLM exclude keywords output:", err);
+    return fallbackList;
   }
-
-  if (results.size < expectedCount) {
-    console.warn(`DeepSeek returned ${results.size}/${expectedCount} results`);
-  }
-
-  const usage: TokenUsage = {
-    promptCacheHitTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
-    promptCacheMissTokens: data.usage?.prompt_cache_miss_tokens ?? 0,
-    completionTokens: data.usage?.completion_tokens ?? 0,
-  };
-
-  return { results, usage };
-}
-
-// Type guard for RelevanceResult JSON schema validation
-function isValidRelevanceResult(parsed: any): parsed is RelevanceResult {
-  return (
-    typeof parsed.score === "number" &&
-    typeof parsed.reason === "string" &&
-    Array.isArray(parsed.matched_skills) &&
-    Array.isArray(parsed.missing_skills) &&
-    "direct_apply" in parsed
-  );
 }

@@ -18,7 +18,7 @@ import {
   deleteApifyToken,
   getAnalyticsStats
 } from './helper/db_helper';
-import { generateExcludeKeywordsWithLLM } from './helper/user_keywords';
+import { generateExcludeKeywordsWithLLM } from './helper/deepseek';
 import { ADMIN_HTML_CONTENT } from './helper/admin_html';
 import { 
   UuidParamSchema, 
