@@ -179,8 +179,8 @@ export const handler = async (
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
-    // 7. DeepSeek AI Relevance Evaluation using candidate resume text
-    const { matched, usage } = await checkRelevanceBatch(toCheck, user.resumeText, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
+    const { matched, usage } = await checkRelevanceBatch(toCheck, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
     const aiRejectedCount = toCheckCount - matchedCount;
 

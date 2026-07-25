@@ -207,12 +207,9 @@ Resources:
           POST_QUEUE_URL: !Ref PostQueue
           DEFAULT_BILLED_RUN_COST_USD: "0.1"
           MIN_RUN_BALANCE: "0.1"
-      Events:
-            AsyncConfig:
-              Type: EventInvokeConfig
-              Properties:
-                MaximumRetryAttempts: 1
-                MaximumEventAgeInSeconds: 3600
+    EventInvokeConfig:
+      MaximumRetryAttempts: 1
+      MaximumEventAgeInSeconds: 3600
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -300,6 +297,14 @@ Resources:
           Properties:
             RestApiId: !Ref APIGateway
             Path: /run
+            Method: POST
+
+        # POST /admin/analyze-resume — Analyze resume with LLM synchronously
+        AnalyzeResume:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /admin/analyze-resume
             Method: POST
 
         # GET /users & POST /users

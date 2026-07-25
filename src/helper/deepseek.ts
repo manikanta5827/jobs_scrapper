@@ -73,31 +73,93 @@ export async function executellmCall<T>(
   };
 }
 
-export function buildSystemPrompt(resumeText: string): string {
+export interface UserPromptContext {
+  experienceYears?: number | null;
+  targetRoles?: string | null;
+  targetLocations?: string | null;
+  employmentType?: string | null;
+  resumeText?: string | null;
+  primaryDomain?: string | null;
+  candidateSummary?: string | null;
+  knownSkills?: string[] | null;
+  education?: string[] | null;
+  projects?: Array<{ project_title: string; project_description: string }> | null;
+  certifications?: string[] | null;
+  keyHighlights?: string[] | null;
+  suggestedJobTitles?: string[] | null;
+}
+
+export function buildSystemPrompt(context: UserPromptContext | string): string {
+  let user: UserPromptContext;
+  if (typeof context === 'string') {
+    user = { experienceYears: 0, resumeText: context };
+  } else {
+    user = context;
+  }
+
+  let candidateSection = "";
+
+  if (user.candidateSummary || (user.knownSkills && user.knownSkills.length > 0)) {
+    candidateSection += `## CANDIDATE PROFILE SUMMARY\n`;
+    if (user.primaryDomain) candidateSection += `- Primary Domain: ${user.primaryDomain}\n`;
+    if (user.candidateSummary) candidateSection += `- Core Capability Summary: ${user.candidateSummary}\n`;
+    if (user.knownSkills && user.knownSkills.length > 0) {
+      candidateSection += `- Known Skills & Tech Stack: ${user.knownSkills.join(', ')}\n`;
+    }
+    if (user.keyHighlights && user.keyHighlights.length > 0) {
+      candidateSection += `- Key Highlights: ${user.keyHighlights.join(' | ')}\n`;
+    }
+    if (user.projects && user.projects.length > 0) {
+      candidateSection += `- Projects:\n`;
+      user.projects.forEach(p => {
+        candidateSection += `  * ${p.project_title}: ${p.project_description}\n`;
+      });
+    }
+    if (user.education && user.education.length > 0) {
+      candidateSection += `- Education: ${user.education.join('; ')}\n`;
+    }
+    if (user.certifications && user.certifications.length > 0) {
+      candidateSection += `- Certifications: ${user.certifications.join('; ')}\n`;
+    }
+  } else {
+    candidateSection += `## CANDIDATE RESUME\n${user.resumeText || ''}\n`;
+  }
+
+  let preferencesSection = "";
+  if (user.targetRoles) {
+    preferencesSection += `- Candidate Target Job Roles: ${user.targetRoles}\n`;
+  }
+  if (user.targetLocations) {
+    preferencesSection += `- Candidate Preferred Locations: ${user.targetLocations}\n`;
+  }
+  if (user.employmentType) {
+    preferencesSection += `- Candidate Preferred Employment Type: ${user.employmentType}\n`;
+  }
+
+  const expYears = user.experienceYears ?? 0;
+  const expRule = `- CANDIDATE EXPERIENCE: ${expYears} Years.
+- STRICT EXPERIENCE GATE: If a job description explicitly requires MORE than ${expYears} years of experience (e.g. "3+ years", "5+ years", or "minimum ${expYears + 1} years"), REJECT IMMEDIATELY (score: 0). If experience requirement is ambiguous, "Fresher", "0-1 years", or unstated → do NOT reject on experience.`;
+
   return `You are an objective, impartial Job-Fit Auditor. Your sole purpose is to evaluate how effectively a candidate's background aligns with a specific job description.
 
-## CANDIDATE RESUME
-${resumeText}
-
+${candidateSection}
+${preferencesSection ? `## CANDIDATE TARGET PREFERENCES\n${preferencesSection}\n` : ''}
 ---
 
 ## EVALUATION CRITERIA
 
-### 1. EXPERIENCE LEVEL & SENIORITY
-- Determine candidate's experience level (Fresher/Junior, Mid-Level, Senior, Lead, Architect) and total years of experience (YOE) from their resume.
-- Compare candidate's experience against job requirement:
-  - Alignment within 1–2 years or matching seniority level → Pass.
-  - Significant underqualification or overqualification → Deduct points or reject accordingly.
-  - If experience requirement is ambiguous or not stated → Do NOT reject on experience alone.
+### 1. EXPERIENCE LEVEL & SENIORITY GATE
+${expRule}
 
 ### 2. SKILL ALIGNMENT & GROUNDING
 - HARD REJECT: Job explicitly requires mandatory skills/certifications that the candidate clearly lacks.
 - SOFT MISS: Nice-to-have or preferred skills the candidate lacks → deduct points only.
 - NATURAL ALIGNMENT: Count directly equivalent tools, frameworks, methodologies, or adjacent skill sets as matches.
-- STRICT GROUNDING: "matched_skills" MUST ONLY list skills that are explicitly mentioned or required in the job description AND present in the candidate's resume. NEVER list candidate skills under "matched_skills" if they are absent from the job description text.
+- STRICT GROUNDING: "matched_skills" MUST ONLY list skills that are explicitly mentioned or required in the job description AND present in the candidate's known skills or resume. NEVER list candidate skills under "matched_skills" if they are absent from the job description text.
 
 ### 3. DOMAIN & ROLE RELEVANCE
-- Evaluate whether the job's functional domain (e.g., QA/Testing, Software Development, Data Science, Product Management, DevOps, System Administration) matches the candidate's background.
+${user.targetRoles ? `- Enforce preference for candidate target roles (${user.targetRoles}).` : ''}
+- Evaluate whether the job's functional domain matches the candidate's background.
 - REJECT: Completely unrelated roles that have zero functional overlap with the candidate's experience.
 
 ---
@@ -155,7 +217,7 @@ const batchResponseSchema = z.object({
 // ponytail: process batches in parallel chunks of 3 to avoid exceeding Lambda 15min execution limit; upgrade path is worker pool queue if RPM exceeds provider limits.
 export async function checkRelevanceBatch(
   jobs: Job[],
-  resumeText: string,
+  candidateContext: UserPromptContext | string,
   batchSize: number = 5,  // How many jobs per single LLM API call (e.g. 5 jobs in 1 prompt)
   delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
   concurrency: number = 3,  // How many batches (LLM API calls) to execute simultaneously in parallel
@@ -163,7 +225,7 @@ export async function checkRelevanceBatch(
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
   const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0 };
-  const systemPrompt = buildSystemPrompt(resumeText);
+  const systemPrompt = buildSystemPrompt(candidateContext);
 
   // STEP 1: Split total jobs into smaller batches (e.g., 149 jobs -> 15 batches of 10 jobs each)
   const batches: Job[][] = [];
@@ -312,5 +374,53 @@ ${resumeText.slice(0, 4000)}`;
   } catch (err) {
     console.error("Error parsing LLM exclude keywords output:", err);
     return fallbackList;
+  }
+}
+
+const analyzeResponseSchema = z.object({
+  primaryDomain: z.string(),
+  candidateSummary: z.string(),
+  knownSkills: z.array(z.string()),
+  education: z.array(z.string()),
+  projects: z.array(z.object({
+    project_title: z.string(),
+    project_description: z.string(),
+  })),
+  certifications: z.array(z.string()),
+  keyHighlights: z.array(z.string()),
+  suggestedJobTitles: z.array(z.string()),
+  excludeTitleKeywords: z.array(z.string()),
+});
+
+// Single synchronous Onboarding AI call to parse resume into structured JSON and extract exclude keywords
+export async function analyzeResumeWithLLM(resumeText: string) {
+  const prompt = `You are an expert HR Auditor and Technical Recruiter analyzing a candidate's plain text resume.
+Extract a comprehensive structured JSON object describing the candidate's profile and job search parameters.
+
+MANDATORY FIELDS TO RETURN:
+1. "primaryDomain": Candidate's primary functional field (e.g. "QA & Software Testing", "Backend & Cloud Engineering", "Frontend Development", "Product Management", "Data Analytics").
+2. "candidateSummary": A concise 2-sentence summary of the candidate's core identity, capabilities, and background.
+3. "knownSkills": String array of candidate's technical & professional skills, tools, languages, and frameworks.
+4. "education": String array of academic degrees and institutions (e.g. ["B.Tech Computer Science (2024)"]).
+5. "projects": Array of objects [{ "project_title": "...", "project_description": "..." }] detailing candidate's key projects.
+6. "certifications": String array of certifications earned (e.g. ["AWS Certified Developer"]).
+7. "keyHighlights": Array of 2-3 key accomplishments/highlights.
+8. "suggestedJobTitles": String array of 3-5 target job titles recommended for this candidate (e.g. ["Junior Backend Developer", "DevOps Engineer"]).
+9. "excludeTitleKeywords": String array of titles, level codes (Senior, Lead, SDE3, Principal, Manager), and non-matching domains to reject in job searches.
+
+CANDIDATE RESUME:
+${resumeText.slice(0, 10000)}`;
+
+  try {
+    const res = await executellmCall(
+      analyzeResponseSchema,
+      prompt,
+      undefined,
+      0.1
+    );
+    return res.object;
+  } catch (err) {
+    console.error("Error analyzing resume with LLM:", err);
+    throw err;
   }
 }

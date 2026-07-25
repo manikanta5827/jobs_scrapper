@@ -61,6 +61,33 @@ export interface BatchResult {
   usage:    TokenUsage;
 }
 
+export interface CandidateProfileData {
+  primaryDomain?: string;
+  candidateSummary?: string;
+  knownSkills?: string[];
+  education?: string[];
+  projects?: Array<{ project_title: string; project_description: string }>;
+  certifications?: string[];
+  keyHighlights?: string[];
+  suggestedJobTitles?: string[];
+}
+
+export interface UserPromptContext {
+  resumeText: string;
+  experienceYears?: number | null;
+  targetRoles?: string | null;
+  targetLocations?: string | null;
+  employmentType?: string | null;
+  primaryDomain?: string | null;
+  candidateSummary?: string | null;
+  knownSkills?: string[] | null;
+  education?: string[] | null;
+  projects?: Array<{ project_title: string; project_description: string }> | null;
+  certifications?: string[] | null;
+  keyHighlights?: string[] | null;
+  suggestedJobTitles?: string[] | null;
+}
+
 export interface JobStats {
   scraped: number;
   duplicateRemoved: number;

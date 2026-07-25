@@ -18,6 +18,22 @@ export const users = pgTable("users", {
   balanceUsd: doublePrecision("balance_usd").default(0.0).notNull(), // Prepaid balance in USD
   customRunCostUsd: doublePrecision("custom_run_cost_usd"), // Optional custom cost override per run
   
+  // Onboarding Candidate Preferences & Experience
+  experienceYears: integer("experience_years").default(0).notNull(), // Candidate total experience in years (required)
+  targetRoles: text("target_roles"), // Optional comma-separated target roles (e.g. "QA Engineer, SDET")
+  targetLocations: text("target_locations"), // Optional preferred locations (e.g. "Hyderabad, Remote")
+  employmentType: text("employment_type"), // Optional employment type (e.g. "Full-time")
+
+  // Structured Candidate AI Profile Columns
+  primaryDomain: text("primary_domain"),
+  candidateSummary: text("candidate_summary"),
+  knownSkills: jsonb("known_skills").$type<string[]>(),
+  education: jsonb("education").$type<string[]>(),
+  projects: jsonb("projects").$type<Array<{ project_title: string; project_description: string }>>(),
+  certifications: jsonb("certifications").$type<string[]>(),
+  keyHighlights: jsonb("key_highlights").$type<string[]>(),
+  suggestedJobTitles: jsonb("suggested_job_titles").$type<string[]>(),
+
   // Exclude-only keywords auto-generated via LLM during onboarding
   excludeTitleKeywords: jsonb("exclude_title_keywords").$type<string[]>().default([]).notNull(),
 

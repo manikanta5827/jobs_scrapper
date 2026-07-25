@@ -19,13 +19,20 @@ export const TriggerRunSchema = z.object({
   targetUserId: z.string().uuid({ message: "targetUserId must be a valid UUID" }).optional(),
 });
 
+// POST /admin/analyze-resume request body schema
+export const AnalyzeResumeSchema = z.object({
+  resumeText: z.string()
+    .min(50, { message: "Resume text must be at least 50 characters long" })
+    .max(15000, { message: "Resume text cannot exceed 15,000 characters" }),
+});
+
 // POST /users request body schema
 export const CreateUserSchema = z.object({
   email: z.string().email({ message: "Must be a valid email address" }).max(255, { message: "Email cannot exceed 255 characters" }),
   name: z.string().trim().max(100, { message: "Name cannot exceed 100 characters" }).optional(),
   resumeText: z.string()
-    .min(100, { message: "Resume plain text must be at least 100 characters long" })
-    .max(10000, { message: "Resume plain text cannot exceed 10,000 characters" }),
+    .min(50, { message: "Resume plain text must be at least 50 characters long" })
+    .max(15000, { message: "Resume plain text cannot exceed 15,000 characters" }),
   linkedinSearchUrls: z.array(
     z.string().trim().url({ message: "Invalid URL format in search URLs list" })
   )
@@ -45,9 +52,24 @@ export const CreateUserSchema = z.object({
     .min(0.01, { message: "Custom rate must be at least $0.01 USD" })
     .max(10.0, { message: "Custom rate cannot exceed $10.00 USD" })
     .nullable().optional(),
+  experienceYears: z.number().min(0, { message: "Experience years must be 0 or greater" }).max(50).optional().default(0),
+  targetRoles: z.string().trim().max(500).optional(),
+  targetLocations: z.string().trim().max(500).optional(),
+  employmentType: z.string().trim().max(100).optional(),
+  primaryDomain: z.string().trim().max(255).optional(),
+  candidateSummary: z.string().trim().max(2000).optional(),
+  knownSkills: z.array(z.string().trim()).optional(),
+  education: z.array(z.string().trim()).optional(),
+  projects: z.array(z.object({
+    project_title: z.string().trim(),
+    project_description: z.string().trim()
+  })).optional(),
+  certifications: z.array(z.string().trim()).optional(),
+  keyHighlights: z.array(z.string().trim()).optional(),
+  suggestedJobTitles: z.array(z.string().trim()).optional(),
   excludeTitleKeywords: z.array(
     z.string().trim().min(1).max(50)
-  ).max(50, { message: "Maximum 50 exclude keywords allowed" }).optional()
+  ).max(100, { message: "Maximum 100 exclude keywords allowed" }).optional()
 });
 
 // PUT /users/{id} request body schema
@@ -55,8 +77,8 @@ export const UpdateUserSchema = z.object({
   email: z.string().email().max(255).optional(),
   name: z.string().trim().max(100).optional(),
   resumeText: z.string()
-    .min(100, { message: "Resume plain text must be at least 100 characters long" })
-    .max(10000, { message: "Resume plain text cannot exceed 10,000 characters" })
+    .min(50, { message: "Resume plain text must be at least 50 characters long" })
+    .max(15000, { message: "Resume plain text cannot exceed 15,000 characters" })
     .optional(),
   linkedinSearchUrls: z.array(
     z.string().trim().url()
@@ -73,7 +95,22 @@ export const UpdateUserSchema = z.object({
   amountInr: z.number().min(10).max(100000).optional(),
   balanceUsd: z.number().min(0).max(10000).optional(),
   customRunCostUsd: z.number().min(0.01).max(10.0).nullable().optional(),
-  excludeTitleKeywords: z.array(z.string().trim().min(1).max(50)).max(50).optional(),
+  experienceYears: z.number().min(0).max(50).optional(),
+  targetRoles: z.string().trim().max(500).optional(),
+  targetLocations: z.string().trim().max(500).optional(),
+  employmentType: z.string().trim().max(100).optional(),
+  primaryDomain: z.string().trim().max(255).optional(),
+  candidateSummary: z.string().trim().max(2000).optional(),
+  knownSkills: z.array(z.string().trim()).optional(),
+  education: z.array(z.string().trim()).optional(),
+  projects: z.array(z.object({
+    project_title: z.string().trim(),
+    project_description: z.string().trim()
+  })).optional(),
+  certifications: z.array(z.string().trim()).optional(),
+  keyHighlights: z.array(z.string().trim()).optional(),
+  suggestedJobTitles: z.array(z.string().trim()).optional(),
+  excludeTitleKeywords: z.array(z.string().trim().min(1).max(50)).max(100).optional(),
   isActive: z.boolean().optional()
 });
 

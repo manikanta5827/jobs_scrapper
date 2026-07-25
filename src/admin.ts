@@ -19,7 +19,7 @@ import {
   getAnalyticsStats,
   getJobsForUser
 } from './helper/db_helper';
-import { generateExcludeKeywordsWithLLM } from './helper/deepseek';
+import { generateExcludeKeywordsWithLLM, analyzeResumeWithLLM } from './helper/deepseek';
 import { ADMIN_HTML_CONTENT } from './helper/admin_html';
 import { DASHBOARD_HTML_CONTENT } from './helper/dashboard_html';
 import { 
@@ -28,6 +28,7 @@ import {
   TriggerRunSchema, 
   CreateUserSchema, 
   UpdateUserSchema, 
+  AnalyzeResumeSchema,
   TopupWalletSchema, 
   CreateApifyKeySchema, 
   UpdateApifyKeySchema, 
@@ -100,6 +101,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
+    // ─── Route: POST /admin/analyze-resume (Synchronous Resume Analysis) ──────
+    if ((path === '/admin/analyze-resume') && method === 'POST') {
+      const parseResult = AnalyzeResumeSchema.safeParse(body);
+      if (!parseResult.success) {
+        return response(400, { error: `Validation Error: ${formatZodError(parseResult.error)}` });
+      }
+      const analysis = await analyzeResumeWithLLM(parseResult.data.resumeText);
+      return response(200, { analysis });
+    }
+
     // ─── Route: GET /stats ─────────────────────────────────────────────────────
     if (path === '/stats' && method === 'GET') {
       const stats = await getAnalyticsStats();
@@ -143,7 +154,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           return response(400, { error: `Validation Error: ${formatZodError(parseResult.error)}` });
         }
 
-        const { email, name, resumeText, linkedinSearchUrls, telegramChatId, linkedinCredentials, initialInr, customRunCostUsd, excludeTitleKeywords } = parseResult.data;
+        const { 
+          email, name, resumeText, linkedinSearchUrls, telegramChatId, 
+          linkedinCredentials, initialInr, customRunCostUsd, excludeTitleKeywords,
+          experienceYears, targetRoles, targetLocations, employmentType,
+          primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles
+        } = parseResult.data;
 
         // Auto-generate exclude keywords via LLM if not explicitly supplied
         let finalExcludes = excludeTitleKeywords;
@@ -163,6 +179,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           balanceUsd: initialUsd,
           customRunCostUsd: customRunCostUsd ?? undefined,
           excludeTitleKeywords: finalExcludes,
+          experienceYears: experienceYears ?? 0,
+          targetRoles: targetRoles || undefined,
+          targetLocations: targetLocations || undefined,
+          employmentType: employmentType || undefined,
+          primaryDomain,
+          candidateSummary,
+          knownSkills,
+          education,
+          projects,
+          certifications,
+          keyHighlights,
+          suggestedJobTitles,
           isActive: true
         });
 

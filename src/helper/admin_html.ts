@@ -267,11 +267,73 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <input type="text" id="userTelegramChatId" maxlength="50" placeholder="Auto-linked when candidate sends /register <id>">
         </div>
         <div class="form-group">
-          <label>Resume Plain Text (100 to 10,000 characters) *</label>
-          <textarea id="userResumeText" required minlength="100" maxlength="10000" placeholder="Paste full candidate resume plain text here (min 100, max 10,000 characters)..."></textarea>
-          <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;" id="resumeCharCounter">0 / 10,000 characters</span>
+          <label>Resume Plain Text (50 to 15,000 characters) *</label>
+          <textarea id="userResumeText" required minlength="50" maxlength="15000" placeholder="Paste full candidate resume plain text here..."></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <span style="font-size: 11px; color: var(--text-muted);" id="resumeCharCounter">0 / 15,000 characters</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAnalyzeAi" onclick="analyzeResumeWithAI()" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid #6366f1;">✨ Analyze with AI</button>
+          </div>
+          <span id="analyzeAiStatus" style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 500;"></span>
+        </div>
+
+        <div class="form-group">
+          <label>Candidate Experience in Years (Required) *</label>
+          <input type="number" id="userExperienceYears" min="0" max="50" value="0" required placeholder="e.g. 0 for fresher, 2 for 2 years, 5 for 5 years">
+          <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Jobs requiring MORE than this experience will be automatically rejected.</span>
+        </div>
+
+        <div class="form-group">
+          <label>Target Job Titles (Optional — Comma Separated)</label>
+          <input type="text" id="userTargetRoles" maxlength="500" placeholder="e.g. QA Engineer, SDET, Backend Developer">
+        </div>
+
+        <div class="form-group">
+          <label>Target Locations (Optional)</label>
+          <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote">
+        </div>
+
+        <div class="form-group">
+          <label>Employment Type (Optional)</label>
+          <input type="text" id="userEmploymentType" maxlength="100" placeholder="e.g. Full-time">
         </div>
         
+        <!-- AI Extracted Profile Data -->
+        <div style="border: 1px solid #334155; padding: 12px; margin-bottom: 16px; border-radius: 6px; background: rgba(30, 41, 59, 0.5);">
+          <h4 style="margin-top: 0; margin-bottom: 12px; color: #94a3b8; font-size: 13px;">AI Extracted Profile (Auto-filled)</h4>
+          <div class="form-group">
+            <label>Primary Domain</label>
+            <input type="text" id="aiPrimaryDomain" placeholder="e.g. Backend Engineering">
+          </div>
+          <div class="form-group">
+            <label>Candidate Summary</label>
+            <textarea id="aiCandidateSummary" style="height: 60px;" placeholder="Brief summary..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Known Skills (Comma Separated)</label>
+            <textarea id="aiKnownSkills" style="height: 50px;" placeholder="Node.js, TypeScript, AWS..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Education (One per line)</label>
+            <textarea id="aiEducation" style="height: 50px;" placeholder="B.Tech in Computer Science..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Certifications (One per line)</label>
+            <textarea id="aiCertifications" style="height: 50px;" placeholder="AWS Certified Solutions Architect..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Key Highlights (One per line)</label>
+            <textarea id="aiKeyHighlights" style="height: 50px;" placeholder="Scaled system to 1M users..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Suggested Job Titles (Comma Separated)</label>
+            <textarea id="aiSuggestedJobTitles" style="height: 50px;" placeholder="Backend Developer, SDE..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Projects (JSON Array)</label>
+            <textarea id="aiProjects" style="height: 80px;" placeholder='[{"project_title": "X", "project_description": "Y"}]'></textarea>
+          </div>
+        </div>
+
         <!-- Interactive LinkedIn Search URLs Add/Remove Component -->
         <div class="form-group">
           <label id="searchUrlCounterLabel">LinkedIn Search URLs (Min 1, Max 4 URLs) *</label>
@@ -283,7 +345,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         </div>
 
         <div class="form-group">
-          <label>Exclude Title Keywords (Comma Separated — Auto-generated via AI if left empty)</label>
+          <label>Exclude Title Keywords (Comma Separated — Auto-filled via AI)</label>
           <textarea id="userExcludeKeywords" style="height: 60px;" placeholder="e.g. Senior, Lead, Principal, Manager, Staff, Architect, Frontend"></textarea>
         </div>
         <div class="form-group">
@@ -382,12 +444,62 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     function updateTopupHint(inrVal) {
       const usd = convertInrToUsd(parseFloat(inrVal || 0));
-      document.getElementById('topupInrHint').innerText = \`₹\${inrVal || 0} INR = +\$\${usd.toFixed(2)} USD wallet balance\`;
+      document.getElementById('topupInrHint').innerText = '₹' + (inrVal || 0) + ' INR = +$' + usd.toFixed(2) + ' USD wallet balance';
     }
 
     let apiBase = localStorage.getItem('ADMIN_API_BASE') || window.location.origin + window.location.pathname.replace(/\\/(admin\\.html|admin)?$/, '');
     let apiKey = localStorage.getItem('ADMIN_API_KEY') || '';
     let addedUrlsList = []; // Interactive state array for LinkedIn search URLs
+    let currentProfileFields = null; // Holds extracted AI profile fields object
+
+    async function analyzeResumeWithAI() {
+      const resumeText = document.getElementById('userResumeText').value.trim();
+      const statusEl = document.getElementById('analyzeAiStatus');
+      const btn = document.getElementById('btnAnalyzeAi');
+
+      if (!resumeText || resumeText.length < 50) {
+        alert('Please paste at least 50 characters of candidate resume text first!');
+        return;
+      }
+
+      btn.disabled = true;
+      statusEl.style.color = '#a5b4fc';
+      statusEl.innerText = '⏳ Analyzing resume via DeepSeek AI... Please wait 5-10 seconds.';
+
+      try {
+        const res = await apiRequest('/admin/analyze-resume', 'POST', { resumeText });
+        const analysis = res.analysis;
+        currentProfileFields = analysis;
+
+        document.getElementById('aiPrimaryDomain').value = analysis.primaryDomain || '';
+        document.getElementById('aiCandidateSummary').value = analysis.candidateSummary || '';
+        document.getElementById('aiKnownSkills').value = (analysis.knownSkills || []).join(', ');
+        document.getElementById('aiEducation').value = (analysis.education || []).join('\\n');
+        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\\n');
+        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\\n');
+        document.getElementById('aiSuggestedJobTitles').value = (analysis.suggestedJobTitles || []).join(', ');
+        document.getElementById('aiProjects').value = analysis.projects ? JSON.stringify(analysis.projects, null, 2) : '';
+
+        if (analysis.excludeTitleKeywords && Array.isArray(analysis.excludeTitleKeywords)) {
+          document.getElementById('userExcludeKeywords').value = analysis.excludeTitleKeywords.join(', ');
+        }
+
+        const currentRoles = document.getElementById('userTargetRoles').value.trim();
+        if (!currentRoles && analysis.suggestedJobTitles && Array.isArray(analysis.suggestedJobTitles)) {
+          document.getElementById('userTargetRoles').value = analysis.suggestedJobTitles.join(', ');
+        }
+
+        statusEl.style.color = 'var(--success)';
+        statusEl.innerText = '✓ AI Analysis Complete! Primary Domain: "' + (analysis.primaryDomain || 'N/A') + '"';
+        showToast('Resume analyzed successfully by DeepSeek!');
+      } catch (err) {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.innerText = '❌ Analysis failed: ' + err.message;
+        alert('Failed to analyze resume: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       if (apiBase) document.getElementById('apiBaseInput').value = apiBase;
@@ -396,7 +508,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const resumeInput = document.getElementById('userResumeText');
       if (resumeInput) {
         resumeInput.addEventListener('input', () => {
-          document.getElementById('resumeCharCounter').innerText = resumeInput.value.length + ' / 10,000 characters';
+          document.getElementById('resumeCharCounter').innerText = resumeInput.value.length + ' / 15,000 characters';
         });
       }
 
@@ -667,8 +779,10 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       document.getElementById('editUserId').value = '';
       document.getElementById('userForm').reset();
       document.getElementById('initialInrGroup').style.display = 'block';
-      document.getElementById('resumeCharCounter').innerText = '0 / 10,000 characters';
+      document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
+      document.getElementById('analyzeAiStatus').innerText = '';
       
+      currentProfileFields = null;
       addedUrlsList = []; // Reset URLs array
       renderUrlChips();
       openModal('userModal');
@@ -679,13 +793,44 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       document.getElementById('editUserId').value = id;
       document.getElementById('initialInrGroup').style.display = 'none';
 
-      const user = await apiRequest(\`/users/\${id}\`).then(res => res.user);
+      const user = await apiRequest('/users/' + id).then(res => res.user);
       document.getElementById('userEmail').value = user.email;
       document.getElementById('userName').value = user.name || '';
       document.getElementById('userTelegramChatId').value = user.telegramChatId || '';
-      document.getElementById('userResumeText').value = user.resumeText;
-      document.getElementById('resumeCharCounter').innerText = (user.resumeText || '').length + ' / 10,000 characters';
+      document.getElementById('userResumeText').value = user.resumeText || '';
+      document.getElementById('resumeCharCounter').innerText = (user.resumeText || '').length + ' / 15,000 characters';
       
+      document.getElementById('userExperienceYears').value = user.experienceYears ?? 0;
+      document.getElementById('userEmploymentType').value = user.employmentType || '';
+
+      currentProfileFields = {
+        primaryDomain: user.primaryDomain,
+        candidateSummary: user.candidateSummary,
+        knownSkills: user.knownSkills,
+        education: user.education,
+        projects: user.projects,
+        certifications: user.certifications,
+        keyHighlights: user.keyHighlights,
+        suggestedJobTitles: user.suggestedJobTitles
+      };
+
+      document.getElementById('aiPrimaryDomain').value = user.primaryDomain || '';
+      document.getElementById('aiCandidateSummary').value = user.candidateSummary || '';
+      document.getElementById('aiKnownSkills').value = (user.knownSkills || []).join(', ');
+      document.getElementById('aiEducation').value = (user.education || []).join('\\n');
+      document.getElementById('aiCertifications').value = (user.certifications || []).join('\\n');
+      document.getElementById('aiKeyHighlights').value = (user.keyHighlights || []).join('\\n');
+      document.getElementById('aiSuggestedJobTitles').value = (user.suggestedJobTitles || []).join(', ');
+      document.getElementById('aiProjects').value = user.projects ? JSON.stringify(user.projects, null, 2) : '';
+
+      const statusEl = document.getElementById('analyzeAiStatus');
+      if (user.primaryDomain || (user.knownSkills && user.knownSkills.length > 0)) {
+        statusEl.style.color = 'var(--success)';
+        statusEl.innerText = '✓ Saved AI Profile Active (' + (user.primaryDomain || 'Loaded') + ')';
+      } else {
+        statusEl.innerText = '';
+      }
+
       // Load candidate's existing URLs into interactive list
       addedUrlsList = [...(user.linkedinSearchUrls || [])];
       renderUrlChips();
@@ -705,9 +850,9 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const editId = document.getElementById('editUserId').value;
       const resumeText = document.getElementById('userResumeText').value.trim();
 
-      // Validate resume length (min 100, max 10,000 characters)
-      if (resumeText.length < 100 || resumeText.length > 10000) {
-        alert('Resume plain text must be between 100 and 10,000 characters long! (Current length: ' + resumeText.length + ')');
+      // Validate resume length (min 50, max 15,000 characters)
+      if (resumeText.length < 50 || resumeText.length > 15000) {
+        alert('Resume plain text must be between 50 and 15,000 characters long! (Current length: ' + resumeText.length + ')');
         return;
       }
 
@@ -731,14 +876,49 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const personUrn = document.getElementById('userLinkedinPersonUrn').value.trim();
       const accessToken = document.getElementById('userLinkedinAccessToken').value.trim();
 
+      const expYears = parseInt(document.getElementById('userExperienceYears').value || '0', 10);
+      const targetRoles = document.getElementById('userTargetRoles').value.trim();
+      const targetLocations = document.getElementById('userTargetLocations').value.trim();
+      const employmentType = document.getElementById('userEmploymentType').value.trim();
+
       const payload = {
         email: document.getElementById('userEmail').value.trim(),
         name: document.getElementById('userName').value.trim(),
         telegramChatId: document.getElementById('userTelegramChatId').value.trim(),
         resumeText,
         linkedinSearchUrls: addedUrlsList,
+        experienceYears: isNaN(expYears) ? 0 : expYears,
+        targetRoles: targetRoles || undefined,
+        targetLocations: targetLocations || undefined,
+        employmentType: employmentType || undefined,
         customRunCostUsd: document.getElementById('userCustomRate').value ? parseFloat(document.getElementById('userCustomRate').value) : null
       };
+
+      const aiKnownSkills = document.getElementById('aiKnownSkills').value.split(',').map(s => s.trim()).filter(Boolean);
+      const aiEducation = document.getElementById('aiEducation').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
+      const aiCertifications = document.getElementById('aiCertifications').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
+      const aiKeyHighlights = document.getElementById('aiKeyHighlights').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
+      const aiSuggestedJobTitles = document.getElementById('aiSuggestedJobTitles').value.split(',').map(s => s.trim()).filter(Boolean);
+      
+      let aiProjects = undefined;
+      try {
+        const rawProj = document.getElementById('aiProjects').value.trim();
+        if (rawProj) aiProjects = JSON.parse(rawProj);
+      } catch (e) {
+        alert('Invalid JSON in AI Projects field!');
+        return;
+      }
+
+      Object.assign(payload, {
+        primaryDomain: document.getElementById('aiPrimaryDomain').value.trim() || undefined,
+        candidateSummary: document.getElementById('aiCandidateSummary').value.trim() || undefined,
+        knownSkills: aiKnownSkills.length ? aiKnownSkills : undefined,
+        education: aiEducation.length ? aiEducation : undefined,
+        certifications: aiCertifications.length ? aiCertifications : undefined,
+        keyHighlights: aiKeyHighlights.length ? aiKeyHighlights : undefined,
+        suggestedJobTitles: aiSuggestedJobTitles.length ? aiSuggestedJobTitles : undefined,
+        projects: aiProjects
+      });
 
       if (excludeTitleKeywords.length > 0) {
         payload.excludeTitleKeywords = excludeTitleKeywords;
@@ -750,8 +930,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
       try {
         if (editId) {
-          await apiRequest(\`/users/\${editId}\`, 'PUT', payload);
-          showToast('Candidate updated!');
+          await apiRequest('/users/' + editId, 'PUT', payload);
+          showToast('Candidate profile updated successfully!');
         } else {
           const initInr = parseFloat(document.getElementById('userInitialInr').value || '500');
           if (initInr < 100 || initInr > 100000) {
@@ -761,18 +941,18 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           payload.initialInr = initInr;
           const res = await apiRequest('/users', 'POST', payload);
           const u = res.user;
-          alert(\`Candidate created successfully!\\n\\nCandidate ID: \${u.id}\\nEmail: \${u.email}\\n\\nCandidate Telegram Command:\\n/register \${u.id}\`);
+          alert('Candidate created successfully!\\n\\nCandidate ID: ' + u.id + '\\nEmail: ' + u.email + '\\n\\nCandidate Telegram Command:\\n/register ' + u.id);
         }
         closeModal('userModal');
         loadDashboardData();
       } catch (err) {
-        alert(\`Error: \${err.message}\`);
+        alert('Error: ' + err.message);
       }
     }
 
     function openTopupModal(id, email) {
       document.getElementById('topupUserId').value = id;
-      document.getElementById('topupUserLabel').value = \`\${email} (\${id.substring(0, 8)})\`;
+      document.getElementById('topupUserLabel').value = email + ' (' + id.substring(0, 8) + ')';
       updateTopupHint(500);
       openModal('topupModal');
     }

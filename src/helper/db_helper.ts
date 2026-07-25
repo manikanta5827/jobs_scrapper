@@ -275,15 +275,22 @@ export async function createUser(userData: {
   balanceUsd?: number;
   customRunCostUsd?: number;
   excludeTitleKeywords?: string[];
+  experienceYears?: number;
+  targetRoles?: string;
+  targetLocations?: string;
+  employmentType?: string;
+  primaryDomain?: string;
+  candidateSummary?: string;
+  knownSkills?: string[];
+  education?: string[];
+  projects?: Array<{ project_title: string; project_description: string }>;
+  certifications?: string[];
+  keyHighlights?: string[];
+  suggestedJobTitles?: string[];
   isActive?: boolean;
 }) {
   await initDb();
-  return await db.insert(users).values({
-    ...userData,
-    balanceUsd: userData.balanceUsd ?? 0.0,
-    excludeTitleKeywords: userData.excludeTitleKeywords ?? [],
-    isActive: userData.isActive ?? true,
-  }).returning();
+  return await db.insert(users).values(userData).returning();
 }
 
 // Update existing user fields in database by UUID string
@@ -297,6 +304,18 @@ export async function updateUser(id: string, data: Partial<{
   balanceUsd: number;
   customRunCostUsd: number;
   excludeTitleKeywords: string[];
+  experienceYears: number;
+  targetRoles: string;
+  targetLocations: string;
+  employmentType: string;
+  primaryDomain: string;
+  candidateSummary: string;
+  knownSkills: string[];
+  education: string[];
+  projects: Array<{ project_title: string; project_description: string }>;
+  certifications: string[];
+  keyHighlights: string[];
+  suggestedJobTitles: string[];
   isActive: boolean;
 }>) {
   await initDb();
