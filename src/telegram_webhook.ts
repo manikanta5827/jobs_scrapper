@@ -136,7 +136,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   } catch (err) {
     console.error("Telegram webhook handler failed:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: String(err) }) };
+    throw err;
   }
 };
 

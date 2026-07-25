@@ -1,13 +1,11 @@
 import type { ScheduledEvent, Context } from 'aws-lambda';
 import { receiveJobFromQueue, deleteMessageFromQueue } from './helper/sqs_helper';
-import { sendTelegramMessage } from './helper/telegram_helper';
-import { getPlatformPostFailedMessage, getPlatformTokenExpiredMessage } from './helper/telegram_templates';
+
 import { postToLinkedIn } from './helper/linkedin_post';
 import { formatJobPost } from './helper/linkedin_templates';
 import { getUserById } from './helper/db_helper';
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
-const ADMIN_TELEGRAM_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
+
 const IMAGE_WORKER_URL = process.env.CLOUDFLARE_IMAGE_WORKER_URL;
 const RETRY_DELAYS_MS = [30_000, 60_000, 120_000];
 const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
@@ -52,7 +50,7 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
   const linkedinCreds = user.linkedinCredentials as { accessToken?: string; personUrn?: string } | undefined;
   const token = linkedinCreds?.accessToken;
   const personUrn = linkedinCreds?.personUrn;
-  const userInfo = { id: user.id, name: user.name, email: user.email };
+
 
   // Skip posting if user does not have custom LinkedIn credentials in database
   if (!token || !personUrn) {
@@ -114,28 +112,6 @@ export const handler = async (_event: ScheduledEvent, _context: Context) => {
   // Delete message from queue after max attempts failed
   await deleteMessageFromQueue(receiptHandle);
 
-  // Send technical failure alert strictly to ADMIN Telegram channel with candidate User ID & Name
-  if (ADMIN_TELEGRAM_CHAT_ID) {
-    if (lastStatus === 401) {
-      await sendTelegramMessage(
-        TELEGRAM_BOT_TOKEN,
-        ADMIN_TELEGRAM_CHAT_ID,
-        getPlatformTokenExpiredMessage(
-          `LinkedIn (Job: ${jobTitle})`,
-          'Check candidate OAuth credentials',
-          'users.linkedin_credentials',
-          userInfo
-        )
-      );
-    } else {
-      await sendTelegramMessage(
-        TELEGRAM_BOT_TOKEN,
-        ADMIN_TELEGRAM_CHAT_ID,
-        getPlatformPostFailedMessage('LinkedIn', jobTitle, lastStatus, lastError, userInfo)
-      );
-    }
-  }
-
   console.error(`LinkedIn post failed after ${MAX_ATTEMPTS} attempts — message deleted`);
-  return { statusCode: 500, body: `LinkedIn failed: ${lastStatus}` };
+  throw new Error(`LinkedIn failed: ${lastStatus} - ${lastError}`);
 };

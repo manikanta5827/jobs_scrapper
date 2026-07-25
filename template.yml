@@ -4,6 +4,10 @@ Description: Multi-Tenant Job Scrapper template (Fan-Out Dispatcher + Per-User W
 
 # PARAMETERS
 Parameters:
+  AdminEmail:
+    Type: String
+    Description: Email address for admin alerts
+    Default: /job-scraper/ADMIN_EMAIL
   AppEnv:
     Type: String
     Description: Application environment (dev/prod)
@@ -36,26 +40,6 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: Telegram Bot Token for the bot that notifies about matched jobs
     Default: /job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN
-  TelegramDroppedJobsBotToken:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: Telegram Bot Token for the bot that notifies about rejected jobs
-    Default: /job-scraper/TELEGRAM_DROPPED_JOBS_BOT_TOKEN
-  TelegramMatchedJobsChatId:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: Telegram Chat ID where matched job notifications are sent
-    Default: /job-scraper/TELEGRAM_MATCHED_JOBS_CHAT_ID
-  TelegramDroppedJobsChatId:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: Telegram Chat ID where rejected job notifications are sent
-    Default: /job-scraper/TELEGRAM_DROPPED_JOBS_CHAT_ID
-  LinkedInPersonUrn:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: LinkedIn Person URN (e.g. urn:li:person:xxxxx)
-    Default: /job-scraper/LINKEDIN_PERSON_URN
-  LinkedInAccessToken:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: LinkedIn OAuth Access Token
-    Default: /job-scraper/LINKEDIN_ACCESS_TOKEN
   CloudflareImageWorkerUrl:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: URL of the Cloudflare Worker that generates company name images
@@ -448,11 +432,8 @@ Resources:
       Environment:
         Variables:
           POST_QUEUE_URL: !Ref PostQueue
-          LINKEDIN_PERSON_URN: !Ref LinkedInPersonUrn
-          LINKEDIN_ACCESS_TOKEN: !Ref LinkedInAccessToken
           CLOUDFLARE_IMAGE_WORKER_URL: !Ref CloudflareImageWorkerUrl
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
-          TELEGRAM_MATCHED_JOBS_CHAT_ID: !Ref TelegramMatchedJobsChatId
           APP_ENV: !Ref AppEnv
       Events:
         PostSchedule:
@@ -519,6 +500,103 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${PostSchedulerLambda}"
       RetentionInDays: !Ref LogRetentionDays
+
+  AdminAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AdminEmail
+
+  MainLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub "Triggers if ${MainLambda} fails"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref MainLambda
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AdminAlertTopic
+
+  UserWorkerLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub "Triggers if ${UserWorkerLambda} fails"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref UserWorkerLambda
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AdminAlertTopic
+
+  AdminLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub "Triggers if ${AdminLambda} fails"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AdminLambda
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AdminAlertTopic
+
+  TelegramWebhookLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub "Triggers if ${TelegramWebhookLambda} fails"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TelegramWebhookLambda
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AdminAlertTopic
+
+  PostSchedulerLambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub "Triggers if ${PostSchedulerLambda} fails"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PostSchedulerLambda
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AdminAlertTopic
 
 Outputs:
   AdminDashboardUrl:

@@ -258,7 +258,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return response(404, { error: 'Not Found' });
   } catch (err: any) {
     console.error('Admin API error:', err);
-    return response(500, { error: err.message });
+    throw err;
   }
 };
 

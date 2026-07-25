@@ -56,7 +56,7 @@ export const handler = async (
       return { userId: user.id, dispatched: true };
     } catch (err: any) {
       console.error(`Failed to dispatch UserWorkerLambda for User ID ${user.id}:`, err);
-      return { userId: user.id, dispatched: false, error: err.message };
+      throw err;
     }
   });
 

@@ -5,7 +5,7 @@
 
 import type { Context } from 'aws-lambda';
 import { scrapeJobs } from './helper/apify';
-import { checkRelevanceBatch, calculateCostUsd, FatalError } from './helper/deepseek';
+import { checkRelevanceBatch, calculateCostUsd } from './helper/deepseek';
 import { 
   getExistingJobsData, 
   trackJobs, 
@@ -18,10 +18,8 @@ import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
 import { 
   getSuccessHeader, 
-  getMatchedJobMessage, 
-  getFailureTelegramMessage,
-  getZeroMatchesMessage,
-  getFatalErrorTelegramMessage
+  getMatchedJobMessage,
+  getZeroMatchesMessage
 } from './helper/telegram_templates';
 import type { Job, JobStats } from './helper/types';
 
@@ -30,7 +28,6 @@ const MIN_RUN_BALANCE = parseFloat(process.env.MIN_RUN_BALANCE ?? "0.1");
 const DEEPSEEK_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
-const ADMIN_TELEGRAM_CHAT_ID = process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID!;
 
 export const handler = async (
   event: { userId: string; lookbackHours?: number },
@@ -60,7 +57,6 @@ export const handler = async (
     return { statusCode: 404, body: JSON.stringify({ error: `User ID ${userId} not found` }) };
   }
 
-  const userInfo = { id: user.id, name: user.name, email: user.email };
 
   if (!user.isActive) {
     console.log(`User ID ${userId} is inactive. Skipping worker execution.`);
@@ -129,6 +125,8 @@ export const handler = async (
     const uniqueCount = uniqueRawJobs.length;
     // const batchDedupCount = rawCount - uniqueCount;
 
+    console.log(`User ${user.id}: Deduped ${uniqueCount} unique jobs, final jobs count ${rawCount - uniqueCount}`);
+
     // 5. Per-User Database deduplication (against candidate's personal seen jobs history)
     const existingData = await getExistingJobsData(user.id);
     const newJobs = uniqueRawJobs.filter((job: Job) => {
@@ -136,6 +134,8 @@ export const handler = async (
     });
     const newCount = newJobs.length;
     // const dbDedupCount = uniqueCount - newCount;
+
+    console.log(`User ${user.id}: DB deduped ${newCount} new jobs, final jobs count ${uniqueCount - newCount}`);
 
     if (newCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: uniqueCount, dbDeduplicated: newCount, keywordFiltered: 0, aiRejected: 0, matched: 0 };
@@ -160,6 +160,8 @@ export const handler = async (
     const toCheckCount = toCheck.length;
     // const keywordFilteredCount = newCount - toCheckCount;
 
+    console.log(`User ${user.id}: Keyword Filtered ${toCheckCount} irrelevant jobs, final jobs count ${newCount - toCheckCount}`)
+
     if (toCheckCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: uniqueCount, dbDeduplicated: newCount, keywordFiltered: toCheckCount, aiRejected: 0, matched: 0 };
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
@@ -181,6 +183,8 @@ export const handler = async (
     const { matched, usage } = await checkRelevanceBatch(toCheck, user.resumeText, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
     const aiRejectedCount = toCheckCount - matchedCount;
+
+    console.log(`User ${user.id}: AI Rejected ${aiRejectedCount} irrelevant jobs, final jobs count ${toCheckCount - aiRejectedCount}`)
 
     // 8. Calculate actual DeepSeek LLM cost
     const actualLlmCostUsd = calculateCostUsd(usage);
@@ -238,19 +242,7 @@ export const handler = async (
       errorMessage: errorMsg
     }, user.customRunCostUsd);
 
-    // Route technical/system execution failures strictly to ADMIN Telegram channel with candidate User ID & Name
-    if (ADMIN_TELEGRAM_CHAT_ID) {
-      try {
-        const failMsg = userErr instanceof FatalError 
-          ? getFatalErrorTelegramMessage(errorMsg, dateStr, userInfo)
-          : getFailureTelegramMessage(errorMsg, dateStr, userInfo);
-        await sendTelegramMessage(TELEGRAM_BOT_TOKEN, ADMIN_TELEGRAM_CHAT_ID, failMsg);
-      } catch (teleErr) {
-        console.error(`Admin Telegram failure notification failed for user ${user.id}:`, teleErr);
-      }
-    }
-
-    return { statusCode: 500, body: JSON.stringify({ status: 'FAILED', error: errorMsg }) };
+    throw userErr instanceof Error ? userErr : new Error(errorMsg);
   }
 };
 
