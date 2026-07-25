@@ -16,10 +16,12 @@ import {
   addApifyToken,
   updateApifyToken,
   deleteApifyToken,
-  getAnalyticsStats
+  getAnalyticsStats,
+  getJobsForUser
 } from './helper/db_helper';
 import { generateExcludeKeywordsWithLLM } from './helper/deepseek';
 import { ADMIN_HTML_CONTENT } from './helper/admin_html';
+import { DASHBOARD_HTML_CONTENT } from './helper/dashboard_html';
 import { 
   UuidParamSchema, 
   NumericIdParamSchema, 
@@ -50,6 +52,38 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       },
       body: ADMIN_HTML_CONTENT
     };
+  }
+
+  // 1b. Serve static candidate jobs dashboard on GET /dashboard/{id} without requiring API key
+  if ((path === '/dashboard/{id}' || path.startsWith('/dashboard')) && method === 'GET') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: DASHBOARD_HTML_CONTENT
+    };
+  }
+
+  // 1c. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs with pagination & date filters
+  if ((path === '/users/{id}/jobs' || path.endsWith('/jobs')) && method === 'GET') {
+    const userId = pathParameters.id || path.split('/')[2];
+    const paramParse = UuidParamSchema.safeParse(userId);
+    if (!paramParse.success) {
+      return response(400, { error: `Invalid User ID: ${formatZodError(paramParse.error)}` });
+    }
+
+    const qp = event.queryStringParameters || {};
+    const page = qp.page ? parseInt(qp.page, 10) : 1;
+    const limit = qp.limit ? parseInt(qp.limit, 10) : 50;
+    const fromDate = qp.fromDate || undefined;
+    const toDate = qp.toDate || undefined;
+    const minScore = qp.minScore ? parseInt(qp.minScore, 10) : undefined;
+    const maxScore = qp.maxScore ? parseInt(qp.maxScore, 10) : undefined;
+
+    const result = await getJobsForUser(paramParse.data, { page, limit, fromDate, toDate, minScore, maxScore });
+    return response(200, result);
   }
 
   // 2. Handle HTTP OPTIONS pre-flight requests for browser CORS before API key check

@@ -126,33 +126,33 @@ Resources:
           APP_ENV: !Ref AppEnv
 
       Events:
-        # Morning run at 12:00 PM IST, Monday through Saturday
+        # Morning run at 11:30 AM IST, Monday through Saturday
         MorningRun:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(0 12 ? * MON-SAT *)
+            ScheduleExpression: cron(30 11 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 14, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        # Afternoon run at 4:30 PM IST, Monday through Saturday
+        AfternoonRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(30 16 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
             Input: !Sub '{"lookbackHours": 6, "adminApiKey": "${AdminApiKey}"}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
-        # Evening run at 8:00 PM IST, Monday through Saturday
+        # Evening run at 8:30 PM IST, Monday through Saturday
         EveningRun:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(0 18 ? * MON-SAT *)
+            ScheduleExpression: cron(30 20 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 6, "adminApiKey": "${AdminApiKey}"}'
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-              MaximumEventAgeInSeconds: 3600
-        # Night run at 11:59 PM IST, Monday through Saturday
-        NightRun:
-          Type: ScheduleV2
-          Properties:
-            ScheduleExpression: cron(59 23 ? * MON-SAT *)
-            ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 8, "adminApiKey": "${AdminApiKey}"}'
+            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
@@ -262,6 +262,22 @@ Resources:
           Properties:
             RestApiId: !Ref APIGateway
             Path: /admin
+            Method: GET
+
+        # GET /dashboard/{id} — Serve static candidate jobs dashboard UI
+        GetDashboard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /dashboard/{id}
+            Method: GET
+
+        # GET /users/{id}/jobs — Retrieve candidate matched jobs list JSON
+        GetUserJobs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /users/{id}/jobs
             Method: GET
 
         # GET /stats — Financial analytics & profit dashboard

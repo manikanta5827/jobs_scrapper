@@ -1,6 +1,6 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
-import { sql, lt, desc, and, eq } from "drizzle-orm";
+import { sql, lt, desc, and, eq, gte, lte } from "drizzle-orm";
 import { convertInrToUsd } from "./currency_helper";
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
@@ -99,13 +99,105 @@ export async function getExistingJobsData(userId: string): Promise<{ links: Set<
 }
 
 // Insert newly processed job links into candidate's personal ledger using ON CONFLICT DO NOTHING (UUID)
-export async function trackJobs(userId: string, jobsToTrack: { link: string; fingerprint: string }[]): Promise<void> {
+export async function trackJobs(
+  userId: string, 
+  jobsToTrack: { 
+    link: string; 
+    fingerprint: string;
+    jobTitle?: string;
+    companyName?: string;
+    location?: string;
+    postedAt?: string;
+    salary?: string;
+    aiScore?: number;
+    aiReason?: string;
+  }[]
+): Promise<void> {
   if (jobsToTrack.length === 0) return;
   const deduped = [...new Map(jobsToTrack.map(j => [j.link, j])).values()];
   await initDb();
   await db.insert(jobs)
-    .values(deduped.map(j => ({ userId, jobLink: j.link, fingerprint: j.fingerprint })))
+    .values(deduped.map(j => ({ 
+      userId, 
+      jobLink: j.link, 
+      fingerprint: j.fingerprint,
+      jobTitle: j.jobTitle,
+      companyName: j.companyName,
+      location: j.location,
+      postedAt: j.postedAt,
+      salary: j.salary,
+      aiScore: j.aiScore,
+      aiReason: j.aiReason,
+    })))
     .onConflictDoNothing();
+}
+
+// Retrieve matched jobs with pagination, date range, and min/max score filtering
+export async function getJobsForUser(
+  userId: string,
+  options: {
+    page?: number;
+    limit?: number;
+    fromDate?: string;
+    toDate?: string;
+    minScore?: number;
+    maxScore?: number;
+  } = {}
+) {
+  // Clamp page (min 1) and limit (min 10, max 100, default 50)
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(10, options.limit || 50));
+  const offset = (page - 1) * limit;
+
+  // Clamp score range between 0 and 100 (default min 70, max 100)
+  const rawMin = options.minScore ?? 70;
+  const rawMax = options.maxScore ?? 100;
+  const minScore = Math.min(100, Math.max(0, rawMin));
+  const maxScore = Math.min(100, Math.max(minScore, rawMax));
+
+  await initDb();
+
+  // Filter matched jobs within [minScore, maxScore] range
+  const conditions: any[] = [
+    eq(jobs.userId, userId),
+    gte(jobs.aiScore, minScore),
+    lte(jobs.aiScore, maxScore)
+  ];
+
+  if (options.fromDate) {
+    conditions.push(gte(jobs.seenAt, new Date(options.fromDate)));
+  }
+  if (options.toDate) {
+    const endOfDay = new Date(options.toDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    conditions.push(lte(jobs.seenAt, endOfDay));
+  }
+
+  const whereClause = and(...conditions);
+
+  // Fetch paginated matched jobs
+  const jobsList = await db.select()
+    .from(jobs)
+    .where(whereClause)
+    .orderBy(desc(jobs.seenAt))
+    .limit(limit)
+    .offset(offset);
+
+  // Fetch total count for pagination math
+  const countResult = await db.select({ count: sql<number>`count(*)` })
+    .from(jobs)
+    .where(whereClause);
+
+  const total = Number(countResult[0]?.count || 0);
+
+  return {
+    jobs: jobsList,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+    filters: { minScore, maxScore }
+  };
 }
 
 // ─── Multi-Tenant Users & Wallet Helpers ─────────────────────────────────────

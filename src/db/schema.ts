@@ -39,6 +39,13 @@ export const jobs = pgTable("jobs", {
   jobLink: text("job_link").notNull(), // Job URL
   fingerprint: text("fingerprint"), // Job unique fingerprint string
   seenAt: timestamp("seen_at", { withTimezone: true }).defaultNow(), // Timestamp job was first processed for user
+  jobTitle: text("job_title"),
+  companyName: text("company_name"),
+  location: text("location"),
+  postedAt: text("posted_at"),
+  salary: text("salary"),
+  aiScore: integer("ai_score"),
+  aiReason: text("ai_reason"),
 }, (table) => [
   // Composite unique index on user_id and job_link to prevent duplicate delivery per user
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),

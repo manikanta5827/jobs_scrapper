@@ -190,7 +190,21 @@ export const handler = async (
     const actualLlmCostUsd = calculateCostUsd(usage);
 
     // 9. Persist newly discovered jobs into candidate's personal seen jobs ledger
-    await trackJobs(user.id, newJobs.map(j => ({ link: j.link!, fingerprint: j.fingerprint! })));
+    const matchedMap = new Map(matched.map(m => [m.link, m]));
+    await trackJobs(user.id, newJobs.map(j => {
+      const m = matchedMap.get(j.link);
+      return {
+        link: j.link!,
+        fingerprint: j.fingerprint!,
+        jobTitle: j.title || j.jobTitle,
+        companyName: j.companyName,
+        location: j.location || m?.ai_job_location || undefined,
+        postedAt: j.postedAt,
+        salary: j.salary,
+        aiScore: m?.ai_score,
+        aiReason: m?.ai_reason,
+      };
+    }));
 
     // 10. Audit log and deduct flat fee from user wallet
     await recordAndDeductUserRun(user.id, {
