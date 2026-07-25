@@ -126,21 +126,31 @@ Resources:
           APP_ENV: !Ref AppEnv
 
       Events:
-        # Morning run at 9:00 AM IST, Monday through Saturday
+        # Morning run at 12:00 PM IST, Monday through Saturday
         MorningRun:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(0 9 ? * MON-SAT *)
+            ScheduleExpression: cron(0 12 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 15, "adminApiKey": "${AdminApiKey}"}'
+            Input: !Sub '{"lookbackHours": 6, "adminApiKey": "${AdminApiKey}"}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
-        # Evening run at 5:00 PM IST, Monday through Saturday
+        # Evening run at 8:00 PM IST, Monday through Saturday
         EveningRun:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(0 17 ? * MON-SAT *)
+            ScheduleExpression: cron(0 18 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 6, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        # Night run at 11:59 PM IST, Monday through Saturday
+        NightRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(59 23 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
             Input: !Sub '{"lookbackHours": 8, "adminApiKey": "${AdminApiKey}"}'
             RetryPolicy:
@@ -435,6 +445,7 @@ Resources:
           CLOUDFLARE_IMAGE_WORKER_URL: !Ref CloudflareImageWorkerUrl
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           APP_ENV: !Ref AppEnv
+          DATABASE_URL: !Ref DatabaseUrl
       Events:
         PostSchedule:
           Type: ScheduleV2
