@@ -9,6 +9,9 @@ import { generateObject } from 'ai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
 
+// Disable verbose AI SDK compatibility warnings in production logs
+(globalThis as any).AI_SDK_LOG_WARNINGS = false;
+
 export class FatalError extends Error {
   constructor(message: string) {
     super(message);
@@ -47,7 +50,7 @@ export async function executellmCall<T>(
   });
 
   const { object, usage: apiUsage } = await generateObject({
-    model: deepseek('deepseek-chat'),
+    model: deepseek('deepseek-v4-flash'),
     system: systemPrompt,
     prompt: prompt,
     schema: schema,
