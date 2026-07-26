@@ -201,21 +201,31 @@ Output: { "score": 90, "reason": "Match — Candidate's ${expYears} year(s) expe
 You will receive a JSON array of jobs, each with a unique "id" field. Evaluate EVERY job in the array independently, applying the rules above to each one.
 
 ## OUTPUT FORMAT
-Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
+Return ONLY valid JSON matching the schema. No markdown outside JSON.
 
-"results" must contain exactly one object per input job, tagged with the matching "id". Order does not matter.`;
+"results" must contain exactly one object per input job, tagged with the matching "id".
+Every item in "results" MUST include:
+- "id": number
+- "score": number (0-100)
+- "reason": string (explanation of score)
+- "matched_skills": array of strings (skills candidate has that job requires; return [] if none, DO NOT omit)
+- "missing_skills": array of strings (skills job requires that candidate lacks; return [] if none, DO NOT omit)
+- "job_location": string or null
+- "years_of_experience": string (e.g. "2-4 years" or "Not specified")
+- "direct_apply": string or null (email or direct URL if present)
+`;
 }
 
-// ponytail: resilient schema handles nulls, string coercions, and missing arrays from LLM outputs to prevent schema validation crashes
+// Hardened schema forcing LLM to always emit matched_skills, missing_skills, reason, and YOE
 const relevanceResultSchema = z.object({
   id: z.coerce.number(),
   score: z.coerce.number().catch(0),
-  reason: z.string().nullish().transform(val => val ?? "No reason provided"),
-  matched_skills: z.array(z.string()).nullish().transform(val => val ?? []),
-  missing_skills: z.array(z.string()).nullish().transform(val => val ?? []),
-  job_location: z.string().nullish().transform(val => val ?? null),
-  years_of_experience: z.string().nullish().transform(val => val ?? "Not specified"),
-  direct_apply: z.string().nullish().transform(val => val ?? null),
+  reason: z.string().catch("No reason provided"),
+  matched_skills: z.array(z.string()).catch([]),
+  missing_skills: z.array(z.string()).catch([]),
+  job_location: z.string().nullable().catch(null),
+  years_of_experience: z.string().catch("Not specified"),
+  direct_apply: z.string().nullable().catch(null),
 });
 
 const batchResponseSchema = z.object({
