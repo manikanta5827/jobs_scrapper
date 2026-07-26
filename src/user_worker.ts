@@ -22,7 +22,7 @@ import {
   getMatchedJobMessage,
   getZeroMatchesMessage
 } from './helper/telegram_templates';
-import type { Job, JobStats } from './helper/types';
+import type { Job, EnrichedJob, JobStats } from './helper/types';
 
 // Minimum required wallet balance before starting execution for a user ($0.1 USD)
 const MIN_RUN_BALANCE = parseFloat(process.env.MIN_RUN_BALANCE ?? "0.1");
@@ -274,7 +274,7 @@ async function processUserWorker(
 };
 
 // Send matched jobs or zero-matches header message to candidate Telegram
-async function sendMatchedJobs(botToken: string, chatId: string, matched: any[], dateStr: string, stats: JobStats) {
+async function sendMatchedJobs(botToken: string, chatId: string, matched: EnrichedJob[], dateStr: string, stats: JobStats) {
   if (!chatId) return;
 
   if (matched.length === 0) {

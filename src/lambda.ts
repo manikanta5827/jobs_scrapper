@@ -30,7 +30,8 @@ export const handler = async (
   await purgeOldUnmatchedJobs(7);
 
   // Fetch active users to process
-  let usersToProcess: any[] = [];
+  type MinimalUser = { id: string; email: string; isActive: boolean; telegramChatId?: string | null };
+  let usersToProcess: MinimalUser[] = [];
   if (event.targetUserId) {
     const singleUser = await getUserById(event.targetUserId);
     if (singleUser && singleUser.isActive) usersToProcess.push(singleUser);
@@ -46,7 +47,7 @@ export const handler = async (
   console.log(`Dispatching ${usersToProcess.length} active users to UserWorkerLambda in parallel.`);
 
   // Fan-out: Invoke UserWorkerLambda asynchronously (InvocationType: 'Event') for each user
-  const dispatchPromises = usersToProcess.map(async (user: any) => {
+  const dispatchPromises = usersToProcess.map(async (user: MinimalUser) => {
     try {
       await lambdaClient.send(new InvokeCommand({
         FunctionName: workerFunctionName,
@@ -55,7 +56,7 @@ export const handler = async (
       }));
       console.log(`Dispatched UserWorkerLambda for User ID: ${user.id} (${user.email})`);
       return { userId: user.id, dispatched: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Failed to dispatch UserWorkerLambda for User ID ${user.id}:`, err);
       throw err;
     }

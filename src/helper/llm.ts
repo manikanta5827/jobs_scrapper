@@ -64,10 +64,10 @@ export async function executellmCall<T>(
     ),
   });
 
-  const anyUsage = apiUsage as any;
-  const inputTokens = anyUsage.promptTokens ?? apiUsage.inputTokens ?? 0;
-  const cachedTokens = anyUsage.promptTokensDetails?.cachedTokens ?? anyUsage.cachedInputTokens ?? 0;
-  const outputTokens = anyUsage.completionTokens ?? apiUsage.outputTokens ?? 0;
+  const anyUsage = apiUsage as Record<string, any>;
+  const inputTokens = (anyUsage.promptTokens as number | undefined) ?? apiUsage.inputTokens ?? 0;
+  const cachedTokens = (anyUsage.promptTokensDetails as { cachedTokens?: number } | undefined)?.cachedTokens ?? (anyUsage.cachedInputTokens as number | undefined) ?? 0;
+  const outputTokens = (anyUsage.completionTokens as number | undefined) ?? apiUsage.outputTokens ?? 0;
   
   return {
     object,
@@ -258,7 +258,7 @@ export async function checkRelevanceBatch(
         let results = new Map<number, RelevanceResult>();
         let attempt = 0;
         const MAX_BATCH_RETRIES = 3;
-        let lastError: any = null;
+        let lastError: unknown = null;
 
         while (attempt < MAX_BATCH_RETRIES) {
           attempt++;
@@ -325,8 +325,9 @@ export async function checkRelevanceBatch(
                   results.set(j, singleRes.object.results[0] as RelevanceResult);
                   console.log(`  ✓ Fallback individual check succeeded for "${batch[j].title}"`);
                 }
-              } catch (singleErr: any) {
-                console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErr.message}`);
+              } catch (singleErr: unknown) {
+                const singleErrMsg = singleErr instanceof Error ? singleErr.message : String(singleErr);
+                console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErrMsg}`);
               }
             }
           }

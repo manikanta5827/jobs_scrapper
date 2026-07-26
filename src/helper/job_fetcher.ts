@@ -74,16 +74,18 @@ export async function fetchJobsForUser(
   if (provider === 'apify') {
     try {
       jobs = await fetchViaApify(queries, lookbackHours);
-    } catch (err: any) {
-      console.warn(`[JobFetcher] Apify provider failed (${err.message}). Falling back to Lambda...`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[JobFetcher] Apify provider failed (${errMsg}). Falling back to Lambda...`);
       jobs = await fetchViaLambdaScraper(queries, user, lookbackHours);
     }
   } else {
     // Default provider: "lambda"
     try {
       jobs = await fetchViaLambdaScraper(queries, user, lookbackHours);
-    } catch (err: any) {
-      console.warn(`[JobFetcher] Lambda provider failed (${err.message}). Trying Apify fallback...`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[JobFetcher] Lambda provider failed (${errMsg}). Trying Apify fallback...`);
       jobs = await fetchViaApify(queries, lookbackHours);
     }
   }
@@ -209,7 +211,26 @@ async function fetchViaLambdaScraper(
   return allJobs;
 }
 
-async function invokeScraperLambda(params: Record<string, any>): Promise<any[]> {
+interface ScraperItem {
+  id?: string;
+  jobUrl?: string;
+  position?: string;
+  company?: string;
+  location?: string;
+  agoTime?: string;
+  date?: string;
+  salary?: string;
+  details?: {
+    descriptionText?: string;
+    seniorityLevel?: string;
+    employmentType?: string;
+    jobFunction?: string;
+    industries?: string;
+    numApplicants?: string;
+  };
+}
+
+async function invokeScraperLambda(params: Record<string, unknown>): Promise<ScraperItem[]> {
   const command = new InvokeCommand({
     FunctionName: LAMBDA_SCRAPER_NAME,
     Payload: Buffer.from(JSON.stringify({ queryStringParameters: params })),
@@ -227,7 +248,7 @@ async function invokeScraperLambda(params: Record<string, any>): Promise<any[]> 
   return body.data || [];
 }
 
-function mapScraperItemToJob(item: any): Job {
+function mapScraperItemToJob(item: ScraperItem): Job {
   const details = item.details;
   return {
     id: item.id,

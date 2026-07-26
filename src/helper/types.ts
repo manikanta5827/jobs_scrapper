@@ -21,7 +21,9 @@ export interface Job {
   industries?:       string;
   benefits?:         string[];
   keyword_bin_reason?: string;
-  [key: string]:      any; // Still allow other fields but they won't be explicitly typed
+  fingerprint?:      string;
+  jobTitle?:         string;
+  [key: string]:      unknown; // Still allow other fields but they won't be explicitly typed
 }
 
 // DeepSeek relevance check result

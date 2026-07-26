@@ -223,7 +223,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         const existingUser = await getUserById(userId);
         if (!existingUser) return response(404, { error: 'User not found' });
 
-        const updateData: any = { ...parseResult.data };
+        const updateData: Record<string, unknown> = { ...parseResult.data };
 
         // Convert amountInr to USD balance if amountInr is passed in PUT body
         if (parseResult.data.amountInr) {
@@ -232,7 +232,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           delete updateData.amountInr;
         }
 
-        const updated = await updateUser(userId, updateData);
+        const updated = await updateUser(userId, updateData as Parameters<typeof updateUser>[1]);
         return response(200, { message: 'User updated successfully', user: updated[0] });
       }
 
@@ -311,14 +311,14 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     }
 
     return response(404, { error: 'Not Found' });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Admin API error:', err);
     throw err;
   }
 };
 
 // Helper function to format JSON API response with standard CORS headers
-function response(statusCode: number, body: any): APIGatewayProxyResult {
+function response(statusCode: number, body: unknown): APIGatewayProxyResult {
   return {
     statusCode,
     body: JSON.stringify(body),

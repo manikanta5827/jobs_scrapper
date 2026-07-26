@@ -1,6 +1,6 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
-import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray } from "drizzle-orm";
+import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
 import { convertInrToUsd } from "./currency_helper";
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ export async function trackJobs(
   await initDb();
 
   try {
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       await tx.insert(jobs)
         .values(deduped.map(j => ({ 
           userId, 
@@ -163,7 +163,7 @@ export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   try {
-    return await db.transaction(async (tx: any) => {
+    return await db.transaction(async (tx) => {
       const deleted = await tx.delete(jobs)
         .where(
           and(
@@ -211,7 +211,7 @@ export async function getJobsForUser(
   await initDb();
 
   // Filter matched jobs within [minScore, maxScore] range
-  const conditions: any[] = [
+  const conditions: SQL[] = [
     eq(jobs.userId, userId),
     gte(jobs.aiScore, minScore),
     lte(jobs.aiScore, maxScore)
@@ -325,7 +325,7 @@ export async function updateUser(id: string, data: Partial<{
   name: string;
   resumeText: string;
   telegramChatId: string;
-  linkedinCredentials: Record<string, any>;
+  linkedinCredentials: { accessToken?: string; refreshToken?: string; personUrn?: string };
   balanceUsd: number;
   customRunCostUsd: number;
   excludeTitleKeywords: string[];
@@ -399,7 +399,7 @@ export async function recordAndDeductUserRun(
   const billedCost = customRunCostUsd ?? defaultBilledCost;
   await initDb();
 
-  await db.transaction(async (tx: any) => {
+  await db.transaction(async (tx) => {
     // Record audit log entry in user_runs table
     await tx.insert(userRuns).values({
       userId,
