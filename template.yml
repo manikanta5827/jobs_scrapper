@@ -270,6 +270,14 @@ Resources:
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
       Events:
+        # GET /jobs/{id}/resume — Retrieve or generate candidate ATS-optimized resume Markdown for a job
+        GetJobResume:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /jobs/{id}/resume
+            Method: GET
+
         # GET /users/{id}/jobs — Retrieve candidate matched jobs list JSON
         GetUserJobs:
           Type: Api
