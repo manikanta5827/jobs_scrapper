@@ -413,6 +413,7 @@ ${resumeText.slice(0, 4000)}`;
 }
 
 const analyzeResponseSchema = z.object({
+  experienceYears: z.number().optional(),
   primaryDomain: z.string(),
   candidateSummary: z.string(),
   knownSkills: z.array(z.string()),
@@ -433,15 +434,16 @@ export async function analyzeResumeWithLLM(resumeText: string) {
 Extract a comprehensive structured JSON object describing the candidate's profile and job search parameters.
 
 MANDATORY FIELDS TO RETURN:
-1. "primaryDomain": Candidate's primary functional field (e.g. "QA & Software Testing", "Backend & Cloud Engineering", "Frontend Development", "Product Management", "Data Analytics").
-2. "candidateSummary": A concise 2-sentence summary of the candidate's core identity, capabilities, and background.
-3. "knownSkills": String array of candidate's technical & professional skills, tools, languages, and frameworks.
-4. "education": String array of academic degrees and institutions (e.g. ["B.Tech Computer Science (2024)"]).
-5. "projects": Array of objects [{ "project_title": "...", "project_description": "..." }] detailing candidate's key projects.
-6. "certifications": String array of certifications earned (e.g. ["AWS Certified Developer"]).
-7. "keyHighlights": Array of 2-3 key accomplishments/highlights.
-8. "suggestedJobTitles": String array of 3-5 target job titles recommended for this candidate (e.g. ["Junior Backend Developer", "DevOps Engineer"]).
-9. "excludeTitleKeywords": String array of titles, level codes (Senior, Lead, SDE3, Principal, Manager), and non-matching domains to reject in job searches.
+1. "experienceYears": Integer estimating candidate's total years of professional experience (0 for fresher/student, 1 for 1 year, 2 for 2 years, 3 for 3 years, etc.).
+2. "primaryDomain": Candidate's primary functional field (e.g. "QA & Software Testing", "Backend & Cloud Engineering", "Frontend Development", "Product Management", "Data Analytics").
+3. "candidateSummary": A concise 2-sentence summary of the candidate's core identity, capabilities, and background.
+4. "knownSkills": String array of candidate's technical & professional skills, tools, languages, and frameworks.
+5. "education": String array of academic degrees and institutions (e.g. ["B.Tech Computer Science (2024)"]).
+6. "projects": Array of objects [{ "project_title": "...", "project_description": "..." }] detailing candidate's key projects.
+7. "certifications": String array of certifications earned (e.g. ["AWS Certified Developer"]).
+8. "keyHighlights": Array of 2-3 key accomplishments/highlights.
+9. "suggestedJobTitles": String array of 3-5 target job titles recommended for this candidate (e.g. ["Junior Backend Developer", "DevOps Engineer"]).
+10. "excludeTitleKeywords": String array of titles, level codes (Senior, Lead, SDE3, Principal, Manager), and non-matching domains to reject in job searches.
 
 CANDIDATE RESUME:
 ${resumeText.slice(0, 10000)}`;

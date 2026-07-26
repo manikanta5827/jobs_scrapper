@@ -455,12 +455,16 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         const analysis = res.analysis;
         currentProfileFields = analysis;
 
+        if (typeof analysis.experienceYears === 'number' && !isNaN(analysis.experienceYears)) {
+          document.getElementById('userExperienceYears').value = analysis.experienceYears;
+        }
+
         document.getElementById('aiPrimaryDomain').value = analysis.primaryDomain || '';
         document.getElementById('aiCandidateSummary').value = analysis.candidateSummary || '';
         document.getElementById('aiKnownSkills').value = (analysis.knownSkills || []).join(', ');
-        document.getElementById('aiEducation').value = (analysis.education || []).join('\\n');
-        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\\n');
-        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\\n');
+        document.getElementById('aiEducation').value = (analysis.education || []).join('\n');
+        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\n');
+        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\n');
         document.getElementById('aiSuggestedJobTitles').value = (analysis.suggestedJobTitles || []).join(', ');
         document.getElementById('aiProjects').value = analysis.projects ? JSON.stringify(analysis.projects, null, 2) : '';
 
