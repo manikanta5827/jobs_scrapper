@@ -1,6 +1,6 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
-import { sql, lt, desc, and, eq, gte, lte, or, isNull } from "drizzle-orm";
+import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray } from "drizzle-orm";
 import { convertInrToUsd } from "./currency_helper";
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
@@ -82,15 +82,32 @@ export async function resetHighUsageTokens(): Promise<void> {
 
 // ─── Per-User Jobs Deduplication Helpers ─────────────────────────────────────
 
-// Fetch candidate's previously seen job links and fingerprints to prevent duplicate delivery per user (UUID)
-export async function getExistingJobsData(userId: string): Promise<{ links: Set<string>, fingerprints: Set<string> }> {
+// Fetch candidate's previously seen job links and fingerprints for the incoming batch to prevent duplicate delivery per user (UUID)
+export async function getExistingJobsData(
+  userId: string,
+  candidateLinks: string[] = [],
+  candidateFingerprints: string[] = []
+): Promise<{ links: Set<string>, fingerprints: Set<string> }> {
+  if (candidateLinks.length === 0 && candidateFingerprints.length === 0) {
+    return { links: new Set(), fingerprints: new Set() };
+  }
+
   await initDb();
+
+  const conditions = [];
+  if (candidateLinks.length > 0) {
+    conditions.push(inArray(jobs.jobLink, candidateLinks));
+  }
+  if (candidateFingerprints.length > 0) {
+    conditions.push(inArray(jobs.fingerprint, candidateFingerprints));
+  }
+
   const result = await db.select({ 
     jobLink: jobs.jobLink, 
     fingerprint: jobs.fingerprint 
   })
   .from(jobs)
-  .where(eq(jobs.userId, userId));
+  .where(and(eq(jobs.userId, userId), or(...conditions)));
   
   return {
     links: new Set(result.map((r: { jobLink: string }) => r.jobLink)),

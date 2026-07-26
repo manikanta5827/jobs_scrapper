@@ -139,7 +139,9 @@ async function processUserWorker(
     console.log(`User ${user.id}: Deduped ${batchDedupCount} duplicate jobs, final jobs count ${uniqueCount}`);
 
     // 5. Per-User Database deduplication (against candidate's personal seen jobs history)
-    const existingData = await getExistingJobsData(user.id);
+    const candidateLinks = uniqueRawJobs.map((j: Job) => j.link).filter((l): l is string => !!l);
+    const candidateFingerprints = uniqueRawJobs.map((j: Job) => j.fingerprint).filter((f): f is string => !!f);
+    const existingData = await getExistingJobsData(user.id, candidateLinks, candidateFingerprints);
     const newJobs = uniqueRawJobs.filter((job: Job) => {
       return !existingData.links.has(job.link!) && !existingData.fingerprints.has(job.fingerprint!);
     });
