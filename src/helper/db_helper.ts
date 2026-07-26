@@ -150,7 +150,7 @@ export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
       const deleted = await tx.delete(jobs)
         .where(
           and(
-            lt(jobs.seenAt, cutoff),
+            lt(jobs.createdAt, cutoff),
             or(
               isNull(jobs.aiScore),
               lt(jobs.aiScore, 70)
@@ -201,12 +201,12 @@ export async function getJobsForUser(
   ];
 
   if (options.fromDate) {
-    conditions.push(gte(jobs.seenAt, new Date(options.fromDate)));
+    conditions.push(gte(jobs.createdAt, new Date(options.fromDate)));
   }
   if (options.toDate) {
     const endOfDay = new Date(options.toDate);
     endOfDay.setHours(23, 59, 59, 999);
-    conditions.push(lte(jobs.seenAt, endOfDay));
+    conditions.push(lte(jobs.createdAt, endOfDay));
   }
 
   const whereClause = and(...conditions);
@@ -215,7 +215,7 @@ export async function getJobsForUser(
   const jobsList = await db.select()
     .from(jobs)
     .where(whereClause)
-    .orderBy(desc(jobs.seenAt))
+    .orderBy(desc(jobs.createdAt))
     .limit(limit)
     .offset(offset);
 

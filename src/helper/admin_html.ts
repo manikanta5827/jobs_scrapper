@@ -7,38 +7,50 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   <title>Admin Console — Jobs Fetcher Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #090d16;
-      --card-bg: rgba(22, 30, 49, 0.75);
-      --card-hover: rgba(30, 41, 69, 0.85);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-focus: #6366f1;
-      --primary: #6366f1;
-      --primary-hover: #4f46e5;
-      --accent-cyan: #06b6d4;
-      --accent-purple: #a855f7;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --input-bg: #131b2e;
+      /* Semi-White / Alabaster Enterprise SaaS Palette */
+      --bg-app: #f4f5f7;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #f8fafc;
+      --bg-elevated: #f1f5f9;
+      --border-color: #e2e8f0;
+      --border-hover: #cbd5e1;
+      
+      /* Crisp Functional Accents */
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #059669;
+      --success-bg: #ecfdf5;
+      --success-border: #a7f3d0;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      
+      /* Text */
+      --text-main: #0f172a;
+      --text-secondary: #475569;
+      --text-tertiary: #64748b;
+      
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
     
     body {
-      background-color: var(--bg);
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
-        radial-gradient(at 50% 100%, rgba(6, 182, 212, 0.1) 0px, transparent 50%);
-      background-attachment: fixed;
-      color: var(--text);
-      padding: 24px;
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      padding: 24px 32px;
       min-height: 100vh;
+      line-height: 1.5;
+      font-size: 14px;
     }
 
     /* Keyframe Animations */
@@ -46,26 +58,22 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       to { transform: rotate(360deg); }
     }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
     @keyframes modalPop {
-      from { opacity: 0; transform: scale(0.95); }
+      from { opacity: 0; transform: scale(0.98); }
       to { opacity: 1; transform: scale(1); }
-    }
-    @keyframes pulseGlow {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
     }
 
     .spinner {
       display: inline-block;
       width: 14px;
       height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      border: 2px solid rgba(0, 0, 0, 0.15);
       border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 0.8s linear infinite;
+      border-top-color: var(--primary);
+      animation: spin 0.7s linear infinite;
     }
 
     /* Top Bar & Auth Settings */
@@ -74,238 +82,390 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       justify-content: space-between;
       align-items: center;
       margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
       flex-wrap: wrap;
       gap: 16px;
-      animation: fadeIn 0.4s ease-out;
     }
     
     .brand {
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #a5b4fc, #6366f1 50%, #38bdf8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+    }
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
     }
 
     .auth-box {
       display: flex;
       align-items: center;
       gap: 12px;
-      background: var(--card-bg);
-      padding: 10px 18px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      backdrop-filter: blur(16px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      background: var(--bg-surface);
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
       flex-wrap: wrap;
     }
     .auth-field { display: flex; align-items: center; gap: 8px; }
-    .auth-field label { font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .auth-field label { 
+      font-size: 11px; 
+      color: var(--text-secondary); 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 0.05em; 
+    }
     .auth-field input {
-      background: var(--input-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 7px 12px;
-      color: #fff;
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--text-main);
       font-size: 13px;
       outline: none;
       width: 240px;
-      transition: all 0.2s;
+      transition: border-color 0.15s ease;
     }
-    .auth-field input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+    .auth-field input:focus { 
+      border-color: var(--primary); 
+    }
 
     .btn-save-key {
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      background: var(--primary);
       color: white;
       border: none;
-      padding: 8px 18px;
-      border-radius: 8px;
+      padding: 6px 14px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      transition: background-color 0.15s ease;
     }
-    .btn-save-key:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4); }
+    .btn-save-key:hover { 
+      background: var(--primary-hover); 
+    }
 
     /* KPI Metrics Grid */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
       margin-bottom: 28px;
-      animation: fadeIn 0.5s ease-out;
+      animation: fadeIn 0.3s ease-out;
     }
     .kpi-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 22px;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
-      transition: transform 0.2s ease, border-color 0.2s ease;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .kpi-card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.15); }
-    .kpi-title { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-    .kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
-    .kpi-sub { font-size: 12px; margin-top: 6px; font-weight: 500; }
+    .kpi-card:hover { 
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-md);
+    }
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .kpi-title { 
+      font-size: 11px; 
+      color: var(--text-secondary); 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 0.05em; 
+    }
+    .kpi-icon {
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+    }
+    .kpi-value { 
+      font-size: 26px; 
+      font-weight: 700; 
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+    }
+    .kpi-sub { 
+      font-size: 12px; 
+      margin-top: 6px; 
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .text-green { color: var(--success); }
     .text-orange { color: var(--warning); }
-    .text-blue { color: #38bdf8; }
+    .text-blue { color: var(--primary); }
+    .text-muted { color: var(--text-tertiary); }
 
     /* Navigation Tabs */
     .nav-tabs {
       display: flex;
-      gap: 12px;
-      border-bottom: 1px solid var(--border);
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
       margin-bottom: 24px;
     }
     .tab-btn {
       background: transparent;
       border: none;
-      color: var(--text-muted);
-      padding: 12px 20px;
-      font-size: 14px;
+      color: var(--text-secondary);
+      padding: 10px 16px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .tab-btn:hover { color: var(--text); }
-    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-btn:hover { color: var(--text-main); }
+    .tab-btn.active { 
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .tab-btn svg { width: 15px; height: 15px; }
 
     /* Section & Cards */
     .tab-content { display: none; }
-    .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+    .tab-content.active { display: block; animation: fadeIn 0.25s ease-out; }
     
     .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 22px;
       margin-bottom: 24px;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      box-shadow: var(--shadow-sm);
     }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-    .card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+    .card-title { font-size: 16px; font-weight: 700; color: var(--text-main); }
 
-    /* Tables */
+    /* Clean Enterprise Data Table ("Tabler Format") */
     .table-container { width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th {
-      color: var(--text-muted);
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.4);
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      text-align: left; 
+      font-size: 13px;
     }
-    td { padding: 16px 18px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
-    tr:hover { background-color: var(--card-hover); }
+    th {
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      white-space: nowrap;
+    }
+    td { 
+      padding: 14px 16px; 
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    tbody tr { 
+      transition: background-color 0.15s ease; 
+    }
+    tbody tr:hover { 
+      background-color: var(--bg-surface-hover); 
+    }
+    .mono-cell {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
 
     /* Badges & Buttons */
-    .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; text-transform: uppercase; letter-spacing: 0.03em; }
-    .badge-active { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-inactive { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge { 
+      padding: 3px 10px; 
+      border-radius: 6px; 
+      font-size: 11px; 
+      font-weight: 600; 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px;
+      text-transform: uppercase; 
+      letter-spacing: 0.03em; 
+    }
+    .badge-active { 
+      background: var(--success-bg); 
+      color: var(--success); 
+      border: 1px solid var(--success-border); 
+    }
+    .badge-inactive { 
+      background: var(--danger-bg); 
+      color: var(--danger); 
+      border: 1px solid var(--danger-border); 
+    }
 
     .btn {
-      padding: 9px 18px;
-      border-radius: 10px;
-      border: none;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      transition: all 0.2s ease;
+      gap: 6px;
+      transition: all 0.15s ease;
       text-decoration: none;
+      background: var(--bg-elevated);
+      color: var(--text-main);
     }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { 
+      background: #e2e8f0;
+      border-color: var(--border-hover); 
+    }
     .btn-primary {
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      background: var(--primary);
       color: white;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      border-color: var(--primary);
     }
-    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45); }
-    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: var(--text); border: 1px solid var(--border); }
-    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
-    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
-    .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .btn-danger:hover:not(:disabled) { background: var(--danger); color: white; }
+    .btn-primary:hover:not(:disabled) { 
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+    .btn-sm { 
+      padding: 5px 10px; 
+      font-size: 12px; 
+      border-radius: 5px; 
+    }
+    .btn-danger { 
+      background: var(--danger-bg); 
+      color: var(--danger); 
+      border-color: var(--danger-border); 
+    }
+    .btn-danger:hover:not(:disabled) { 
+      background: var(--danger); 
+      color: white; 
+    }
 
-    /* Modals */
+    /* Modals with Clean Tabbed Architecture */
     .modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(8px);
+      background: rgba(15, 23, 42, 0.45);
       z-index: 100;
       justify-content: center;
       align-items: center;
       padding: 20px;
     }
-    .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease-out; }
+    .modal-overlay.active { display: flex; animation: fadeIn 0.15s ease-out; }
     .modal {
-      background: #0f172a;
-      border: 1px solid var(--border);
-      border-radius: 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
       width: 100%;
       max-width: 680px;
       max-height: 90vh;
       overflow-y: auto;
-      padding: 30px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-      animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 28px;
+      box-shadow: var(--shadow-lg);
+      animation: modalPop 0.15s ease-out;
     }
-    .modal-header { font-size: 20px; font-weight: 700; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-    .close-btn { cursor: pointer; color: var(--text-muted); font-size: 24px; transition: color 0.2s; }
-    .close-btn:hover { color: var(--text); }
+    .modal-header { 
+      font-size: 16px; 
+      font-weight: 700; 
+      margin-bottom: 20px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      color: var(--text-main);
+    }
+    .close-btn { 
+      cursor: pointer; 
+      color: var(--text-secondary); 
+      font-size: 20px; 
+      line-height: 1;
+      transition: color 0.15s; 
+    }
+    .close-btn:hover { color: var(--text-main); }
+
+    .modal-tab-nav {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+    .modal-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .modal-tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .modal-tab-pane { display: none; }
+    .modal-tab-pane.active { display: block; animation: fadeIn 0.15s ease-out; }
 
     .form-section-title {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--accent-cyan);
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
       margin: 20px 0 12px 0;
       padding-bottom: 6px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--border-color);
     }
 
-    .form-group { margin-bottom: 18px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
     .form-group input, .form-group textarea {
       width: 100%;
-      background: var(--input-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 11px 14px;
-      color: white;
-      font-size: 14px;
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 9px 12px;
+      color: var(--text-main);
+      font-size: 13px;
       outline: none;
-      transition: all 0.2s;
+      transition: border-color 0.15s;
     }
     .form-group input:focus, .form-group textarea:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      border-color: var(--primary);
     }
-    .form-group textarea { height: 100px; resize: vertical; }
+    .form-group textarea { height: 96px; resize: vertical; }
 
     /* Skeleton Loading Bar */
     .skeleton-line {
       height: 16px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.05) 75%);
-      background-size: 200% 100%;
-      animation: pulseGlow 1.5s infinite ease-in-out;
+      background: #e2e8f0;
       border-radius: 4px;
       margin: 6px 0;
     }
@@ -315,16 +475,16 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       position: fixed;
       bottom: 24px;
       right: 24px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-      color: white;
-      padding: 14px 24px;
-      border-radius: 12px;
+      background: #1e293b;
+      color: #ffffff;
+      padding: 12px 18px;
+      border-radius: 8px;
       font-weight: 600;
-      font-size: 14px;
-      box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+      font-size: 13px;
+      box-shadow: var(--shadow-lg);
       display: none;
       z-index: 200;
-      animation: fadeIn 0.3s ease-out;
+      border: 1px solid var(--border-color);
     }
   </style>
 </head>
@@ -332,7 +492,12 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
   <!-- Top Header & API Gateway Settings -->
   <div class="top-header">
-    <div class="brand">🚀 Job Fetcher Admin Console</div>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+      </div>
+      <span>Job Fetcher Admin Console</span>
+    </div>
     <div class="auth-box">
       <div class="auth-field">
         <label>API Base URL:</label>
@@ -349,37 +514,73 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   <!-- KPI Analytics Grid -->
   <div class="kpi-grid">
     <div class="kpi-card">
-      <div class="kpi-title">TOTAL CANDIDATES</div>
+      <div class="kpi-header">
+        <span class="kpi-title">Total Candidates</span>
+        <div class="kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+      </div>
       <div class="kpi-value" id="kpiUsers">0</div>
-      <div class="kpi-sub text-blue" id="kpiActiveUsers">0 active users</div>
+      <div class="kpi-sub">
+        <span id="kpiActiveUsers">0 active users</span>
+      </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-title">BILLED REVENUE (USD)</div>
+      <div class="kpi-header">
+        <span class="kpi-title">Billed Revenue</span>
+        <div class="kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        </div>
+      </div>
       <div class="kpi-value text-green" id="kpiRevenue">$0.00</div>
-      <div class="kpi-sub text-muted" id="kpiRevenueInr">≈ ₹0 INR</div>
+      <div class="kpi-sub" id="kpiRevenueInr">≈ ₹0 INR</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-title">ACTUAL COST (INFRA + LLM)</div>
+      <div class="kpi-header">
+        <span class="kpi-title">Actual Cost</span>
+        <div class="kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+        </div>
+      </div>
       <div class="kpi-value text-orange" id="kpiCost">$0.00</div>
-      <div class="kpi-sub text-muted">DeepSeek + Scraper costs</div>
+      <div class="kpi-sub">DeepSeek + Scraper costs</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-title">NET PROFIT</div>
+      <div class="kpi-header">
+        <span class="kpi-title">Net Profit</span>
+        <div class="kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+        </div>
+      </div>
       <div class="kpi-value text-green" id="kpiProfit">$0.00</div>
       <div class="kpi-sub text-green" id="kpiMargin">0% margin</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-title">EXECUTED TURNS</div>
+      <div class="kpi-header">
+        <span class="kpi-title">Executed Turns</span>
+        <div class="kpi-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+        </div>
+      </div>
       <div class="kpi-value" id="kpiTurns">0</div>
-      <div class="kpi-sub text-muted">Total scraper runs</div>
+      <div class="kpi-sub">Total scraper runs</div>
     </div>
   </div>
 
   <!-- Navigation Tabs -->
   <div class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('candidatesTab', this)">Candidate Management</button>
-    <button class="tab-btn" onclick="switchTab('analyticsTab', this)">Profit Analytics</button>
-    <button class="tab-btn" onclick="switchTab('apifyTab', this)">Apify Key Rotation</button>
+    <button class="tab-btn active" onclick="switchTab('candidatesTab', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+      Candidate Management
+    </button>
+    <button class="tab-btn" onclick="switchTab('analyticsTab', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      Profit Analytics
+    </button>
+    <button class="tab-btn" onclick="switchTab('apifyTab', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+      Apify Key Rotation
+    </button>
   </div>
 
   <!-- TAB 1: Candidates Management -->
@@ -387,8 +588,11 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     <div class="card">
       <div class="card-header">
         <div class="card-title">Candidates Ledger</div>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn btn-secondary" id="btnRefreshCandidates" onclick="loadDashboardData()">🔄 Refresh</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" id="btnRefreshCandidates" onclick="loadDashboardData()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Refresh
+          </button>
           <button class="btn btn-primary" onclick="openAddUserModal()">+ Add Candidate</button>
         </div>
       </div>
@@ -397,17 +601,17 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <thead>
             <tr>
               <th>ID</th>
-              <th>Candidate Email / Name</th>
+              <th>Candidate</th>
               <th>Registration Command</th>
               <th>Wallet Balance</th>
-              <th>Per-Run Rate</th>
+              <th>Rate</th>
               <th>Status</th>
               <th>Runs</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
+            <tr><td colspan="8" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -433,7 +637,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
             </tr>
           </thead>
           <tbody id="monthlyTableBody">
-            <tr><td colspan="6" style="text-align: center; color: var(--text-muted)"><div class="skeleton-line"></div>Loading financial breakdown...</td></tr>
+            <tr><td colspan="6" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading financial breakdown...</td></tr>
           </tbody>
         </table>
       </div>
@@ -441,8 +645,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     <!-- Pricing Policy Explanation -->
     <div class="card">
-      <div class="card-title" style="margin-bottom: 12px;">Pricing & Cost Structure Policy</div>
-      <p style="font-size: 14px; color: var(--text-muted); line-height: 1.6;">
+      <div class="card-title" style="margin-bottom: 12px; font-size: 14px;">Pricing & Cost Structure Policy</div>
+      <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
         • <b>Global Default Per-Run Charge:</b> Managed via environment variable <code>DEFAULT_BILLED_RUN_COST_USD</code> (Default: <b>$0.10 USD</b> / ~₹8.50 INR per execution turn).<br>
         • <b>Custom Candidate Rate Override:</b> Can be customized per candidate via <code>customRunCostUsd</code> in candidate record.<br>
         • <b>Wallet Top-Up Rate:</b> Standard exchange rate conversion applies (1 USD = ₹100 INR).<br>
@@ -472,7 +676,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
             </tr>
           </thead>
           <tbody id="apifyTableBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted)"><div class="skeleton-line"></div>Loading Apify key rotation pool...</td></tr>
+            <tr><td colspan="7" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading Apify key rotation pool...</td></tr>
           </tbody>
         </table>
       </div>
@@ -480,7 +684,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: Add / Edit Candidate -->
-  <div class="modal-overlay" id="userModal">
+  <div class="modal-overlay" id="userModal" onclick="handleBackdropClick(event, 'userModal')">
     <div class="modal">
       <div class="modal-header">
         <span id="userModalTitle">Add Candidate</span>
@@ -489,109 +693,122 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       <form id="userForm" onsubmit="handleUserSubmit(event)">
         <input type="hidden" id="editUserId">
         
-        <div class="form-section-title">📋 Basic Details</div>
-        <div class="form-group">
-          <label>Email Address *</label>
-          <input type="email" id="userEmail" required maxlength="255" placeholder="candidate@example.com">
-        </div>
-        <div class="form-group">
-          <label>Candidate Full Name</label>
-          <input type="text" id="userName" maxlength="100" placeholder="John Doe">
-        </div>
-        <div class="form-group">
-          <label>Telegram Chat ID (Optional — Auto-linked via /register ID)</label>
-          <input type="text" id="userTelegramChatId" maxlength="50" placeholder="Auto-linked when candidate sends /register <id>">
+        <!-- Modal Tabs -->
+        <div class="modal-tab-nav">
+          <button type="button" class="modal-tab-btn active" onclick="switchModalTab('userTabBasic', this)">1. Basic & Resume</button>
+          <button type="button" class="modal-tab-btn" onclick="switchModalTab('userTabAi', this)">2. AI Extracted Profile</button>
+          <button type="button" class="modal-tab-btn" onclick="switchModalTab('userTabExclusions', this)">3. Exclusions & Wallet</button>
         </div>
 
-        <div class="form-section-title">📄 Resume & AI Extraction</div>
-        <div class="form-group">
-          <label>Resume Plain Text (50 to 15,000 characters) *</label>
-          <textarea id="userResumeText" required minlength="50" maxlength="15000" placeholder="Paste full candidate resume plain text here..."></textarea>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-            <span style="font-size: 11px; color: var(--text-muted);" id="resumeCharCounter">0 / 15,000 characters</span>
-            <button type="button" class="btn btn-secondary btn-sm" id="btnAnalyzeAi" onclick="analyzeResumeWithAI()" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid #6366f1;">✨ Analyze with AI</button>
+        <!-- TAB 1: Basic & Resume -->
+        <div id="userTabBasic" class="modal-tab-pane active">
+          <div class="form-section-title">Basic Details</div>
+          <div class="form-group">
+            <label>Email Address *</label>
+            <input type="email" id="userEmail" required maxlength="255" placeholder="candidate@example.com">
           </div>
-          <span id="analyzeAiStatus" style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 500;"></span>
+          <div class="form-group">
+            <label>Candidate Full Name</label>
+            <input type="text" id="userName" maxlength="100" placeholder="John Doe">
+          </div>
+          <div class="form-group">
+            <label>Telegram Chat ID (Optional — Auto-linked via /register ID)</label>
+            <input type="text" id="userTelegramChatId" maxlength="50" placeholder="Auto-linked when candidate sends /register <id>">
+          </div>
+
+          <div class="form-section-title">Resume & AI Extraction</div>
+          <div class="form-group">
+            <label>Resume Plain Text (50 to 15,000 characters) *</label>
+            <textarea id="userResumeText" required minlength="50" maxlength="15000" placeholder="Paste full candidate resume plain text here..."></textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+              <span style="font-size: 11px; color: var(--text-tertiary);" id="resumeCharCounter">0 / 15,000 characters</span>
+              <button type="button" class="btn btn-sm" id="btnAnalyzeAi" onclick="analyzeResumeWithAI()">Analyze with AI</button>
+            </div>
+            <span id="analyzeAiStatus" style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 500;"></span>
+          </div>
+
+          <div class="form-section-title">Experience & Target Preferences</div>
+          <div class="form-group">
+            <label>Candidate Experience in Years (Required) *</label>
+            <input type="number" id="userExperienceYears" min="0" max="50" value="0" required placeholder="Auto-calculated via AI or enter manually">
+            <span style="font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px;">Jobs requiring MORE than this experience will be automatically rejected.</span>
+          </div>
+          <div class="form-group">
+            <label>Target Locations (Optional — e.g. Bangalore, Hyderabad)</label>
+            <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote (leave empty to search all major tech cities)">
+          </div>
+          <div class="form-group">
+            <label>Employment Type (Optional)</label>
+            <input type="text" id="userEmploymentType" maxlength="100" placeholder="e.g. Full-time">
+          </div>
         </div>
 
-        <div class="form-section-title">🎯 Experience & Target Preferences</div>
-        <div class="form-group">
-          <label>Candidate Experience in Years (Required) *</label>
-          <input type="number" id="userExperienceYears" min="0" max="50" value="0" required placeholder="Auto-calculated via AI or enter manually">
-          <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Jobs requiring MORE than this experience will be automatically rejected.</span>
+        <!-- TAB 2: AI Extracted Profile -->
+        <div id="userTabAi" class="modal-tab-pane">
+          <div style="border: 1px solid var(--border-color); padding: 18px; border-radius: 8px; background: var(--bg-app);">
+            <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--text-main); font-size: 13px; font-weight: 600;">AI Extracted Profile (Auto-filled on Analyze)</h4>
+            <div class="form-group">
+              <label>Primary Domain</label>
+              <input type="text" id="aiPrimaryDomain" placeholder="e.g. Backend Engineering">
+            </div>
+            <div class="form-group">
+              <label>Candidate Summary</label>
+              <textarea id="aiCandidateSummary" style="height: 60px;" placeholder="Brief summary..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Known Skills (Comma Separated)</label>
+              <textarea id="aiKnownSkills" style="height: 50px;" placeholder="Node.js, TypeScript, AWS..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Education (One per line)</label>
+              <textarea id="aiEducation" style="height: 50px;" placeholder="B.Tech in Computer Science..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Certifications (One per line)</label>
+              <textarea id="aiCertifications" style="height: 50px;" placeholder="AWS Certified Solutions Architect..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Key Highlights (One per line)</label>
+              <textarea id="aiKeyHighlights" style="height: 50px;" placeholder="Scaled system to 1M users..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Suggested Job Titles (Comma Separated — Auto-drives search)</label>
+              <textarea id="aiSuggestedJobTitles" style="height: 50px;" placeholder="Backend Developer, SDE..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Projects (JSON Array)</label>
+              <textarea id="aiProjects" style="height: 80px;" placeholder='[{"project_title": "X", "project_description": "Y"}]'></textarea>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Target Locations (Optional — e.g. Bangalore, Hyderabad)</label>
-          <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote (leave empty to search all major tech cities)">
-        </div>
-
-        <div class="form-group">
-          <label>Employment Type (Optional)</label>
-          <input type="text" id="userEmploymentType" maxlength="100" placeholder="e.g. Full-time">
+        <!-- TAB 3: Exclusions & Credentials -->
+        <div id="userTabExclusions" class="modal-tab-pane">
+          <div class="form-section-title">Exclusions & Credentials</div>
+          <div class="form-group">
+            <label>Exclude Title Keywords (Comma Separated — Auto-filled via AI)</label>
+            <textarea id="userExcludeKeywords" style="height: 60px;" placeholder="e.g. Senior, Lead, Principal, Manager, Staff, Architect, Frontend"></textarea>
+          </div>
+          <div class="form-group">
+            <label>LinkedIn Person URN (Optional for auto-posting)</label>
+            <input type="text" id="userLinkedinPersonUrn" maxlength="100" placeholder="urn:li:person:xxxxx">
+          </div>
+          <div class="form-group">
+            <label>LinkedIn Access Token (Optional for auto-posting)</label>
+            <input type="password" id="userLinkedinAccessToken" maxlength="1000" placeholder="LinkedIn OAuth Access Token">
+          </div>
+          <div class="form-group" id="initialInrGroup">
+            <label>Initial Balance Top-Up (₹100 to ₹100,000 INR)</label>
+            <input type="number" id="userInitialInr" min="100" max="100000" value="500" placeholder="500">
+          </div>
+          <div class="form-group">
+            <label>Custom Per-Run Rate Override ($0.01 to $10.00 USD)</label>
+            <input type="number" step="0.01" min="0.01" max="10.00" id="userCustomRate" placeholder="Default: $0.10">
+          </div>
         </div>
         
-        <!-- AI Extracted Profile Data -->
-        <div style="border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px; margin-bottom: 20px; border-radius: 12px; background: rgba(15, 23, 42, 0.6);">
-          <h4 style="margin-top: 0; margin-bottom: 12px; color: #a5b4fc; font-size: 13px; font-weight: 700;">✨ AI Extracted Profile (Auto-filled on Analyze)</h4>
-          <div class="form-group">
-            <label>Primary Domain</label>
-            <input type="text" id="aiPrimaryDomain" placeholder="e.g. Backend Engineering">
-          </div>
-          <div class="form-group">
-            <label>Candidate Summary</label>
-            <textarea id="aiCandidateSummary" style="height: 60px;" placeholder="Brief summary..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Known Skills (Comma Separated)</label>
-            <textarea id="aiKnownSkills" style="height: 50px;" placeholder="Node.js, TypeScript, AWS..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Education (One per line)</label>
-            <textarea id="aiEducation" style="height: 50px;" placeholder="B.Tech in Computer Science..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Certifications (One per line)</label>
-            <textarea id="aiCertifications" style="height: 50px;" placeholder="AWS Certified Solutions Architect..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Key Highlights (One per line)</label>
-            <textarea id="aiKeyHighlights" style="height: 50px;" placeholder="Scaled system to 1M users..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Suggested Job Titles (Comma Separated — Auto-drives search)</label>
-            <textarea id="aiSuggestedJobTitles" style="height: 50px;" placeholder="Backend Developer, SDE..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Projects (JSON Array)</label>
-            <textarea id="aiProjects" style="height: 80px;" placeholder='[{"project_title": "X", "project_description": "Y"}]'></textarea>
-          </div>
-        </div>
-
-        <div class="form-section-title">🔐 Exclusions & Credentials</div>
-        <div class="form-group">
-          <label>Exclude Title Keywords (Comma Separated — Auto-filled via AI)</label>
-          <textarea id="userExcludeKeywords" style="height: 60px;" placeholder="e.g. Senior, Lead, Principal, Manager, Staff, Architect, Frontend"></textarea>
-        </div>
-        <div class="form-group">
-          <label>LinkedIn Person URN (Optional for auto-posting)</label>
-          <input type="text" id="userLinkedinPersonUrn" maxlength="100" placeholder="urn:li:person:xxxxx">
-        </div>
-        <div class="form-group">
-          <label>LinkedIn Access Token (Optional for auto-posting)</label>
-          <input type="password" id="userLinkedinAccessToken" maxlength="1000" placeholder="LinkedIn OAuth Access Token">
-        </div>
-        <div class="form-group" id="initialInrGroup">
-          <label>Initial Balance Top-Up (₹100 to ₹100,000 INR)</label>
-          <input type="number" id="userInitialInr" min="100" max="100000" value="500" placeholder="500">
-        </div>
-        <div class="form-group">
-          <label>Custom Per-Run Rate Override ($0.01 to $10.00 USD)</label>
-          <input type="number" step="0.01" min="0.01" max="10.00" id="userCustomRate" placeholder="Default: $0.10">
-        </div>
-        
-        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+          <button type="button" class="btn" onclick="closeModal('userModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="btnSaveUser">Save Candidate</button>
         </div>
       </form>
@@ -599,7 +816,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: Top Up Wallet -->
-  <div class="modal-overlay" id="topupModal">
+  <div class="modal-overlay" id="topupModal" onclick="handleBackdropClick(event, 'topupModal')">
     <div class="modal" style="max-width: 440px;">
       <div class="modal-header">
         <span>Recharge Wallet Balance</span>
@@ -614,10 +831,10 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         <div class="form-group">
           <label>Recharge Amount in INR (₹100 to ₹100,000)</label>
           <input type="number" id="topupAmountInr" min="100" max="100000" value="500" required oninput="updateTopupHint(this.value)">
-          <span style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 600;" id="topupInrHint">₹500 INR = +$5.00 USD wallet balance</span>
+          <span style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 500;" id="topupInrHint">₹500 INR = +$5.00 USD wallet balance</span>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('topupModal')">Cancel</button>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+          <button type="button" class="btn" onclick="closeModal('topupModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="btnSubmitTopup">Add Funds</button>
         </div>
       </form>
@@ -625,7 +842,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: Add Apify Key -->
-  <div class="modal-overlay" id="apifyModal">
+  <div class="modal-overlay" id="apifyModal" onclick="handleBackdropClick(event, 'apifyModal')">
     <div class="modal" style="max-width: 480px;">
       <div class="modal-header">
         <span>Add Apify Token</span>
@@ -644,8 +861,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <label>Subscription Renewal Day of Month (1 to 28)</label>
           <input type="number" id="apifyRenewalDay" min="1" max="28" value="1" required>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('apifyModal')">Cancel</button>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+          <button type="button" class="btn" onclick="closeModal('apifyModal')">Cancel</button>
           <button type="submit" class="btn btn-primary" id="btnSubmitApify">Add Token</button>
         </div>
       </form>
@@ -688,8 +905,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Analyzing...';
-      statusEl.style.color = '#a5b4fc';
-      statusEl.innerText = '⏳ Analyzing resume via DeepSeek AI... Please wait 5-10 seconds.';
+      statusEl.style.color = 'var(--text-secondary)';
+      statusEl.innerText = 'Analyzing resume via DeepSeek AI... Please wait 5-10 seconds.';
 
       try {
         const res = await apiRequest('/admin/analyze-resume', 'POST', { resumeText });
@@ -714,15 +931,15 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         }
 
         statusEl.style.color = 'var(--success)';
-        statusEl.innerText = '✓ AI Analysis Complete! Primary Domain: "' + (analysis.primaryDomain || 'N/A') + '"';
-        showToast('Resume analyzed successfully by DeepSeek!');
+        statusEl.innerText = 'AI Analysis Complete — Primary Domain: "' + (analysis.primaryDomain || 'N/A') + '"';
+        showToast('Resume analyzed successfully by DeepSeek');
       } catch (err) {
         statusEl.style.color = 'var(--danger)';
-        statusEl.innerText = '❌ Analysis failed: ' + err.message;
+        statusEl.innerText = 'Analysis failed: ' + err.message;
         alert('Failed to analyze resume: ' + err.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '✨ Analyze with AI';
+        btn.innerHTML = 'Analyze with AI';
       }
     }
 
@@ -737,23 +954,35 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         });
       }
 
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.querySelectorAll('.modal-overlay.active').forEach(el => el.classList.remove('active'));
+        }
+      });
+
       if (apiBase && apiKey) {
         loadDashboardData();
       }
     });
+
+    function handleBackdropClick(e, modalId) {
+      if (e.target.id === modalId) {
+        closeModal(modalId);
+      }
+    }
 
     function saveSettings() {
       apiBase = document.getElementById('apiBaseInput').value.trim().replace(/\\/+$/, '');
       apiKey = document.getElementById('apiKeyInput').value.trim();
 
       if (!apiBase || !apiKey) {
-        alert('Please enter both your API Base URL and Secret Key!');
+        alert('Please enter both your API Base URL and Secret Key');
         return;
       }
 
       localStorage.setItem('ADMIN_API_BASE', apiBase);
       localStorage.setItem('ADMIN_API_KEY', apiKey);
-      showToast('Settings saved & connected!');
+      showToast('Settings saved & connected');
       loadDashboardData();
     }
 
@@ -761,7 +990,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const toast = document.getElementById('toast');
       toast.innerText = msg;
       toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+      setTimeout(() => { toast.style.display = 'none'; }, 3500);
     }
 
     function copyToClipboard(str) {
@@ -797,6 +1026,13 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       btn.classList.add('active');
     }
 
+    function switchModalTab(paneId, btn) {
+      document.querySelectorAll('.modal-tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.modal-tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(paneId).classList.add('active');
+      btn.classList.add('active');
+    }
+
     async function loadDashboardData() {
       const refBtn = document.getElementById('btnRefreshCandidates');
       if (refBtn) refBtn.innerHTML = '<span class="spinner"></span> Loading...';
@@ -806,7 +1042,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         console.error('Load error:', err);
         showToast(\`Error: \${err.message}\`);
       } finally {
-        if (refBtn) refBtn.innerHTML = '🔄 Refresh';
+        if (refBtn) refBtn.innerHTML = \`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Refresh\`;
       }
     }
 
@@ -814,20 +1050,21 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       try {
         const data = await apiRequest('/stats');
         const s = data.stats;
-        document.getElementById('kpiUsers').innerText = s.totalUsersCount;
+
+        document.getElementById('kpiUsers').innerText = (s.totalUsersCount || 0).toLocaleString();
         document.getElementById('kpiActiveUsers').innerText = \`\${s.activeUsersCount} active users\`;
-        document.getElementById('kpiRevenue').innerText = \`$\${s.totalBilledRevenueUsd.toFixed(2)}\`;
+        document.getElementById('kpiRevenue').innerText = \`$\${(s.totalBilledRevenueUsd || 0).toFixed(2)}\`;
         document.getElementById('kpiRevenueInr').innerText = \`≈ ₹\${convertUsdToInr(s.totalBilledRevenueUsd).toLocaleString('en-IN')} INR\`;
-        document.getElementById('kpiCost').innerText = \`$\${s.totalActualCostUsd.toFixed(4)}\`;
-        document.getElementById('kpiProfit').innerText = \`$\${s.totalProfitUsd.toFixed(2)}\`;
+        document.getElementById('kpiCost').innerText = \`$\${(s.totalActualCostUsd || 0).toFixed(4)}\`;
+        document.getElementById('kpiProfit').innerText = \`$\${(s.totalProfitUsd || 0).toFixed(2)}\`;
         
         const margin = s.totalBilledRevenueUsd > 0 ? ((s.totalProfitUsd / s.totalBilledRevenueUsd) * 100).toFixed(1) : '0';
         document.getElementById('kpiMargin').innerText = \`\${margin}% profit margin\`;
-        document.getElementById('kpiTurns').innerText = s.totalRunsCount;
+        document.getElementById('kpiTurns').innerText = (s.totalRunsCount || 0).toLocaleString();
 
         const mBody = document.getElementById('monthlyTableBody');
         if (!s.monthlyStats || s.monthlyStats.length === 0) {
-          mBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted)">No monthly stats recorded yet</td></tr>';
+          mBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-tertiary)">No monthly stats recorded yet</td></tr>';
           return;
         }
 
@@ -852,7 +1089,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         const data = await apiRequest('/users');
         const usersList = data.users || [];
         if (usersList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted)">No candidates registered yet. Click + Add Candidate to onboard.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-tertiary)">No candidates registered yet. Click + Add Candidate to onboard.</td></tr>';
           return;
         }
 
@@ -860,28 +1097,35 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           const balanceInr = convertUsdToInr(u.balanceUsd);
           return \`
           <tr>
-            <td style="font-size: 11px; font-family: monospace;">\${u.id.substring(0, 8)}...</td>
+            <td class="mono-cell">\${u.id.substring(0, 8)}...</td>
             <td>
-              <div style="font-weight: 700;">\${u.name || 'Unnamed Candidate'}</div>
-              <div style="font-size: 12px; color: var(--text-muted);">\${u.email}</div>
+              <div style="font-weight: 600; color: var(--text-main);">\${u.name || 'Unnamed Candidate'}</div>
+              <div style="font-size: 12px; color: var(--text-tertiary);">\${u.email}</div>
             </td>
             <td>
-              <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('/register \${u.id}')">📋 Copy Code</button>
+              <button class="btn btn-sm" onclick="copyToClipboard('/register \${u.id}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Copy Code
+              </button>
             </td>
             <td>
-              <b>$\${u.balanceUsd.toFixed(2)}</b>
-              <div style="font-size: 11px; color: var(--text-muted);">≈ ₹\${balanceInr.toLocaleString('en-IN')} INR</div>
+              <b style="color: var(--text-main);">$\${u.balanceUsd.toFixed(2)}</b>
+              <div style="font-size: 11px; color: var(--text-tertiary);">≈ ₹\${balanceInr.toLocaleString('en-IN')} INR</div>
             </td>
-            <td>\${u.customRunCostUsd ? '$' + u.customRunCostUsd.toFixed(2) : '<span style="color:var(--text-muted);">Default ($0.10)</span>'}</td>
+            <td>\${u.customRunCostUsd ? '$' + u.customRunCostUsd.toFixed(2) : '<span style="color:var(--text-tertiary);">Default ($0.10)</span>'}</td>
             <td>
-              <span class="badge \${u.isActive ? 'badge-active' : 'badge-inactive'}">\${u.isActive ? 'Active' : 'Inactive'}</span>
+              <span class="badge \${u.isActive ? 'badge-active' : 'badge-inactive'}">
+                \${u.isActive ? 'Active' : 'Inactive'}
+              </span>
             </td>
-            <td><b>\${u.totalRunsCount || 0}</b></td>
+            <td><b style="color: var(--text-main);">\${u.totalRunsCount || 0}</b></td>
             <td>
               <div style="display: flex; gap: 6px;">
-                <button class="btn btn-secondary btn-sm" onclick="openTopupModal('\${u.id}', '\${u.email}')">💳 Top Up</button>
-                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('\${u.id}')">✏️ Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteUser('\${u.id}')">🗑️</button>
+                <button class="btn btn-sm" onclick="openTopupModal('\${u.id}', '\${u.email}')">Top Up</button>
+                <button class="btn btn-sm" onclick="openEditUserModal('\${u.id}')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteUser('\${u.id}')">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
               </div>
             </td>
           </tr>
@@ -898,19 +1142,19 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         const data = await apiRequest('/apify-keys');
         const keys = data.apifyKeys || [];
         if (keys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted)">No Apify tokens in rotation pool. Click + Add Apify Token.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-tertiary)">No Apify tokens in rotation pool. Click + Add Apify Token.</td></tr>';
           return;
         }
 
         tbody.innerHTML = keys.map(k => \`
           <tr>
-            <td style="font-size: 11px; font-family: monospace;">\${k.id.substring(0, 8)}...</td>
-            <td><b>\${k.accountLabel}</b></td>
-            <td style="font-family: monospace; font-size: 12px;">\${k.apiKey.substring(0, 8)}...</td>
+            <td class="mono-cell">\${k.id.substring(0, 8)}...</td>
+            <td><b style="color: var(--text-main);">\${k.accountLabel}</b></td>
+            <td class="mono-cell">\${k.apiKey.substring(0, 8)}...</td>
             <td>Day \${k.monthlyResetDay} of month</td>
             <td>$\${k.accumulatedUsageUsd.toFixed(4)} / $5.00</td>
             <td>
-              <span class="badge \${k.isActive ? 'badge-active' : 'badge-inactive'}">\${k.isActive ? 'Active' : 'Depleted/Disabled'}</span>
+              <span class="badge \${k.isActive ? 'badge-active' : 'badge-inactive'}">\${k.isActive ? 'Active' : 'Depleted'}</span>
             </td>
             <td>
               <button class="btn btn-danger btn-sm" onclick="deleteApifyKey('\${k.id}')">Remove</button>
@@ -933,6 +1177,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       document.getElementById('analyzeAiStatus').innerText = '';
       document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
       currentProfileFields = null;
+      switchModalTab('userTabBasic', document.querySelector('.modal-tab-btn'));
       openModal('userModal');
     }
 
@@ -970,6 +1215,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('userLinkedinAccessToken').value = u.linkedinCredentials?.accessToken || '';
         document.getElementById('userCustomRate').value = u.customRunCostUsd || '';
 
+        switchModalTab('userTabBasic', document.querySelector('.modal-tab-btn'));
         openModal('userModal');
       } catch (err) {
         alert('Failed to fetch user details: ' + err.message);
@@ -981,13 +1227,13 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const saveBtn = document.getElementById('btnSaveUser');
       const origText = saveBtn.innerText;
       saveBtn.disabled = true;
-      saveBtn.innerHTML = '<span class="spinner"></span> Saving Candidate...';
+      saveBtn.innerHTML = '<span class="spinner"></span> Saving...';
 
       const editId = document.getElementById('editUserId').value;
       const resumeText = document.getElementById('userResumeText').value.trim();
 
       if (resumeText.length < 50) {
-        alert('Resume plain text must be at least 50 characters!');
+        alert('Resume plain text must be at least 50 characters');
         saveBtn.disabled = false;
         saveBtn.innerText = origText;
         return;
@@ -1025,7 +1271,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         const rawProj = document.getElementById('aiProjects').value.trim();
         if (rawProj) aiProjects = JSON.parse(rawProj);
       } catch (e) {
-        alert('Invalid JSON in AI Projects field!');
+        alert('Invalid JSON in AI Projects field');
         saveBtn.disabled = false;
         saveBtn.innerText = origText;
         return;
@@ -1053,11 +1299,11 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       try {
         if (editId) {
           await apiRequest('/users/' + editId, 'PUT', payload);
-          showToast('Candidate profile updated successfully!');
+          showToast('Candidate profile updated successfully');
         } else {
           const initInr = parseFloat(document.getElementById('userInitialInr').value || '500');
           if (initInr < 100 || initInr > 100000) {
-            alert('Initial recharge amount must be between ₹100 and ₹100,000 INR!');
+            alert('Initial recharge amount must be between ₹100 and ₹100,000 INR');
             saveBtn.disabled = false;
             saveBtn.innerText = origText;
             return;
@@ -1096,7 +1342,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
       try {
         await apiRequest('/users/' + id, 'PUT', { amountInr });
-        showToast('Wallet recharged successfully!');
+        showToast('Wallet recharged successfully');
         closeModal('topupModal');
         loadDashboardData();
       } catch (err) {
@@ -1111,7 +1357,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       if (!confirm('Are you sure you want to delete candidate ID ' + id + '? This action cannot be undone.')) return;
       try {
         await apiRequest('/users/' + id, 'DELETE');
-        showToast('Candidate deleted successfully!');
+        showToast('Candidate deleted successfully');
         loadDashboardData();
       } catch (err) {
         alert('Delete failed: ' + err.message);
@@ -1138,7 +1384,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
       try {
         await apiRequest('/apify-keys', 'POST', { accountLabel, apiKey: apiKeyVal, monthlyResetDay });
-        showToast('Apify token added to rotation pool!');
+        showToast('Apify token added to rotation pool');
         closeModal('apifyModal');
         loadDashboardData();
       } catch (err) {
@@ -1153,7 +1399,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       if (!confirm('Remove this Apify token from rotation pool?')) return;
       try {
         await apiRequest('/apify-keys/' + id, 'DELETE');
-        showToast('Apify key removed!');
+        showToast('Apify key removed');
         loadDashboardData();
       } catch (err) {
         alert('Delete failed: ' + err.message);

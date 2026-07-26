@@ -113,6 +113,13 @@
       "when": 1785071621007,
       "tag": "0015_naive_weapon_omega",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785075909476,
+      "tag": "0016_smiling_slapstick",
+      "breakpoints": true
     }
   ]
 }

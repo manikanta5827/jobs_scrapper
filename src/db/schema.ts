@@ -52,7 +52,8 @@ export const jobs = pgTable("jobs", {
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(), // User UUID reference
   jobLink: text("job_link").notNull(), // Job URL
   fingerprint: text("fingerprint"), // Job unique fingerprint string
-  seenAt: timestamp("seen_at", { withTimezone: true }).defaultNow(), // Timestamp job was first processed for user
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   jobTitle: text("job_title"),
   companyName: text("company_name"),
   location: text("location"),
@@ -74,7 +75,8 @@ export const keyRotation = pgTable("key_rotation", {
   usageCost: doublePrecision("usage_cost").default(0), // Accumulated cost in $
   name: text("name"), // Friendly name for the account token
   subscriptionStartDate: date("subscription_start_date").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   // Index on usage_cost to speed up active token selection (WHERE usage_cost < 5.00 ORDER BY usage_cost DESC)
   index("key_rotation_usage_cost_idx").on(table.usageCost)
@@ -101,6 +103,8 @@ export const userRuns = pgTable("user_runs", {
   billedRunCostUsd: doublePrecision("billed_run_cost_usd").notNull(), // Flat fee charged to user wallet
   
   errorMessage: text("error_message"), // Error message if run failed
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   // Composite index on user_id and run_at for fast audit queries and reporting per user
   index("user_runs_user_id_run_at_idx").on(table.userId, table.runAt)

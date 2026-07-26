@@ -5,7 +5,7 @@
  * - Match Quality Dropdown (≥ 70%, ≥ 80%, ≥ 90%)
  * - Date Range Filters (From / To Date)
  * - Server-Side Pagination (50 items/page default)
- * - Premium Glassmorphism UI with Loading Animations
+ * - Semi-White / Alabaster Enterprise SaaS UI (Pure white tables, soft slate background, crisp SVGs)
  */
 
 export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
@@ -16,36 +16,47 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
   <title>Candidate Jobs Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #090d16;
-      --card-bg: rgba(22, 30, 49, 0.75);
-      --card-hover: rgba(30, 41, 69, 0.85);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent-blue: #38bdf8;
-      --accent-indigo: #6366f1;
-      --accent-purple: #a855f7;
-      --accent-green: #10b981;
-      --accent-amber: #f59e0b;
-      --accent-red: #ef4444;
-      --input-bg: #131b2e;
+      /* Semi-White / Alabaster Enterprise SaaS Palette */
+      --bg-app: #f4f5f7;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #f8fafc;
+      --bg-elevated: #f1f5f9;
+      --border-color: #e2e8f0;
+      --border-hover: #cbd5e1;
+      
+      /* Crisp Functional Accents */
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #059669;
+      --success-bg: #ecfdf5;
+      --success-border: #a7f3d0;
+      --warning: #d97706;
+      --danger: #dc2626;
+      
+      /* Text */
+      --text-main: #0f172a;
+      --text-secondary: #475569;
+      --text-tertiary: #64748b;
+      
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
 
     body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--bg);
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.12) 0px, transparent 50%);
-      background-attachment: fixed;
+      background-color: var(--bg-app);
       color: var(--text-main);
       min-height: 100vh;
-      padding: 2rem 1.5rem;
+      padding: 24px 32px;
+      line-height: 1.5;
+      font-size: 14px;
     }
 
     /* Keyframe Animations */
@@ -53,28 +64,28 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       to { transform: rotate(360deg); }
     }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    @keyframes pulseGlow {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
+    @keyframes rowFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .spinner {
       display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0, 0, 0, 0.15);
       border-radius: 50%;
-      border-top-color: var(--accent-blue);
-      animation: spin 0.8s linear infinite;
+      border-top-color: var(--primary);
+      animation: spin 0.7s linear infinite;
     }
 
     .container {
       max-width: 1280px;
       margin: 0 auto;
-      animation: fadeIn 0.4s ease-out;
+      animation: fadeIn 0.25s ease-out;
     }
 
     header {
@@ -82,122 +93,125 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid var(--card-border);
+      gap: 16px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
     }
 
     .logo-group h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo) 50%, var(--accent-purple));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 0.25rem;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.01em;
     }
 
     .logo-group p {
-      color: var(--text-muted);
-      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-size: 13px;
     }
 
     .user-badge {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(16px);
-      padding: 0.6rem 1.2rem;
-      border-radius: 9999px;
-      font-size: 0.875rem;
-      color: var(--accent-blue);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
       font-weight: 600;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
     }
 
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 2rem;
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
     .stat-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(16px);
-      border-radius: 1rem;
-      padding: 1.25rem;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
-      transition: transform 0.2s ease, border-color 0.2s ease;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .stat-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(255, 255, 255, 0.15);
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-md);
     }
 
     .stat-title {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      font-weight: 700;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
+      margin-bottom: 6px;
     }
 
     .stat-value {
-      font-size: 1.85rem;
-      font-weight: 800;
+      font-size: 26px;
+      font-weight: 700;
       color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
     }
 
     /* Controls Bar */
     .controls-bar {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(16px);
-      border-radius: 1rem;
-      padding: 1.25rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px 18px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      gap: 12px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
     }
 
     .filter-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 1rem;
+      gap: 12px;
       width: 100%;
     }
 
     .filter-group {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-      color: var(--text-muted);
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
       font-weight: 600;
     }
 
     .filter-input, .select-input {
-      background: var(--input-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 0.6rem;
-      padding: 0.5rem 0.8rem;
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 7px 12px;
       color: var(--text-main);
-      font-size: 0.875rem;
+      font-size: 13px;
       outline: none;
-      transition: all 0.2s;
+      transition: border-color 0.15s;
     }
 
     .filter-input:focus, .select-input:focus {
-      border-color: var(--accent-indigo);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      border-color: var(--primary);
     }
 
     .search-box {
@@ -208,152 +222,178 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
     .search-box input {
       width: 100%;
-      padding-left: 2.25rem;
+      padding-left: 32px;
     }
 
     .search-icon {
       position: absolute;
-      left: 0.75rem;
+      left: 10px;
       top: 50%;
       transform: translateY(-50%);
-      width: 1rem;
-      height: 1rem;
-      color: var(--text-muted);
+      width: 15px;
+      height: 15px;
+      color: var(--text-tertiary);
+      pointer-events: none;
     }
 
     /* Buttons */
     .btn {
-      padding: 0.55rem 1.2rem;
-      border-radius: 0.6rem;
-      border: none;
-      font-size: 0.875rem;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-elevated);
+      color: var(--text-main);
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      transition: all 0.2s ease;
+      gap: 6px;
+      transition: all 0.15s ease;
       text-decoration: none;
     }
 
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn:hover:not(:disabled) {
+      background: #e2e8f0;
+      border-color: var(--border-hover);
+    }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
+      background: var(--primary);
       color: white;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      border-color: var(--primary);
     }
-    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45); }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
-      border: 1px solid var(--card-border);
+    .btn-primary:hover:not(:disabled) { 
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
     }
-    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
 
-    /* Table Container */
+    /* Table Container ("Tabler Format") */
     .table-container {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(16px);
-      border-radius: 1rem;
-      overflow: hidden;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      overflow-x: auto;
+      box-shadow: var(--shadow-sm);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
+      font-size: 13px;
     }
 
     th {
-      background: rgba(15, 23, 42, 0.5);
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      font-weight: 700;
+      background: #f8fafc;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid var(--card-border);
+      letter-spacing: 0.05em;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      white-space: nowrap;
     }
 
     td {
-      padding: 1.1rem 1.25rem;
-      border-bottom: 1px solid var(--card-border);
-      font-size: 0.9rem;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
       vertical-align: middle;
+      font-variant-numeric: tabular-nums;
     }
 
-    tr:hover {
-      background-color: var(--card-hover);
+    tbody tr {
+      transition: background-color 0.15s ease;
+    }
+
+    tbody tr:hover {
+      background-color: var(--bg-surface-hover);
     }
 
     .job-title {
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-main);
+      font-size: 13px;
     }
 
     .company-name {
-      color: var(--text-muted);
-      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .mono-cell {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
     }
 
     .score-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 9999px;
-      font-weight: 700;
-      font-size: 0.8rem;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .score-high {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--accent-green);
-      border: 1px solid rgba(16, 185, 129, 0.3);
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
     }
 
     .score-mid {
-      background: rgba(56, 189, 248, 0.15);
-      color: var(--accent-blue);
-      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    /* Skeleton Row Loader */
+    .skeleton-bar {
+      height: 14px;
+      background: #e2e8f0;
+      border-radius: 4px;
     }
 
     /* States */
-    .loading-state, .error-state, .empty-state {
-      padding: 4rem 2rem;
+    .error-state, .empty-state {
+      padding: 48px 24px;
       text-align: center;
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
 
-    .loading-state p { margin-top: 1rem; }
-
     .error-title {
-      color: var(--accent-red);
-      font-size: 1.1rem;
+      color: var(--danger);
+      font-size: 15px;
       font-weight: 700;
-      margin-bottom: 0.5rem;
+      margin-bottom: 6px;
     }
 
     .pagination-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.25rem;
-      border-top: 1px solid var(--card-border);
-      font-size: 0.875rem;
-      color: var(--text-muted);
+      padding: 12px 18px;
+      border-top: 1px solid var(--border-color);
+      font-size: 13px;
+      color: var(--text-secondary);
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 12px;
     }
 
     .pagination-controls {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 8px;
     }
   </style>
 </head>
@@ -361,10 +401,16 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
   <div class="container">
     <header>
       <div class="logo-group">
-        <h1>Matched Jobs Dashboard</h1>
+        <h1>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          <span>Matched Jobs Dashboard</span>
+        </h1>
         <p>Curated AI-matched job postings with quality and date range filters</p>
       </div>
-      <div class="user-badge" id="userBadge">Candidate ID: Loading...</div>
+      <div class="user-badge" id="userBadge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>ID: Loading...</span>
+      </div>
     </header>
 
     <div class="stats-grid">
@@ -374,11 +420,11 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       </div>
       <div class="stat-card">
         <div class="stat-title">Page Matches</div>
-        <div class="stat-value" id="statPageCount" style="color: var(--accent-blue);">-</div>
+        <div class="stat-value" id="statPageCount" style="color: #2563eb;">-</div>
       </div>
       <div class="stat-card">
         <div class="stat-title">Current Page</div>
-        <div class="stat-value" id="statCurrentPage" style="font-size: 1.5rem;">-</div>
+        <div class="stat-value" id="statCurrentPage" style="font-size: 22px;">-</div>
       </div>
     </div>
 
@@ -393,7 +439,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
           <input type="text" id="searchInput" class="filter-input" placeholder="Search page results..." onkeyup="filterLocalJobs()">
         </div>
 
-        <!-- Single Match Quality Dropdown (≥ 70%, ≥ 80%, ≥ 90%) -->
+        <!-- Single Match Quality Dropdown -->
         <div class="filter-group">
           <label for="minScoreSelect">Match Quality:</label>
           <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
@@ -426,28 +472,23 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         </div>
 
         <button class="btn btn-primary" id="btnFilter" onclick="applyFilters()">Filter</button>
-        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+        <button class="btn" onclick="resetFilters()">Reset</button>
       </div>
     </div>
 
-    <!-- Jobs Table Container -->
+    <!-- Jobs Table Container ("Tabler Format") -->
     <div class="table-container">
-      <div id="loadingState" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading matched jobs...</p>
-      </div>
-
       <div id="errorState" class="error-state" style="display: none;">
         <div class="error-title">Failed to Load Jobs</div>
         <p id="errorMessage">Unable to fetch jobs for this user ID.</p>
       </div>
 
       <div id="emptyState" class="empty-state" style="display: none;">
-        <p>No matched jobs found for the selected filter criteria.</p>
-        <p style="font-size: 0.8rem5; margin-top: 0.5rem; color: var(--text-muted);">Try adjusting your Match Quality dropdown or date range.</p>
+        <p style="font-size: 14px; color: var(--text-main); font-weight: 600;">No matched jobs found for the selected filter criteria.</p>
+        <p style="font-size: 13px; margin-top: 6px; color: var(--text-secondary);">Try adjusting your Match Quality dropdown or date range.</p>
       </div>
 
-      <table id="jobsTable" style="display: none;">
+      <table id="jobsTable">
         <thead>
           <tr>
             <th>#</th>
@@ -460,6 +501,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
           </tr>
         </thead>
         <tbody id="jobsTbody">
+          <!-- Skeleton Rows shown during load -->
         </tbody>
       </table>
 
@@ -467,9 +509,9 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       <div id="paginationBar" class="pagination-bar" style="display: none;">
         <span id="paginationInfo">Showing 0-0 of 0 jobs</span>
         <div class="pagination-controls">
-          <button class="btn btn-secondary" id="btnPrevPage" onclick="changePage(-1)" disabled>&laquo; Prev</button>
-          <span id="pageIndicator" style="font-weight: 600; padding: 0 0.5rem;">Page 1 of 1</span>
-          <button class="btn btn-secondary" id="btnNextPage" onclick="changePage(1)" disabled>Next &raquo;</button>
+          <button class="btn" id="btnPrevPage" onclick="changePage(-1)" disabled>&laquo; Prev</button>
+          <span id="pageIndicator" style="font-weight: 600; padding: 0 6px;">Page 1 of 1</span>
+          <button class="btn" id="btnNextPage" onclick="changePage(1)" disabled>Next &raquo;</button>
         </div>
       </div>
     </div>
@@ -495,11 +537,29 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     const userId = getUserIdFromPath();
-    document.getElementById('userBadge').innerText = \`Candidate ID: \${userId}\`;
+    document.getElementById('userBadge').innerHTML = \`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> <span>ID: \${userId}</span>\`;
+
+    function renderSkeletonRows() {
+      const tbody = document.getElementById('jobsTbody');
+      tbody.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = \`
+          <td><div class="skeleton-bar" style="width: 20px;"></div></td>
+          <td><div class="skeleton-bar" style="width: 220px;"></div></td>
+          <td><div class="skeleton-bar" style="width: 150px;"></div></td>
+          <td><div class="skeleton-bar" style="width: 120px;"></div></td>
+          <td><div class="skeleton-bar" style="width: 65px;"></div></td>
+          <td><div class="skeleton-bar" style="width: 85px;"></div></td>
+          <td><div class="skeleton-bar" style="width: 75px;"></div></td>
+        \`;
+        tbody.appendChild(tr);
+      }
+    }
 
     async function loadUserJobs(page = 1) {
-      document.getElementById('loadingState').style.display = 'block';
-      document.getElementById('jobsTable').style.display = 'none';
+      document.getElementById('jobsTable').style.display = 'table';
+      renderSkeletonRows();
       document.getElementById('emptyState').style.display = 'none';
       document.getElementById('errorState').style.display = 'none';
       document.getElementById('paginationBar').style.display = 'none';
@@ -527,9 +587,8 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         currentPage = data.page || page;
         totalPages = data.totalPages || 1;
 
-        document.getElementById('loadingState').style.display = 'none';
-
         if (currentJobs.length === 0) {
+          document.getElementById('jobsTable').style.display = 'none';
           document.getElementById('emptyState').style.display = 'block';
           updateStats(0, 0, currentPage, totalPages);
           return;
@@ -542,15 +601,15 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('paginationBar').style.display = 'flex';
       } catch (err) {
         console.error('Error fetching user jobs:', err);
-        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('jobsTable').style.display = 'none';
         document.getElementById('errorState').style.display = 'block';
         document.getElementById('errorMessage').innerText = err.message || 'Invalid or missing user ID.';
       }
     }
 
     function updateStats(total, countOnPage, page, maxPages) {
-      document.getElementById('statTotalJobs').innerText = total;
-      document.getElementById('statPageCount').innerText = countOnPage;
+      document.getElementById('statTotalJobs').innerText = total.toLocaleString();
+      document.getElementById('statPageCount').innerText = countOnPage.toLocaleString();
       document.getElementById('statCurrentPage').innerText = \`\${page} / \${maxPages}\`;
     }
 
@@ -594,38 +653,50 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
       jobs.forEach((job, index) => {
         const tr = document.createElement('tr');
+        tr.style.animation = \`rowFadeIn 0.2s ease-out \${index * 0.01}s forwards\`;
         
         const title = job.jobTitle || job.job_title || extractTitleFromUrl(job.jobLink) || 'LinkedIn Job Posting';
         const company = job.companyName || job.company_name || 'Direct Employer';
         const location = job.location || 'Remote / Unspecified';
         const score = job.aiScore || job.ai_score || 0;
         const link = job.jobLink || job.job_link || '#';
-        const createdAt = job.createdAt || job.created_at || new Date().toISOString();
+        const createdAt = job.createdAt || job.created_at || job.postedAt || job.posted_at || new Date().toISOString();
 
-        const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
+        const dateObj = new Date(createdAt);
+        const formattedDate = dateObj.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric'
+        });
+        const formattedTime = dateObj.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
         });
 
         const scoreClass = score >= 85 ? 'score-high' : 'score-mid';
 
         tr.innerHTML = \`
-          <td style="color: var(--text-muted); font-size: 0.85rem;">\${offsetIndex + index + 1}</td>
+          <td class="mono-cell">\${offsetIndex + index + 1}</td>
           <td>
             <div class="job-title">\${escapeHtml(title)}</div>
           </td>
           <td><span class="company-name">\${escapeHtml(company)}</span></td>
-          <td style="color: var(--text-muted);">\${escapeHtml(location)}</td>
+          <td style="color: var(--text-secondary);">\${escapeHtml(location)}</td>
           <td>
             <span class="score-badge \${scoreClass}">
-              ★ \${score}%
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              \${score}%
             </span>
           </td>
-          <td style="color: var(--text-muted); font-size: 0.85rem;">\${formattedDate}</td>
+          <td class="mono-cell">
+            <div style="font-weight: 600; color: var(--text-main);">\${formattedDate}</div>
+            <div style="font-size: 11px; color: var(--text-tertiary);">\${formattedTime}</div>
+          </td>
           <td>
-            <a href="\${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
-              View Job ↗
+            <a href="\${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="btn" style="padding: 5px 10px; font-size: 12px;">
+              <span>View</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
             </a>
           </td>
         \`;
