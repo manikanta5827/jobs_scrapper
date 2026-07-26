@@ -530,6 +530,81 @@
       align-items: center;
       gap: 8px;
     }
+
+    /* Centered Candidate ID Login Card */
+    .login-card {
+      max-width: 480px;
+      margin: 60px auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 36px 32px;
+      box-shadow: var(--shadow-md);
+      text-align: center;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .login-card-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 12px;
+    }
+    .login-card-header p {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .login-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #eff6ff;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #bfdbfe;
+    }
+    .login-form-group {
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    .login-form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .login-input {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      outline: none;
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+    }
+    .login-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .login-btn {
+      width: 100%;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -548,124 +623,148 @@
       </div>
     </header>
 
-    <!-- Candidate Profile Card -->
-    <div id="userProfileCard" class="user-profile-card" style="display: none;">
-      <div class="user-profile-header">
-        <div class="user-profile-avatar" id="userAvatar">C</div>
-        <div class="user-profile-info">
-          <div class="user-profile-title-row">
-            <h2 class="user-profile-name" id="userName">Candidate</h2>
-            <span class="user-profile-email" id="userEmail"></span>
+    <!-- Centered Candidate Login Form -->
+    <div id="loginCard" class="login-card" style="display: none;">
+      <div class="login-card-header">
+        <div class="login-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <h2>Access Candidate Dashboard</h2>
+        <p>Enter your unique Candidate UUID to view your personalized matched job listings.</p>
+      </div>
+      <form onsubmit="handleLoginSubmit(event)">
+        <div class="login-form-group">
+          <label for="candidateIdInput">Candidate UUID</label>
+          <input type="text" id="candidateIdInput" class="login-input" placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000" required>
+        </div>
+        <button type="submit" class="btn btn-primary login-btn">
+          <span>View Matched Jobs</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+      </form>
+    </div>
+
+    <!-- Main Dashboard Content -->
+    <div id="dashboardContent" style="display: none;">
+      <!-- Candidate Profile Card -->
+      <div id="userProfileCard" class="user-profile-card" style="display: none;">
+        <div class="user-profile-header">
+          <div class="user-profile-avatar" id="userAvatar">C</div>
+          <div class="user-profile-info">
+            <div class="user-profile-title-row">
+              <h2 class="user-profile-name" id="userName">Candidate</h2>
+              <span class="user-profile-email" id="userEmail"></span>
+            </div>
+            <div class="user-profile-meta" id="userMeta"></div>
           </div>
-          <div class="user-profile-meta" id="userMeta"></div>
+        </div>
+        <div id="userSummarySection" class="user-profile-summary" style="display: none;">
+          <div id="userSummaryText"></div>
+        </div>
+        <div id="userSkillsSection" class="user-profile-tags" style="display: none;"></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">Total Filtered Jobs</div>
+          <div class="stat-value" id="statTotalJobs">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Page Matches</div>
+          <div class="stat-value" id="statPageCount" style="color: #2563eb;">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Current Page</div>
+          <div class="stat-value" id="statCurrentPage" style="font-size: 22px;">-</div>
         </div>
       </div>
-      <div id="userSummarySection" class="user-profile-summary" style="display: none;">
-        <div id="userSummaryText"></div>
-      </div>
-      <div id="userSkillsSection" class="user-profile-tags" style="display: none;"></div>
-    </div>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-title">Total Filtered Jobs</div>
-        <div class="stat-value" id="statTotalJobs">-</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Page Matches</div>
-        <div class="stat-value" id="statPageCount" style="color: #2563eb;">-</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Current Page</div>
-        <div class="stat-value" id="statCurrentPage" style="font-size: 22px;">-</div>
-      </div>
-    </div>
+      <!-- Filters Bar -->
+      <div class="controls-bar">
+        <div class="filter-row">
+          <!-- Live Search -->
+          <div class="search-box">
+            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input type="text" id="searchInput" class="filter-input" placeholder="Search page results..." onkeyup="filterLocalJobs()">
+          </div>
 
-    <!-- Filters Bar -->
-    <div class="controls-bar">
-      <div class="filter-row">
-        <!-- Live Search -->
-        <div class="search-box">
-          <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <input type="text" id="searchInput" class="filter-input" placeholder="Search page results..." onkeyup="filterLocalJobs()">
+          <!-- Single Match Quality Dropdown -->
+          <div class="filter-group">
+            <label for="minScoreSelect">Match Quality:</label>
+            <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
+              <option value="70" selected>&ge; 70% (All Matched)</option>
+              <option value="80">&ge; 80% (Great Matches)</option>
+              <option value="90">&ge; 90% (Top Matches)</option>
+            </select>
+          </div>
+
+          <!-- Date Bounds -->
+          <div class="filter-group">
+            <label for="fromDate">From:</label>
+            <input type="date" id="fromDate" class="filter-input">
+          </div>
+
+          <div class="filter-group">
+            <label for="toDate">To:</label>
+            <input type="date" id="toDate" class="filter-input">
+          </div>
+
+          <!-- Page Size (Limit) -->
+          <div class="filter-group">
+            <label for="limitSelect">Per Page:</label>
+            <select id="limitSelect" class="select-input" onchange="applyFilters()">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" id="btnFilter" onclick="applyFilters()">Filter</button>
+          <button class="btn" onclick="resetFilters()">Reset</button>
+        </div>
+      </div>
+
+      <!-- Jobs Table Container -->
+      <div class="table-container">
+        <div id="errorState" class="error-state" style="display: none;">
+          <div class="error-title">Failed to Load Jobs</div>
+          <p id="errorMessage">Unable to fetch jobs for this user ID.</p>
         </div>
 
-        <!-- Single Match Quality Dropdown -->
-        <div class="filter-group">
-          <label for="minScoreSelect">Match Quality:</label>
-          <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
-            <option value="70" selected>&ge; 70% (All Matched)</option>
-            <option value="80">&ge; 80% (Great Matches)</option>
-            <option value="90">&ge; 90% (Top Matches)</option>
-          </select>
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <p style="font-size: 14px; color: var(--text-main); font-weight: 600;">No matched jobs found for the selected filter criteria.</p>
+          <p style="font-size: 13px; margin-top: 6px; color: var(--text-secondary);">Try adjusting your Match Quality dropdown or date range.</p>
         </div>
 
-        <!-- Date Bounds -->
-        <div class="filter-group">
-          <label for="fromDate">From:</label>
-          <input type="date" id="fromDate" class="filter-input">
-        </div>
+        <table id="jobsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Job Title & Experience</th>
+              <th>Company</th>
+              <th>Location</th>
+              <th>Skills Alignment</th>
+              <th>AI Match</th>
+              <th>Discovered At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobsTbody">
+            <!-- Skeleton Rows shown during load -->
+          </tbody>
+        </table>
 
-        <div class="filter-group">
-          <label for="toDate">To:</label>
-          <input type="date" id="toDate" class="filter-input">
-        </div>
-
-        <!-- Page Size (Limit) -->
-        <div class="filter-group">
-          <label for="limitSelect">Per Page:</label>
-          <select id="limitSelect" class="select-input" onchange="applyFilters()">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50" selected>50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-
-        <button class="btn btn-primary" id="btnFilter" onclick="applyFilters()">Filter</button>
-        <button class="btn" onclick="resetFilters()">Reset</button>
-      </div>
-    </div>
-
-    <!-- Jobs Table Container -->
-    <div class="table-container">
-      <div id="errorState" class="error-state" style="display: none;">
-        <div class="error-title">Failed to Load Jobs</div>
-        <p id="errorMessage">Unable to fetch jobs for this user ID.</p>
-      </div>
-
-      <div id="emptyState" class="empty-state" style="display: none;">
-        <p style="font-size: 14px; color: var(--text-main); font-weight: 600;">No matched jobs found for the selected filter criteria.</p>
-        <p style="font-size: 13px; margin-top: 6px; color: var(--text-secondary);">Try adjusting your Match Quality dropdown or date range.</p>
-      </div>
-
-      <table id="jobsTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Job Title & Experience</th>
-            <th>Company</th>
-            <th>Location</th>
-            <th>Skills Alignment</th>
-            <th>AI Match</th>
-            <th>Discovered At</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="jobsTbody">
-          <!-- Skeleton Rows shown during load -->
-        </tbody>
-      </table>
-
-      <!-- Pagination Footer -->
-      <div id="paginationBar" class="pagination-bar" style="display: none;">
-        <span id="paginationInfo">Showing 0-0 of 0 jobs</span>
-        <div class="pagination-controls">
-          <button class="btn" id="btnPrevPage" onclick="changePage(-1)" disabled>&laquo; Prev</button>
-          <span id="pageIndicator" style="font-weight: 600; padding: 0 6px;">Page 1 of 1</span>
-          <button class="btn" id="btnNextPage" onclick="changePage(1)" disabled>Next &raquo;</button>
+        <!-- Pagination Footer -->
+        <div id="paginationBar" class="pagination-bar" style="display: none;">
+          <span id="paginationInfo">Showing 0-0 of 0 jobs</span>
+          <div class="pagination-controls">
+            <button class="btn" id="btnPrevPage" onclick="changePage(-1)" disabled>&laquo; Prev</button>
+            <span id="pageIndicator" style="font-weight: 600; padding: 0 6px;">Page 1 of 1</span>
+            <button class="btn" id="btnNextPage" onclick="changePage(1)" disabled>Next &raquo;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -691,8 +790,15 @@
     const API_BASE_URL = 'https://mt07rx0ojd.execute-api.ap-south-1.amazonaws.com/Prod';
 
     function getUserId() {
+      // 1. Query parameter ?id=... or ?userId=...
       if (urlParams.get('id')) return urlParams.get('id');
       if (urlParams.get('userId')) return urlParams.get('userId');
+      
+      // 2. Read from localStorage
+      const stored = localStorage.getItem('CANDIDATE_USER_ID');
+      if (stored) return stored.trim();
+
+      // 3. Path parameter fallback e.g. /dashboard/{id}
       const pathParts = window.location.pathname.split('/').filter(Boolean);
       const dashIdx = pathParts.indexOf('dashboard');
       if (dashIdx !== -1 && pathParts[dashIdx + 1]) return pathParts[dashIdx + 1];
@@ -705,11 +811,43 @@
 
     let userId = getUserId();
 
-    if (userId) {
-      document.getElementById('userBadge').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> <span>ID: ${escapeHtml(userId)}</span>`;
-    } else {
-      document.getElementById('userBadge').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>No User ID Set</span>`;
+    function updateUIState() {
+      const loginCard = document.getElementById('loginCard');
+      const dashContent = document.getElementById('dashboardContent');
+      const userBadge = document.getElementById('userBadge');
+
+      if (userId) {
+        loginCard.style.display = 'none';
+        dashContent.style.display = 'block';
+        userBadge.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span>ID: ${escapeHtml(userId.substring(0, 8))}...</span>
+          <button onclick="switchCandidateId()" class="btn" style="padding: 2px 8px; font-size: 11px; margin-left: 6px; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">Switch ID</button>
+        `;
+      } else {
+        loginCard.style.display = 'block';
+        dashContent.style.display = 'none';
+        userBadge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>No User ID Set</span>`;
+      }
     }
+
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      const inputVal = document.getElementById('candidateIdInput').value.trim();
+      if (!inputVal) return;
+      localStorage.setItem('CANDIDATE_USER_ID', inputVal);
+      userId = inputVal;
+      updateUIState();
+      loadUserJobs(1);
+    }
+
+    function switchCandidateId() {
+      localStorage.removeItem('CANDIDATE_USER_ID');
+      userId = '';
+      updateUIState();
+    }
+
+    updateUIState();
 
     function renderSkeletonRows() {
       const tbody = document.getElementById('jobsTbody');
@@ -732,9 +870,7 @@
 
     async function loadUserJobs(page = 1) {
       if (!userId) {
-        document.getElementById('jobsTable').style.display = 'none';
-        document.getElementById('errorState').style.display = 'block';
-        document.getElementById('errorMessage').innerText = 'Please specify a Candidate UUID in the URL query string (e.g. ?id=YOUR_CANDIDATE_UUID).';
+        updateUIState();
         return;
       }
 
