@@ -216,6 +216,11 @@ async function processUserWorker(
         salary: j.salary,
         aiScore: m?.ai_score,
         aiReason: m?.ai_reason,
+        matchedSkills: m?.ai_matched_skills || [],
+        missingSkills: m?.ai_missing_skills || [],
+        requiredYoe: m?.ai_yoe,
+        directApply: m?.ai_direct_apply || j.applyUrl || null,
+        applicantsCount: j.applicantsCount,
       };
     }));
 

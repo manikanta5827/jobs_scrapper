@@ -730,7 +730,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <div class="form-section-title">Experience & Target Preferences</div>
           <div class="form-group">
             <label>Candidate Experience in Years (Required) *</label>
-            <input type="number" id="userExperienceYears" min="0" max="50" value="0" required placeholder="Auto-calculated via AI or enter manually">
+            <input type="number" id="userExperienceYears" min="0" max="50" step="0.1" value="0" required placeholder="Auto-calculated via AI or enter manually">
             <span style="font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px;">Jobs requiring MORE than this experience will be automatically rejected.</span>
           </div>
           <div class="form-group">
@@ -1252,7 +1252,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const personUrn = document.getElementById('userLinkedinPersonUrn').value.trim();
       const accessToken = document.getElementById('userLinkedinAccessToken').value.trim();
 
-      const expYears = parseInt(document.getElementById('userExperienceYears').value || '0', 10);
+      const expYears = parseFloat(document.getElementById('userExperienceYears').value || '0');
       const targetLocations = document.getElementById('userTargetLocations').value.trim();
       const employmentType = document.getElementById('userEmploymentType').value.trim();
 

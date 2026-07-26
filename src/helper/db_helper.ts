@@ -128,6 +128,11 @@ export async function trackJobs(
     salary?: string;
     aiScore?: number;
     aiReason?: string;
+    matchedSkills?: string[];
+    missingSkills?: string[];
+    requiredYoe?: string;
+    directApply?: string | null;
+    applicantsCount?: string | number;
   }[]
 ): Promise<void> {
   if (jobsToTrack.length === 0) return;
@@ -148,6 +153,11 @@ export async function trackJobs(
           salary: j.salary,
           aiScore: j.aiScore,
           aiReason: j.aiReason,
+          matchedSkills: j.matchedSkills || [],
+          missingSkills: j.missingSkills || [],
+          requiredYoe: j.requiredYoe,
+          directApply: j.directApply,
+          applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
         })))
         .onConflictDoNothing();
     });
@@ -232,7 +242,7 @@ export async function getJobsForUser(
   const jobsList = await db.select()
     .from(jobs)
     .where(whereClause)
-    .orderBy(desc(jobs.createdAt))
+    .orderBy(desc(jobs.aiScore), desc(jobs.createdAt))
     .limit(limit)
     .offset(offset);
 

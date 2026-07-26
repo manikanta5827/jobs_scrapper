@@ -18,7 +18,7 @@ export const users = pgTable("users", {
   customRunCostUsd: doublePrecision("custom_run_cost_usd"), // Optional custom cost override per run
   
   // Onboarding Candidate Preferences & Experience
-  experienceYears: integer("experience_years").default(0).notNull(), // Candidate total experience in years (required)
+  experienceYears: doublePrecision("experience_years").default(0).notNull(), // Candidate total experience in years (required)
   targetLocations: text("target_locations"), // Optional preferred locations (e.g. "Hyderabad, Remote")
   employmentType: text("employment_type"), // Optional employment type (e.g. "Full-time")
 
@@ -61,6 +61,11 @@ export const jobs = pgTable("jobs", {
   salary: text("salary"),
   aiScore: integer("ai_score"),
   aiReason: text("ai_reason"),
+  matchedSkills: jsonb("matched_skills").$type<string[]>(),
+  missingSkills: jsonb("missing_skills").$type<string[]>(),
+  requiredYoe: text("required_yoe"),
+  directApply: text("direct_apply"),
+  applicantsCount: text("applicants_count"),
 }, (table) => [
   // Composite unique index on user_id and job_link to prevent duplicate delivery per user
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),

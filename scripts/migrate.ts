@@ -27,25 +27,38 @@ if (!connectionString) {
   process.exit(1);
 }
 
-async function runMigrations() {
+// For Neon DB migrations, ensure we use direct unpooled connection (remove -pooler suffix if present)
+const directConnectionString = connectionString.replace('-pooler.', '.');
+
+async function runMigrations(attempts = 3) {
   console.log('Connecting to PostgreSQL database for migrations...');
-  const pool = new pg.Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    max: 1
-  });
+  
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const client = new pg.Client({
+      connectionString: directConnectionString,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+    });
 
-  const db = drizzle(pool);
-
-  try {
-    console.log('Applying pending Drizzle migrations from ./drizzle...');
-    await migrate(db, { migrationsFolder: './drizzle' });
-    console.log('✅ Migrations applied successfully!');
-  } catch (err) {
-    console.error('❌ Migration failed:', err);
-    process.exit(1);
-  } finally {
-    await pool.end();
+    try {
+      await client.connect();
+      const db = drizzle(client);
+      console.log('Applying pending Drizzle migrations from ./drizzle...');
+      await migrate(db, { migrationsFolder: './drizzle' });
+      console.log('✅ Migrations applied successfully!');
+      await client.end();
+      return;
+    } catch (err: any) {
+      try { await client.end(); } catch (_) {}
+      console.warn(`⚠️ Migration attempt ${attempt}/${attempts} failed: ${err?.message || err}`);
+      if (attempt < attempts) {
+        console.log(`⏳ Retrying in 2 seconds (waking up Neon compute instance if idle)...`);
+        await new Promise((res) => setTimeout(res, 2000));
+      } else {
+        console.error('❌ Migration failed after all retry attempts:', err);
+        process.exit(1);
+      }
+    }
   }
 }
 

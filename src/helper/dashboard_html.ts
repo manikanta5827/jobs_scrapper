@@ -357,6 +357,48 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       border: 1px solid #bfdbfe;
     }
 
+    .skill-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      margin: 2px 2px 2px 0;
+    }
+    .skill-matched {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .skill-missing {
+      background: #fff1f2;
+      color: #be123c;
+      border: 1px solid #fecdd3;
+    }
+    .meta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      background: var(--bg-elevated);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
+      margin-right: 4px;
+    }
+    .btn-apply-direct {
+      background: #059669;
+      color: white;
+      border-color: #059669;
+    }
+    .btn-apply-direct:hover:not(:disabled) {
+      background: #047857;
+      border-color: #047857;
+    }
+
     /* Skeleton Row Loader */
     .skeleton-bar {
       height: 14px;
@@ -492,12 +534,13 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         <thead>
           <tr>
             <th>#</th>
-            <th>Job Title</th>
+            <th>Job Title & Experience</th>
             <th>Company</th>
             <th>Location</th>
+            <th>Skills Alignment</th>
             <th>AI Match</th>
             <th>Discovered At</th>
-            <th>Action</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="jobsTbody">
@@ -524,8 +567,13 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     let currentJobs = [];
 
     const todayStr = new Date().toISOString().split('T')[0];
+    const urlParams = new URLSearchParams(window.location.search);
+    const defaultDate = urlParams.get('date') || urlParams.get('fromDate') || todayStr;
+
     document.getElementById('fromDate').setAttribute('max', todayStr);
     document.getElementById('toDate').setAttribute('max', todayStr);
+    document.getElementById('fromDate').value = defaultDate;
+    document.getElementById('toDate').value = urlParams.get('toDate') || defaultDate;
 
     function getUserIdFromPath() {
       const pathParts = window.location.pathname.split('/').filter(Boolean);
@@ -583,6 +631,18 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
         const data = await response.json();
         currentJobs = data.jobs || [];
+        // Sort jobs based on AI match score descending (highest score first)
+        currentJobs.sort((a, b) => {
+          const scoreA = Number(a.aiScore ?? a.ai_score ?? 0);
+          const scoreB = Number(b.aiScore ?? b.ai_score ?? 0);
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+          }
+          const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
+          const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+
         totalJobsCount = data.total || 0;
         currentPage = data.page || page;
         totalPages = data.totalPages || 1;
@@ -637,8 +697,8 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
     function resetFilters() {
       document.getElementById('minScoreSelect').value = '70';
-      document.getElementById('fromDate').value = '';
-      document.getElementById('toDate').value = '';
+      document.getElementById('fromDate').value = defaultDate;
+      document.getElementById('toDate').value = defaultDate;
       document.getElementById('searchInput').value = '';
       document.getElementById('limitSelect').value = '50';
       currentPage = 1;
@@ -659,7 +719,13 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         const company = job.companyName || job.company_name || 'Direct Employer';
         const location = job.location || 'Remote / Unspecified';
         const score = job.aiScore || job.ai_score || 0;
+        const reason = job.aiReason || job.ai_reason || '';
         const link = job.jobLink || job.job_link || '#';
+        const directApply = job.directApply || job.direct_apply || job.applyUrl || null;
+        const requiredYoe = job.requiredYoe || job.required_yoe || null;
+        const applicantsCount = job.applicantsCount || job.applicants_count || null;
+        const matchedSkills = job.matchedSkills || job.matched_skills || job.ai_matched_skills || [];
+        const missingSkills = job.missingSkills || job.missing_skills || job.ai_missing_skills || [];
         const createdAt = job.createdAt || job.created_at || job.postedAt || job.posted_at || new Date().toISOString();
 
         const dateObj = new Date(createdAt);
@@ -676,28 +742,60 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
         const scoreClass = score >= 85 ? 'score-high' : 'score-mid';
 
+        let skillsHtml = '';
+        if (matchedSkills.length > 0) {
+          skillsHtml += matchedSkills.map(s => \`<span class="skill-pill skill-matched">✓ \${escapeHtml(s)}</span>\`).join('');
+        }
+        if (missingSkills.length > 0) {
+          skillsHtml += missingSkills.map(s => \`<span class="skill-pill skill-missing">✗ \${escapeHtml(s)}</span>\`).join('');
+        }
+        if (!skillsHtml) {
+          skillsHtml = '<span style="color: var(--text-tertiary); font-size: 11px;">Standard Stack</span>';
+        }
+
+        let metaHtml = '';
+        if (requiredYoe && requiredYoe !== 'Not specified') {
+          metaHtml += \`<span class="meta-badge">💼 \${escapeHtml(requiredYoe)}</span>\`;
+        }
+        if (applicantsCount) {
+          metaHtml += \`<span class="meta-badge">👥 \${escapeHtml(String(applicantsCount))}</span>\`;
+        }
+
         tr.innerHTML = \`
           <td class="mono-cell">\${offsetIndex + index + 1}</td>
           <td>
             <div class="job-title">\${escapeHtml(title)}</div>
+            \${metaHtml ? \`<div style="margin-top: 2px;">\${metaHtml}</div>\` : ''}
           </td>
           <td><span class="company-name">\${escapeHtml(company)}</span></td>
           <td style="color: var(--text-secondary);">\${escapeHtml(location)}</td>
+          <td>
+            <div style="max-width: 280px; display: flex; flex-wrap: wrap;">\${skillsHtml}</div>
+          </td>
           <td>
             <span class="score-badge \${scoreClass}">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
               \${score}%
             </span>
+            \${reason ? \`<div style="font-size: 11px; color: var(--text-tertiary); margin-top: 4px; max-width: 220px; line-height: 1.3;" title="\${escapeHtml(reason)}">\${escapeHtml(reason)}</div>\` : ''}
           </td>
           <td class="mono-cell">
             <div style="font-weight: 600; color: var(--text-main);">\${formattedDate}</div>
             <div style="font-size: 11px; color: var(--text-tertiary);">\${formattedTime}</div>
           </td>
           <td>
-            <a href="\${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="btn" style="padding: 5px 10px; font-size: 12px;">
-              <span>View</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <a href="\${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="btn" style="padding: 5px 10px; font-size: 12px;">
+                <span>View</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              </a>
+              \${directApply ? \`
+                <a href="\${escapeHtml(directApply.startsWith('http') || directApply.startsWith('mailto:') ? directApply : 'mailto:' + directApply)}" target="_blank" rel="noopener noreferrer" class="btn btn-apply-direct" style="padding: 5px 10px; font-size: 12px;" title="Direct Application Link / Email">
+                  <span>Direct Apply</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </a>
+              \` : ''}
+            </div>
           </td>
         \`;
         tbody.appendChild(tr);
