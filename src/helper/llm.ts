@@ -133,8 +133,14 @@ export function buildSystemPrompt(context: UserPromptContext | string): string {
   }
 
   const expYears = user.experienceYears ?? 0;
-  const expRule = `- CANDIDATE EXPERIENCE: ${expYears} Years.
-- STRICT EXPERIENCE GATE: If a job description explicitly requires MORE than ${expYears} years of experience (e.g. "3+ years", "5+ years", or "minimum ${expYears + 1} years"), REJECT IMMEDIATELY (score: 0). If experience requirement is ambiguous, "Fresher", "0-1 years", or unstated → do NOT reject on experience.`;
+  const nextExp = expYears + 1;
+  const nextExpPlus = expYears + 2;
+
+  const expRule = `- CANDIDATE TOTAL EXPERIENCE: ${expYears} Year(s).
+- STRICT MANDATORY SENIORITY GATE (ZERO TOLERANCE): Compare the job's minimum required experience against candidate's experience of ${expYears} year(s).
+  * DISQUALIFY IMMEDIATELY (Score = 0): If the job description requires a MINIMUM experience greater than ${expYears} year(s) (e.g. for this candidate: requirements like "${nextExp}+ years", "${nextExp}–${nextExpPlus} years", "${nextExp}-${nextExpPlus + 1} years", "minimum ${nextExp} years", "${nextExpPlus}+ years" MUST BE INSTANTLY REJECTED WITH SCORE = 0).
+  * NO STRETCH ROLES, NO FLEXIBILITY: If minimum required experience > ${expYears} year(s) → INSTANT DISQUALIFICATION (Score = 0).
+  * ALLOWED SENIORITY: Only jobs where minimum requirement is <= ${expYears} year(s) (e.g. "Fresher", "0-1 years", "${expYears} year(s)", "${expYears}+ year(s)", or unstated).`;
 
   return `You are an objective, impartial Job-Fit Auditor. Your sole purpose is to evaluate how effectively a candidate's background aligns with a specific job description.
 
@@ -162,11 +168,10 @@ ${expRule}
 ## SCORING GUIDE
 | Situation | Score Range |
 |---|---|
-| Excellent match (Core stack/tools + Seniority + Domain align cleanly) | 85–100 |
-| Good match (Solid alignment, 1–2 minor skill or experience gaps) | 65–84 |
-| Decent match (Fair alignment, stretch role or minor domain pivot) | 45–64 |
-| Weak match (Major skill gaps or significant seniority mismatch) | 20–44 |
-| Disqualified (Unrelated domain, missing critical mandatory requirements) | 0 |
+| Excellent match (Core stack + Seniority <= ${expYears} yr + Domain align cleanly) | 85–100 |
+| Good match (Solid alignment, 1–2 minor non-critical skill gaps, Seniority <= ${expYears} yr) | 65–84 |
+| Decent match (Fair alignment, minor domain pivot, Seniority <= ${expYears} yr) | 45–64 |
+| Disqualified (Seniority requirement > ${expYears} yr, missing mandatory core stack, or unrelated domain) | 0 |
 
 Evaluate all jobs strictly and impartially based solely on skill, experience level, and domain fit. Do NOT apply any score boosts for direct apply links or application methods; simply extract application instructions into "direct_apply" if present.
 
@@ -175,13 +180,13 @@ Evaluate all jobs strictly and impartially based solely on skill, experience lev
 ## FEW-SHOT EXAMPLES
 Each example shows the per-job evaluation logic. In your actual response, wrap each job's result as one item of "results" with its "id" added.
 
-**Example 1 — REJECT (Mandatory missing skill / domain mismatch)**
-Input: { "title": "Senior QA Automation Engineer", "descriptionText": "Must have 5+ years experience with Selenium, Java, and Cypress." }
-Output: { "score": 0, "reason": "Requires Selenium and Java QA automation experience, absent from candidate's profile.", "matched_skills": [], "missing_skills": ["Selenium", "Java"], "job_location": null, "years_of_experience": "5+ years", "direct_apply": null }
+**Example 1 — REJECT (Seniority Disqualification: Required ${nextExp}–${nextExpPlus} years > Candidate ${expYears} year(s))**
+Input: { "title": "AI Agent Developer", "descriptionText": "Who We're Looking For: ${nextExp}–${nextExpPlus} years of experience in AI, automation, or backend development. Python, LLMs, LangChain." }
+Output: { "score": 0, "reason": "Disqualified: Required ${nextExp}–${nextExpPlus} years of experience exceeds candidate's total experience of ${expYears} year(s).", "matched_skills": ["Python", "LLMs"], "missing_skills": [], "job_location": null, "years_of_experience": "${nextExp}–${nextExpPlus} years", "direct_apply": null }
 
-**Example 2 — MATCH (Skill & Seniority Alignment)**
-Input: { "title": "Software Engineer", "seniorityLevel": "Mid-Senior", "descriptionText": "Required: 2-4 years experience, TypeScript, Node.js, SQL. Direct apply: send CV to jobs@company.com" }
-Output: { "score": 88, "reason": "Good match — candidate's TypeScript and Node.js background aligns with required experience level.", "matched_skills": ["TypeScript", "Node.js", "SQL"], "missing_skills": [], "job_location": null, "years_of_experience": "2-4 years", "direct_apply": "Send CV to jobs@company.com" }
+**Example 2 — MATCH (Skill & Seniority Alignment: Required <= ${expYears} year(s))**
+Input: { "title": "Software Engineer (Backend)", "descriptionText": "Required: 0-${expYears} years experience, TypeScript, Node.js, AWS. Direct apply: send CV to jobs@company.com" }
+Output: { "score": 90, "reason": "Match — Candidate's ${expYears} year(s) experience and Node.js/AWS/TypeScript stack align cleanly with job requirements.", "matched_skills": ["TypeScript", "Node.js", "AWS"], "missing_skills": [], "job_location": null, "years_of_experience": "0-${expYears} years", "direct_apply": "Send CV to jobs@company.com" }
 
 ---
 
