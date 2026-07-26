@@ -8,7 +8,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
-import { aiTelemetry } from './telemetry';
+import { wrapModelWithTelemetry } from './telemetry';
 
 // Disable verbose AI SDK compatibility warnings in production logs
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
@@ -51,17 +51,18 @@ export async function executellmCall<T>(
     apiKey: process.env.DEEPSEEK_API_KEY,
   });
 
+  const model = wrapModelWithTelemetry(deepseek('deepseek-v4-flash'), {
+    functionId: telemetryOptions?.functionId ?? 'llm-call',
+    metadata: telemetryOptions?.metadata ?? {},
+  });
+
   const { object, usage: apiUsage } = await generateObject({
-    model: deepseek('deepseek-v4-flash'),
+    model,
     system: systemPrompt,
     prompt: prompt,
     schema: schema,
     maxRetries: 3,
     temperature: temperature,
-    experimental_telemetry: aiTelemetry(
-      telemetryOptions?.functionId ?? 'llm-call',
-      telemetryOptions?.metadata ?? {}
-    ),
   });
 
   const anyUsage = apiUsage as Record<string, any>;

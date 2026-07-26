@@ -1,62 +1,65 @@
-import { NodeSDK } from "@opentelemetry/sdk-node";
-import { resourceFromAttributes } from "@opentelemetry/resources";
-import { PostHogSpanProcessor } from "@posthog/ai/otel";
+import { PostHog } from "posthog-node";
+import { withTracing } from "@posthog/ai/vercel";
 
-let initialized = false;
-let sdkInstance: NodeSDK | null = null;
+let phClient: PostHog | null = null;
 
 /**
- * Initializes OpenTelemetry NodeSDK with PostHogSpanProcessor for AI observability.
- * Emits gen_ai.* spans captured by Vercel AI SDK into PostHog $ai_generation events.
- * Safe to call multiple times. Skips initialization if no token is configured.
+ * Initializes and returns singleton PostHog Node client for AI Observability.
+ * Skips initialization if POSTHOG_PROJECT_TOKEN is missing or blank.
  */
-export function initTelemetry(): void {
-  if (initialized) return;
+export function getPostHogClient(): PostHog | null {
+  if (phClient) return phClient;
 
   const token = process.env.POSTHOG_PROJECT_TOKEN;
   const host = process.env.POSTHOG_HOST || "https://us.i.posthog.com";
 
-  if (token) {
-    sdkInstance = new NodeSDK({
-      resource: resourceFromAttributes({ "service.name": process.env.AWS_LAMBDA_FUNCTION_NAME || "job-scraper-lambda" }),
-      spanProcessors: [
-        new PostHogSpanProcessor({
-          projectToken: token,
-          host: host,
-        }),
-      ],
+  if (token && token.trim().length > 0) {
+    phClient = new PostHog(token, {
+      host: host,
+      flushAt: 1,
+      flushInterval: 0,
     });
-    sdkInstance.start();
-    initialized = true;
+  }
+  return phClient;
+}
+
+/**
+ * Wraps a Vercel AI SDK language model with PostHog AI Observability tracing.
+ * Captures inputs, outputs, tokens, latency, and model metadata as $ai_generation events in PostHog.
+ */
+export function wrapModelWithTelemetry<T>(
+  model: T,
+  options?: { functionId?: string; metadata?: Record<string, string> }
+): T {
+  const client = getPostHogClient();
+  if (!client) return model;
+
+  try {
+    return withTracing(model as any, client, {
+      posthogProperties: {
+        $service_name: process.env.AWS_LAMBDA_FUNCTION_NAME || "job-scraper-lambda",
+        ...(options?.functionId ? { function_id: options.functionId } : {}),
+        ...options?.metadata,
+      },
+    }) as unknown as T;
+  } catch (err) {
+    console.warn("Failed to wrap model with PostHog tracing:", err);
+    return model;
   }
 }
 
 /**
- * Flushes pending OpenTelemetry spans and shuts down SDK.
- * Call this in Lambda handler finally block to ensure zero span loss before environment freezes.
+ * Flushes pending PostHog AI events and shuts down client.
+ * Call this in Lambda handler finally block to ensure zero event loss before environment freezes.
  */
 export async function shutdownTelemetry(): Promise<void> {
-  if (sdkInstance) {
+  if (phClient) {
     try {
-      await sdkInstance.shutdown();
+      await phClient.shutdown();
     } catch (err) {
-      console.warn("Failed to shutdown OpenTelemetry SDK:", err);
+      console.warn("Failed to shutdown PostHog client:", err);
     } finally {
-      sdkInstance = null;
-      initialized = false;
+      phClient = null;
     }
   }
-}
-
-/**
- * AI SDK telemetry helper option generator.
- * Pass the return object to `experimental_telemetry` parameter in `generateObject`, `generateText`, etc.
- */
-export function aiTelemetry(functionId: string, metadata: Record<string, string> = {}) {
-  initTelemetry();
-  return {
-    isEnabled: true as const,
-    functionId,
-    metadata,
-  };
 }
