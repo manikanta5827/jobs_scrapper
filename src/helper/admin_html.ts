@@ -4,100 +4,328 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard — Multi-Tenant Job Fetcher</title>
+  <title>Admin Console — Jobs Fetcher Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0b0f19;
-      --card-bg: rgba(22, 29, 45, 0.75);
+      --bg: #090d16;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-hover: rgba(30, 41, 69, 0.85);
       --border: rgba(255, 255, 255, 0.08);
+      --border-focus: #6366f1;
       --primary: #6366f1;
       --primary-hover: #4f46e5;
+      --accent-cyan: #06b6d4;
+      --accent-purple: #a855f7;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --input-bg: #131b2e;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
+    
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(6, 182, 212, 0.1) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text);
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    /* Keyframe Animations */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes modalPop {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
 
     /* Top Bar & Auth Settings */
-    .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
-    .brand { font-size: 22px; font-weight: 700; background: linear-gradient(135deg, #a5b4fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 16px;
+      animation: fadeIn 0.4s ease-out;
+    }
     
-    .auth-box { display: flex; align-items: center; gap: 10px; background: var(--card-bg); padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); flex-wrap: wrap; }
-    .auth-field { display: flex; align-items: center; gap: 6px; }
-    .auth-field label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-    .auth-field input { background: #1f2937; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: #fff; font-size: 13px; outline: none; width: 260px; }
-    .btn-save-key { background: var(--primary); color: white; border: none; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
-    .btn-save-key:hover { background: var(--primary-hover); }
+    .brand {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1 50%, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .auth-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--card-bg);
+      padding: 10px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      flex-wrap: wrap;
+    }
+    .auth-field { display: flex; align-items: center; gap: 8px; }
+    .auth-field label { font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .auth-field input {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      width: 240px;
+      transition: all 0.2s;
+    }
+    .auth-field input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+
+    .btn-save-key {
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    .btn-save-key:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4); }
 
     /* KPI Metrics Grid */
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .kpi-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; backdrop-filter: blur(12px); }
-    .kpi-title { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
-    .kpi-value { font-size: 26px; font-weight: 700; }
-    .kpi-sub { font-size: 12px; margin-top: 6px; }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+      animation: fadeIn 0.5s ease-out;
+    }
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .kpi-card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.15); }
+    .kpi-title { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+    .kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+    .kpi-sub { font-size: 12px; margin-top: 6px; font-weight: 500; }
     .text-green { color: var(--success); }
     .text-orange { color: var(--warning); }
-    .text-blue { color: #60a5fa; }
+    .text-blue { color: #38bdf8; }
 
     /* Navigation Tabs */
-    .nav-tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-    .tab-btn { background: transparent; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+    .nav-tabs {
+      display: flex;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: var(--text); }
     .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 
     /* Section & Cards */
     .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 24px; }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .card-title { font-size: 18px; font-weight: 600; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+    
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
 
     /* Tables */
+    .table-container { width: 100%; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-    td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
-    tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+    th {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.4);
+    }
+    td { padding: 16px 18px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+    tr:hover { background-color: var(--card-hover); }
 
     /* Badges & Buttons */
-    .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
-    .badge-active { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-    .badge-inactive { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge-active { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-inactive { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
 
-    .btn { padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: var(--text); }
-    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
-    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
-    .btn-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-    .btn-danger:hover { background: var(--danger); color: white; }
+    .btn {
+      padding: 9px 18px;
+      border-radius: 10px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover:not(:disabled) { background: var(--danger); color: white; }
 
     /* Modals */
-    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 100; justify-content: center; align-items: center; }
-    .modal-overlay.active { display: flex; }
-    .modal { background: #111827; border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-    .modal-header { font-size: 18px; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; }
-    .close-btn { cursor: pointer; color: var(--text-muted); font-size: 20px; }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease-out; }
+    .modal {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 680px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 30px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+      animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-header { font-size: 20px; font-weight: 700; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+    .close-btn { cursor: pointer; color: var(--text-muted); font-size: 24px; transition: color 0.2s; }
+    .close-btn:hover { color: var(--text); }
 
-    .form-group { margin-bottom: 16px; }
+    .form-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-cyan);
+      margin: 20px 0 12px 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .form-group { margin-bottom: 18px; }
     .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
-    .form-group input, .form-group textarea { width: 100%; background: #1f2937; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: white; font-size: 14px; outline: none; }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
     .form-group textarea { height: 100px; resize: vertical; }
 
-    /* Interactive URL Chip Items */
-    .url-chip-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-    .url-chip-item { display: flex; align-items: center; justify-content: space-between; background: #1f2937; border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-family: monospace; word-break: break-all; }
-    .url-chip-item .remove-url-btn { color: var(--danger); cursor: pointer; font-size: 14px; margin-left: 8px; font-family: sans-serif; font-weight: bold; background: none; border: none; }
-    .url-chip-item .remove-url-btn:hover { color: #f87171; }
+    /* Skeleton Loading Bar */
+    .skeleton-line {
+      height: 16px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.05) 75%);
+      background-size: 200% 100%;
+      animation: pulseGlow 1.5s infinite ease-in-out;
+      border-radius: 4px;
+      margin: 6px 0;
+    }
 
     /* Toast Notification */
-    #toast { position: fixed; bottom: 24px; right: 24px; background: var(--primary); color: white; padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); display: none; z-index: 200; }
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+      display: none;
+      z-index: 200;
+      animation: fadeIn 0.3s ease-out;
+    }
   </style>
 </head>
 <body>
@@ -108,7 +336,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     <div class="auth-box">
       <div class="auth-field">
         <label>API Base URL:</label>
-        <input type="text" id="apiBaseInput" placeholder="https://xxxx.execute-api.us-east-1.amazonaws.com/Prod">
+        <input type="text" id="apiBaseInput" placeholder="https://xxxx.execute-api.ap-south-1.amazonaws.com/Prod">
       </div>
       <div class="auth-field">
         <label>Secret Key:</label>
@@ -133,7 +361,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     <div class="kpi-card">
       <div class="kpi-title">ACTUAL COST (INFRA + LLM)</div>
       <div class="kpi-value text-orange" id="kpiCost">$0.00</div>
-      <div class="kpi-sub text-muted">DeepSeek + Apify costs</div>
+      <div class="kpi-sub text-muted">DeepSeek + Scraper costs</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-title">NET PROFIT</div>
@@ -160,27 +388,29 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       <div class="card-header">
         <div class="card-title">Candidates Ledger</div>
         <div style="display: flex; gap: 10px;">
-          <button class="btn btn-secondary" onclick="loadDashboardData()">🔄 Refresh</button>
+          <button class="btn btn-secondary" id="btnRefreshCandidates" onclick="loadDashboardData()">🔄 Refresh</button>
           <button class="btn btn-primary" onclick="openAddUserModal()">+ Add Candidate</button>
         </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Candidate Email / Name</th>
-            <th>Registration Command</th>
-            <th>Wallet Balance</th>
-            <th>Per-Run Rate</th>
-            <th>Status</th>
-            <th>Runs</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="usersTableBody">
-          <tr><td colspan="8" style="text-align: center; color: var(--text-muted)">Loading candidate records...</td></tr>
-        </tbody>
-      </table>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Candidate Email / Name</th>
+              <th>Registration Command</th>
+              <th>Wallet Balance</th>
+              <th>Per-Run Rate</th>
+              <th>Status</th>
+              <th>Runs</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -190,21 +420,23 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       <div class="card-header">
         <div class="card-title">Monthly Revenue & Profit Breakdown</div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Executed Runs</th>
-            <th>Billed Revenue ($)</th>
-            <th>Actual Cost ($)</th>
-            <th>Net Profit ($)</th>
-            <th>Margin %</th>
-          </tr>
-        </thead>
-        <tbody id="monthlyTableBody">
-          <tr><td colspan="6" style="text-align: center; color: var(--text-muted)">Loading financial breakdown...</td></tr>
-        </tbody>
-      </table>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Executed Runs</th>
+              <th>Billed Revenue ($)</th>
+              <th>Actual Cost ($)</th>
+              <th>Net Profit ($)</th>
+              <th>Margin %</th>
+            </tr>
+          </thead>
+          <tbody id="monthlyTableBody">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted)"><div class="skeleton-line"></div>Loading financial breakdown...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Pricing Policy Explanation -->
@@ -214,7 +446,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         • <b>Global Default Per-Run Charge:</b> Managed via environment variable <code>DEFAULT_BILLED_RUN_COST_USD</code> (Default: <b>$0.10 USD</b> / ~₹8.50 INR per execution turn).<br>
         • <b>Custom Candidate Rate Override:</b> Can be customized per candidate via <code>customRunCostUsd</code> in candidate record.<br>
         • <b>Wallet Top-Up Rate:</b> Standard exchange rate conversion applies (1 USD = ₹100 INR).<br>
-        • <b>Apify Scraping Cost:</b> $0.00 (uses 20-account rotated free monthly credits).
+        • <b>Scraper Cost:</b> Free self-hosted microservice ($0 compute overhead).
       </p>
     </div>
   </div>
@@ -226,22 +458,24 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         <div class="card-title">Apify Token Rotation Pool</div>
         <button class="btn btn-primary" onclick="openAddKeyModal()">+ Add Apify Token</button>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Token Name</th>
-            <th>API Key</th>
-            <th>Subscription Renewal</th>
-            <th>Accumulated Usage ($)</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="apifyTableBody">
-          <tr><td colspan="7" style="text-align: center; color: var(--text-muted)">Loading Apify key rotation pool...</td></tr>
-        </tbody>
-      </table>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Token Name</th>
+              <th>API Key</th>
+              <th>Subscription Renewal</th>
+              <th>Accumulated Usage ($)</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="apifyTableBody">
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted)"><div class="skeleton-line"></div>Loading Apify key rotation pool...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -254,6 +488,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       </div>
       <form id="userForm" onsubmit="handleUserSubmit(event)">
         <input type="hidden" id="editUserId">
+        
+        <div class="form-section-title">📋 Basic Details</div>
         <div class="form-group">
           <label>Email Address *</label>
           <input type="email" id="userEmail" required maxlength="255" placeholder="candidate@example.com">
@@ -263,28 +499,31 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <input type="text" id="userName" maxlength="100" placeholder="John Doe">
         </div>
         <div class="form-group">
-          <label>Telegram Chat ID (Optional — Candidate links via /register ID)</label>
+          <label>Telegram Chat ID (Optional — Auto-linked via /register ID)</label>
           <input type="text" id="userTelegramChatId" maxlength="50" placeholder="Auto-linked when candidate sends /register <id>">
         </div>
+
+        <div class="form-section-title">📄 Resume & AI Extraction</div>
         <div class="form-group">
           <label>Resume Plain Text (50 to 15,000 characters) *</label>
           <textarea id="userResumeText" required minlength="50" maxlength="15000" placeholder="Paste full candidate resume plain text here..."></textarea>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
             <span style="font-size: 11px; color: var(--text-muted);" id="resumeCharCounter">0 / 15,000 characters</span>
             <button type="button" class="btn btn-secondary btn-sm" id="btnAnalyzeAi" onclick="analyzeResumeWithAI()" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid #6366f1;">✨ Analyze with AI</button>
           </div>
           <span id="analyzeAiStatus" style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 500;"></span>
         </div>
 
+        <div class="form-section-title">🎯 Experience & Target Preferences</div>
         <div class="form-group">
           <label>Candidate Experience in Years (Required) *</label>
-          <input type="number" id="userExperienceYears" min="0" max="50" value="0" required placeholder="e.g. 0 for fresher, 2 for 2 years, 5 for 5 years">
+          <input type="number" id="userExperienceYears" min="0" max="50" value="0" required placeholder="Auto-calculated via AI or enter manually">
           <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Jobs requiring MORE than this experience will be automatically rejected.</span>
         </div>
 
         <div class="form-group">
           <label>Target Locations (Optional — e.g. Bangalore, Hyderabad)</label>
-          <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote (leave empty to search all major cities)">
+          <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote (leave empty to search all major tech cities)">
         </div>
 
         <div class="form-group">
@@ -293,8 +532,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         </div>
         
         <!-- AI Extracted Profile Data -->
-        <div style="border: 1px solid #334155; padding: 12px; margin-bottom: 16px; border-radius: 6px; background: rgba(30, 41, 59, 0.5);">
-          <h4 style="margin-top: 0; margin-bottom: 12px; color: #94a3b8; font-size: 13px;">AI Extracted Profile (Auto-filled on Analyze)</h4>
+        <div style="border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px; margin-bottom: 20px; border-radius: 12px; background: rgba(15, 23, 42, 0.6);">
+          <h4 style="margin-top: 0; margin-bottom: 12px; color: #a5b4fc; font-size: 13px; font-weight: 700;">✨ AI Extracted Profile (Auto-filled on Analyze)</h4>
           <div class="form-group">
             <label>Primary Domain</label>
             <input type="text" id="aiPrimaryDomain" placeholder="e.g. Backend Engineering">
@@ -329,6 +568,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           </div>
         </div>
 
+        <div class="form-section-title">🔐 Exclusions & Credentials</div>
         <div class="form-group">
           <label>Exclude Title Keywords (Comma Separated — Auto-filled via AI)</label>
           <textarea id="userExcludeKeywords" style="height: 60px;" placeholder="e.g. Senior, Lead, Principal, Manager, Staff, Architect, Frontend"></textarea>
@@ -349,9 +589,10 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <label>Custom Per-Run Rate Override ($0.01 to $10.00 USD)</label>
           <input type="number" step="0.01" min="0.01" max="10.00" id="userCustomRate" placeholder="Default: $0.10">
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Candidate</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveUser">Save Candidate</button>
         </div>
       </form>
     </div>
@@ -359,25 +600,25 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
   <!-- MODAL: Top Up Wallet -->
   <div class="modal-overlay" id="topupModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 440px;">
       <div class="modal-header">
-        <span>Recharge Candidate Wallet</span>
+        <span>Recharge Wallet Balance</span>
         <span class="close-btn" onclick="closeModal('topupModal')">&times;</span>
       </div>
       <form onsubmit="handleTopupSubmit(event)">
         <input type="hidden" id="topupUserId">
         <div class="form-group">
           <label>Candidate</label>
-          <input type="text" id="topupUserLabel" readonly style="background: #111827;">
+          <input type="text" id="topupUserLabel" readonly style="opacity: 0.7;">
         </div>
         <div class="form-group">
-          <label>Recharge Amount (₹10 to ₹100,000 INR) *</label>
-          <input type="number" id="topupAmountInr" min="10" max="100000" value="500" required placeholder="500" oninput="updateTopupHint(this.value)">
-          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;" id="topupInrHint">₹500 INR = +$5.88 USD wallet balance</span>
+          <label>Recharge Amount in INR (₹100 to ₹100,000)</label>
+          <input type="number" id="topupAmountInr" min="100" max="100000" value="500" required oninput="updateTopupHint(this.value)">
+          <span style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 600;" id="topupInrHint">₹500 INR = +$5.00 USD wallet balance</span>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('topupModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Confirm Recharge</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitTopup">Add Funds</button>
         </div>
       </form>
     </div>
@@ -385,27 +626,27 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
   <!-- MODAL: Add Apify Key -->
   <div class="modal-overlay" id="apifyModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 480px;">
       <div class="modal-header">
         <span>Add Apify Token</span>
         <span class="close-btn" onclick="closeModal('apifyModal')">&times;</span>
       </div>
-      <form onsubmit="handleApifySubmit(event)">
+      <form onsubmit="handleAddKeySubmit(event)">
         <div class="form-group">
-          <label>Token Name</label>
-          <input type="text" id="apifyName" maxlength="100" placeholder="Account Token #1">
+          <label>Token Label / Account Name *</label>
+          <input type="text" id="apifyLabel" required maxlength="100" placeholder="e.g. Account-01-FreeTier">
         </div>
         <div class="form-group">
-          <label>Apify API Token Key *</label>
-          <input type="text" id="apifyKey" required minlength="5" maxlength="255" placeholder="apify_api_xxxxx">
+          <label>Apify API Token (apify_api_xxxxx) *</label>
+          <input type="password" id="apifyToken" required maxlength="255" placeholder="apify_api_xxxxxxxxxxxxxxxx">
         </div>
         <div class="form-group">
-          <label>Subscription Renewal Date *</label>
-          <input type="date" id="apifyDate" required>
+          <label>Subscription Renewal Day of Month (1 to 28)</label>
+          <input type="number" id="apifyRenewalDay" min="1" max="28" value="1" required>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('apifyModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add Token</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitApify">Add Token</button>
         </div>
       </form>
     </div>
@@ -415,9 +656,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
   <div id="toast"></div>
 
   <script>
-    const INR_PER_USD = 100; // Central exchange rate variable (1 USD = 85 INR)
+    const INR_PER_USD = 100;
 
-    // Currency conversion helpers
     function convertUsdToInr(usdAmount) {
       return Math.round((usdAmount || 0) * INR_PER_USD);
     }
@@ -434,7 +674,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     let apiBase = localStorage.getItem('ADMIN_API_BASE') || window.location.origin + window.location.pathname.replace(/\\/(admin\\.html|admin)?$/, '');
     let apiKey = localStorage.getItem('ADMIN_API_KEY') || '';
-    let currentProfileFields = null; // Holds extracted AI profile fields object
+    let currentProfileFields = null;
 
     async function analyzeResumeWithAI() {
       const resumeText = document.getElementById('userResumeText').value.trim();
@@ -447,6 +687,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       }
 
       btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Analyzing...';
       statusEl.style.color = '#a5b4fc';
       statusEl.innerText = '⏳ Analyzing resume via DeepSeek AI... Please wait 5-10 seconds.';
 
@@ -462,9 +703,9 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('aiPrimaryDomain').value = analysis.primaryDomain || '';
         document.getElementById('aiCandidateSummary').value = analysis.candidateSummary || '';
         document.getElementById('aiKnownSkills').value = (analysis.knownSkills || []).join(', ');
-        document.getElementById('aiEducation').value = (analysis.education || []).join('\n');
-        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\n');
-        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\n');
+        document.getElementById('aiEducation').value = (analysis.education || []).join('\\n');
+        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\\n');
+        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\\n');
         document.getElementById('aiSuggestedJobTitles').value = (analysis.suggestedJobTitles || []).join(', ');
         document.getElementById('aiProjects').value = analysis.projects ? JSON.stringify(analysis.projects, null, 2) : '';
 
@@ -481,6 +722,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         alert('Failed to analyze resume: ' + err.message);
       } finally {
         btn.disabled = false;
+        btn.innerHTML = '✨ Analyze with AI';
       }
     }
 
@@ -491,7 +733,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const resumeInput = document.getElementById('userResumeText');
       if (resumeInput) {
         resumeInput.addEventListener('input', () => {
-          document.getElementById('resumeCharCounter').innerText = resumeInput.value.length + ' / 15,000 characters';
+          document.getElementById('resumeCharCounter').innerText = resumeInput.value.length.toLocaleString() + ' / 15,000 characters';
         });
       }
 
@@ -529,28 +771,23 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     async function apiRequest(endpoint, method = 'GET', body = null) {
       if (!apiBase || !apiKey) {
-        throw new Error('Please enter API Base URL and Secret Key in the connection bar!');
+        throw new Error('API Base URL or Secret Key not set. Please enter credentials in the header and click Connect.');
       }
-
-      const cleanBase = apiBase.replace(/\\/+$/, '');
-      const url = cleanBase + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
-
-      const opts = {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': apiKey
-        }
+      const url = apiBase + endpoint;
+      const headers = {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json'
       };
 
+      const opts = { method, headers };
       if (body) opts.body = JSON.stringify(body);
 
       const res = await fetch(url, opts);
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || err.message || \`HTTP \${res.status}\`);
+        throw new Error(data.error || \`HTTP Error \${res.status}\`);
       }
-      return await res.json();
+      return data;
     }
 
     function switchTab(tabId, btn) {
@@ -561,11 +798,15 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     async function loadDashboardData() {
+      const refBtn = document.getElementById('btnRefreshCandidates');
+      if (refBtn) refBtn.innerHTML = '<span class="spinner"></span> Loading...';
       try {
         await Promise.all([loadStats(), loadUsers(), loadApifyKeys()]);
       } catch (err) {
         console.error('Load error:', err);
         showToast(\`Error: \${err.message}\`);
+      } finally {
+        if (refBtn) refBtn.innerHTML = '🔄 Refresh';
       }
     }
 
@@ -584,7 +825,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('kpiMargin').innerText = \`\${margin}% profit margin\`;
         document.getElementById('kpiTurns').innerText = s.totalRunsCount;
 
-        // Render Monthly Table
         const mBody = document.getElementById('monthlyTableBody');
         if (!s.monthlyStats || s.monthlyStats.length === 0) {
           mBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted)">No monthly stats recorded yet</td></tr>';
@@ -622,35 +862,33 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <tr>
             <td style="font-size: 11px; font-family: monospace;">\${u.id.substring(0, 8)}...</td>
             <td>
-              <b>\${u.name || 'Unnamed Candidate'}</b><br>
-              <span style="font-size: 12px; color: var(--text-muted)">\${u.email}</span>
+              <div style="font-weight: 700;">\${u.name || 'Unnamed Candidate'}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">\${u.email}</div>
             </td>
             <td>
-              <code style="font-size: 11px; background: #1f2937; padding: 2px 6px; border-radius: 4px;">/register \${u.id}</code>
-              <button class="btn btn-secondary btn-sm" style="margin-left: 4px; padding: 2px 6px; font-size: 10px;" onclick="copyToClipboard('/register \${u.id}')">📋 Copy</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('/register \${u.id}')">📋 Copy Code</button>
             </td>
             <td>
-              <b style="color: \${u.balanceUsd < 0.1 ? 'var(--danger)' : 'var(--success)'}">$\${u.balanceUsd.toFixed(2)}</b>
-              <span style="font-size: 11px; color: var(--text-muted); margin-left: 4px;">(~₹\${balanceInr})</span>
-              <button class="btn btn-secondary btn-sm" style="margin-left: 6px;" onclick="openTopupModal('\${u.id}', '\${u.email}')">+ Top Up</button>
+              <b>$\${u.balanceUsd.toFixed(2)}</b>
+              <div style="font-size: 11px; color: var(--text-muted);">≈ ₹\${balanceInr.toLocaleString('en-IN')} INR</div>
             </td>
-            <td>\${u.customRunCostUsd ? \`$\${u.customRunCostUsd.toFixed(2)}\` : '<span style="color: var(--text-muted)">Default ($0.10)</span>'}</td>
+            <td>\${u.customRunCostUsd ? '$' + u.customRunCostUsd.toFixed(2) : '<span style="color:var(--text-muted);">Default ($0.10)</span>'}</td>
             <td>
-              <span class="badge \${u.isActive ? 'badge-active' : 'badge-inactive'}">\${u.telegramChatId ? (u.isActive ? 'ACTIVE' : 'PAUSED') : 'PENDING LINK'}</span>
+              <span class="badge \${u.isActive ? 'badge-active' : 'badge-inactive'}">\${u.isActive ? 'Active' : 'Inactive'}</span>
             </td>
-            <td>\${u.totalRunsCount || 0}</td>
+            <td><b>\${u.totalRunsCount || 0}</b></td>
             <td>
               <div style="display: flex; gap: 6px;">
-                <button class="btn btn-secondary btn-sm" onclick="triggerUserRun('\${u.id}')">▶ Run</button>
+                <button class="btn btn-secondary btn-sm" onclick="openTopupModal('\${u.id}', '\${u.email}')">💳 Top Up</button>
                 <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('\${u.id}')">✏️ Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="confirmDeleteUser('\${u.id}', '\${u.email}')">🗑️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteUser('\${u.id}')">🗑️</button>
               </div>
             </td>
           </tr>
-        \`;
+          \`;
         }).join('');
       } catch (err) {
-        tbody.innerHTML = \`<tr><td colspan="8" style="color: var(--danger)">Failed to load candidates: \${err.message}\`;
+        tbody.innerHTML = \`<tr><td colspan="8" style="text-align: center; color: var(--danger)">Failed to load candidates: \${err.message}</td></tr>\`;
       }
     }
 
@@ -658,114 +896,100 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const tbody = document.getElementById('apifyTableBody');
       try {
         const data = await apiRequest('/apify-keys');
-        const keys = data.keys || [];
+        const keys = data.apifyKeys || [];
         if (keys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted)">No Apify tokens in rotation pool.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted)">No Apify tokens in rotation pool. Click + Add Apify Token.</td></tr>';
           return;
         }
 
         tbody.innerHTML = keys.map(k => \`
           <tr>
-            <td>#\${k.id}</td>
-            <td><b>\${k.name || 'Apify Token'}</b></td>
-            <td><code>\${k.apiKey.substring(0, 8)}...\${k.apiKey.substring(k.apiKey.length - 4)}</code></td>
-            <td>\${k.subscriptionStartDate}</td>
-            <td>$\${(k.usageCost || 0).toFixed(2)} / $5.00</td>
+            <td style="font-size: 11px; font-family: monospace;">\${k.id.substring(0, 8)}...</td>
+            <td><b>\${k.accountLabel}</b></td>
+            <td style="font-family: monospace; font-size: 12px;">\${k.apiKey.substring(0, 8)}...</td>
+            <td>Day \${k.monthlyResetDay} of month</td>
+            <td>$\${k.accumulatedUsageUsd.toFixed(4)} / $5.00</td>
             <td>
-              <span class="badge \${k.usageCost < 5.0 ? 'badge-active' : 'badge-inactive'}">
-                \${k.usageCost < 5.0 ? 'ACTIVE' : 'EXHAUSTED'}
-              </span>
+              <span class="badge \${k.isActive ? 'badge-active' : 'badge-inactive'}">\${k.isActive ? 'Active' : 'Depleted/Disabled'}</span>
             </td>
             <td>
-              <div style="display: flex; gap: 6px;">
-                <button class="btn btn-secondary btn-sm" onclick="resetApifyUsage(\${k.id})">Reset $0</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteApifyKey(\${k.id})">🗑️</button>
-              </div>
+              <button class="btn btn-danger btn-sm" onclick="deleteApifyKey('\${k.id}')">Remove</button>
             </td>
           </tr>
         \`).join('');
       } catch (err) {
-        tbody.innerHTML = \`<tr><td colspan="7" style="color: var(--danger)">Failed to load Apify keys: \${err.message}</td></tr>\`;
+        tbody.innerHTML = \`<tr><td colspan="7" style="text-align: center; color: var(--danger)">Failed to load Apify keys: \${err.message}</td></tr>\`;
       }
     }
 
-    // Modal Helpers
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
     function openAddUserModal() {
-      document.getElementById('userModalTitle').innerText = 'Add Candidate';
-      document.getElementById('editUserId').value = '';
       document.getElementById('userForm').reset();
+      document.getElementById('editUserId').value = '';
+      document.getElementById('userModalTitle').innerText = 'Add Candidate';
       document.getElementById('initialInrGroup').style.display = 'block';
-      document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
       document.getElementById('analyzeAiStatus').innerText = '';
-      
+      document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
       currentProfileFields = null;
       openModal('userModal');
     }
 
     async function openEditUserModal(id) {
-      document.getElementById('userModalTitle').innerText = 'Edit Candidate Profile';
-      document.getElementById('editUserId').value = id;
-      document.getElementById('initialInrGroup').style.display = 'none';
+      try {
+        const res = await apiRequest('/users/' + id);
+        const u = res.user;
+        document.getElementById('editUserId').value = u.id;
+        document.getElementById('userModalTitle').innerText = 'Edit Candidate Profile';
+        document.getElementById('userEmail').value = u.email;
+        document.getElementById('userName').value = u.name || '';
+        document.getElementById('userTelegramChatId').value = u.telegramChatId || '';
+        document.getElementById('userResumeText').value = u.resumeText || '';
+        document.getElementById('userExperienceYears').value = u.experienceYears ?? 0;
+        document.getElementById('userTargetLocations').value = u.targetLocations || '';
+        document.getElementById('userEmploymentType').value = u.employmentType || '';
+        document.getElementById('initialInrGroup').style.display = 'none';
 
-      const user = await apiRequest('/users/' + id).then(res => res.user);
-      document.getElementById('userEmail').value = user.email;
-      document.getElementById('userName').value = user.name || '';
-      document.getElementById('userTelegramChatId').value = user.telegramChatId || '';
-      document.getElementById('userResumeText').value = user.resumeText || '';
-      document.getElementById('resumeCharCounter').innerText = (user.resumeText || '').length + ' / 15,000 characters';
-      
-      document.getElementById('userExperienceYears').value = user.experienceYears ?? 0;
-      document.getElementById('userEmploymentType').value = user.employmentType || '';
+        document.getElementById('aiPrimaryDomain').value = u.primaryDomain || '';
+        document.getElementById('aiCandidateSummary').value = u.candidateSummary || '';
+        document.getElementById('aiKnownSkills').value = (u.knownSkills || []).join(', ');
+        document.getElementById('aiEducation').value = (u.education || []).join('\\n');
+        document.getElementById('aiCertifications').value = (u.certifications || []).join('\\n');
+        document.getElementById('aiKeyHighlights').value = (u.keyHighlights || []).join('\\n');
+        document.getElementById('aiSuggestedJobTitles').value = (u.suggestedJobTitles || []).join(', ');
+        document.getElementById('aiProjects').value = u.projects ? JSON.stringify(u.projects, null, 2) : '';
 
-      currentProfileFields = {
-        primaryDomain: user.primaryDomain,
-        candidateSummary: user.candidateSummary,
-        knownSkills: user.knownSkills,
-        education: user.education,
-        projects: user.projects,
-        certifications: user.certifications,
-        keyHighlights: user.keyHighlights,
-        suggestedJobTitles: user.suggestedJobTitles
-      };
+        if (u.excludeTitleKeywords && Array.isArray(u.excludeTitleKeywords)) {
+          document.getElementById('userExcludeKeywords').value = u.excludeTitleKeywords.join(', ');
+        } else {
+          document.getElementById('userExcludeKeywords').value = '';
+        }
 
-      document.getElementById('aiPrimaryDomain').value = user.primaryDomain || '';
-      document.getElementById('aiCandidateSummary').value = user.candidateSummary || '';
-      document.getElementById('aiKnownSkills').value = (user.knownSkills || []).join(', ');
-      document.getElementById('aiEducation').value = (user.education || []).join('\\n');
-      document.getElementById('aiCertifications').value = (user.certifications || []).join('\\n');
-      document.getElementById('aiKeyHighlights').value = (user.keyHighlights || []).join('\\n');
-      document.getElementById('aiSuggestedJobTitles').value = (user.suggestedJobTitles || []).join(', ');
-      document.getElementById('aiProjects').value = user.projects ? JSON.stringify(user.projects, null, 2) : '';
+        document.getElementById('userLinkedinPersonUrn').value = u.linkedinCredentials?.personUrn || '';
+        document.getElementById('userLinkedinAccessToken').value = u.linkedinCredentials?.accessToken || '';
+        document.getElementById('userCustomRate').value = u.customRunCostUsd || '';
 
-      const statusEl = document.getElementById('analyzeAiStatus');
-      if (user.primaryDomain || (user.knownSkills && user.knownSkills.length > 0)) {
-        statusEl.style.color = 'var(--success)';
-        statusEl.innerText = '✓ Saved AI Profile Active (' + (user.primaryDomain || 'Loaded') + ')';
-      } else {
-        statusEl.innerText = '';
+        openModal('userModal');
+      } catch (err) {
+        alert('Failed to fetch user details: ' + err.message);
       }
-
-      document.getElementById('userExcludeKeywords').value = (user.excludeTitleKeywords || []).join(', ');
-      
-      const creds = user.linkedinCredentials || {};
-      document.getElementById('userLinkedinPersonUrn').value = creds.personUrn || '';
-      document.getElementById('userLinkedinAccessToken').value = creds.accessToken || '';
-
-      document.getElementById('userCustomRate').value = user.customRunCostUsd || '';
-      openModal('userModal');
     }
 
     async function handleUserSubmit(e) {
       e.preventDefault();
+      const saveBtn = document.getElementById('btnSaveUser');
+      const origText = saveBtn.innerText;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner"></span> Saving Candidate...';
+
       const editId = document.getElementById('editUserId').value;
       const resumeText = document.getElementById('userResumeText').value.trim();
 
-      // Validate resume length (min 50, max 15,000 characters)
-      if (resumeText.length < 50 || resumeText.length > 15000) {
-        alert('Resume plain text must be between 50 and 15,000 characters long! (Current length: ' + resumeText.length + ')');
+      if (resumeText.length < 50) {
+        alert('Resume plain text must be at least 50 characters!');
+        saveBtn.disabled = false;
+        saveBtn.innerText = origText;
         return;
       }
 
@@ -802,6 +1026,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         if (rawProj) aiProjects = JSON.parse(rawProj);
       } catch (e) {
         alert('Invalid JSON in AI Projects field!');
+        saveBtn.disabled = false;
+        saveBtn.innerText = origText;
         return;
       }
 
@@ -832,6 +1058,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           const initInr = parseFloat(document.getElementById('userInitialInr').value || '500');
           if (initInr < 100 || initInr > 100000) {
             alert('Initial recharge amount must be between ₹100 and ₹100,000 INR!');
+            saveBtn.disabled = false;
+            saveBtn.innerText = origText;
             return;
           }
           payload.initialInr = initInr;
@@ -843,6 +1071,9 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         loadDashboardData();
       } catch (err) {
         alert('Error: ' + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerText = origText;
       }
     }
 
@@ -855,87 +1086,80 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     async function handleTopupSubmit(e) {
       e.preventDefault();
+      const submitBtn = document.getElementById('btnSubmitTopup');
+      const origText = submitBtn.innerText;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Processing...';
+
       const id = document.getElementById('topupUserId').value;
       const amountInr = parseFloat(document.getElementById('topupAmountInr').value);
 
-      if (amountInr < 10 || amountInr > 100000) {
-        alert('Recharge amount must be between ₹10 and ₹100,000 INR!');
-        return;
-      }
-
       try {
-        await apiRequest(\`/users/\${id}/topup\`, 'POST', { amountInr });
-        showToast('Wallet recharged!');
+        await apiRequest('/users/' + id, 'PUT', { amountInr });
+        showToast('Wallet recharged successfully!');
         closeModal('topupModal');
         loadDashboardData();
       } catch (err) {
-        alert(\`Error: \${err.message}\`);
+        alert('Top-up failed: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = origText;
       }
     }
 
-    async function confirmDeleteUser(id, email) {
-      if (!confirm(\`Are you sure you want to delete candidate \${email}?\`)) return;
+    async function deleteUser(id) {
+      if (!confirm('Are you sure you want to delete candidate ID ' + id + '? This action cannot be undone.')) return;
       try {
-        await apiRequest(\`/users/\${id}\`, 'DELETE');
-        showToast('Candidate deleted!');
+        await apiRequest('/users/' + id, 'DELETE');
+        showToast('Candidate deleted successfully!');
         loadDashboardData();
       } catch (err) {
-        alert(\`Error: \${err.message}\`);
-      }
-    }
-
-    async function triggerUserRun(userId) {
-      try {
-        await apiRequest('/run', 'POST', { targetUserId: userId, lookbackHours: 12 });
-        showToast(\`Run dispatched for Candidate \${userId.substring(0, 8)}!\`);
-      } catch (err) {
-        alert(\`Error: \${err.message}\`);
+        alert('Delete failed: ' + err.message);
       }
     }
 
     function openAddKeyModal() {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('apifyDate').value = today;
+      document.getElementById('apifyLabel').value = '';
+      document.getElementById('apifyToken').value = '';
+      document.getElementById('apifyRenewalDay').value = '1';
       openModal('apifyModal');
     }
 
-    async function handleApifySubmit(e) {
+    async function handleAddKeySubmit(e) {
       e.preventDefault();
-      const payload = {
-        name: document.getElementById('apifyName').value || 'Apify Token',
-        apiKey: document.getElementById('apifyKey').value.trim(),
-        subscriptionStartDate: document.getElementById('apifyDate').value
-      };
+      const submitBtn = document.getElementById('btnSubmitApify');
+      const origText = submitBtn.innerText;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Adding Token...';
+
+      const accountLabel = document.getElementById('apifyLabel').value.trim();
+      const apiKeyVal = document.getElementById('apifyToken').value.trim();
+      const monthlyResetDay = parseInt(document.getElementById('apifyRenewalDay').value, 10);
+
       try {
-        await apiRequest('/apify-keys', 'POST', payload);
-        showToast('Apify Token added!');
+        await apiRequest('/apify-keys', 'POST', { accountLabel, apiKey: apiKeyVal, monthlyResetDay });
+        showToast('Apify token added to rotation pool!');
         closeModal('apifyModal');
         loadDashboardData();
       } catch (err) {
-        alert(\`Error: \${err.message}\`);
-      }
-    }
-
-    async function resetApifyUsage(id) {
-      try {
-        await apiRequest(\`/apify-keys/\${id}\`, 'PUT', { usageCost: 0 });
-        showToast('Usage cost reset to $0!');
-        loadDashboardData();
-      } catch (err) {
-        alert(\`Error: \${err.message}\`);
+        alert('Failed to add Apify key: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = origText;
       }
     }
 
     async function deleteApifyKey(id) {
-      if (!confirm('Are you sure you want to remove this token from the rotation pool?')) return;
+      if (!confirm('Remove this Apify token from rotation pool?')) return;
       try {
-        await apiRequest(\`/apify-keys/\${id}\`, 'DELETE');
-        showToast('Token deleted!');
+        await apiRequest('/apify-keys/' + id, 'DELETE');
+        showToast('Apify key removed!');
         loadDashboardData();
       } catch (err) {
-        alert(\`Error: \${err.message}\`);
+        alert('Delete failed: ' + err.message);
       }
     }
   </script>
 </body>
-</html>`;
+</html>
+`;

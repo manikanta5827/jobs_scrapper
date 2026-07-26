@@ -5,6 +5,7 @@
  * - Match Quality Dropdown (≥ 70%, ≥ 80%, ≥ 90%)
  * - Date Range Filters (From / To Date)
  * - Server-Side Pagination (50 items/page default)
+ * - Premium Glassmorphism UI with Loading Animations
  */
 
 export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
@@ -15,41 +16,65 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
   <title>Candidate Jobs Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0f172a;
-      --card-bg: rgba(30, 41, 59, 0.7);
-      --card-border: rgba(255, 255, 255, 0.1);
+      --bg: #090d16;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-hover: rgba(30, 41, 69, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent-blue: #38bdf8;
       --accent-indigo: #6366f1;
-      --accent-green: #22c55e;
+      --accent-purple: #a855f7;
+      --accent-green: #10b981;
       --accent-amber: #f59e0b;
       --accent-red: #ef4444;
+      --input-bg: #131b2e;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Inter', sans-serif;
-      background-color: var(--bg-dark);
+      background-color: var(--bg);
       background-image: 
-        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.15) 0px, transparent 50%);
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.12) 0px, transparent 50%);
+      background-attachment: fixed;
       color: var(--text-main);
       min-height: 100vh;
       padding: 2rem 1.5rem;
     }
 
+    /* Keyframe Animations */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--accent-blue);
+      animation: spin 0.8s linear infinite;
+    }
+
     .container {
       max-width: 1280px;
       margin: 0 auto;
+      animation: fadeIn 0.4s ease-out;
     }
 
     header {
@@ -64,9 +89,10 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     .logo-group h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo) 50%, var(--accent-purple));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 0.25rem;
@@ -74,19 +100,19 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
     .logo-group p {
       color: var(--text-muted);
-      font-size: 0.875rem;
+      font-size: 0.9rem;
     }
 
     .user-badge {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       padding: 0.6rem 1.2rem;
       border-radius: 9999px;
       font-size: 0.875rem;
       color: var(--accent-blue);
-      font-weight: 500;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      font-weight: 600;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
     }
 
     .stats-grid {
@@ -99,29 +125,30 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     .stat-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       border-radius: 1rem;
       padding: 1.25rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
       transition: transform 0.2s ease, border-color 0.2s ease;
     }
 
     .stat-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.15);
     }
 
     .stat-title {
       color: var(--text-muted);
-      font-size: 0.825rem;
-      font-weight: 500;
+      font-size: 0.8rem;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 0.5rem;
     }
 
     .stat-value {
-      font-size: 1.75rem;
-      font-weight: 700;
+      font-size: 1.85rem;
+      font-weight: 800;
       color: var(--text-main);
     }
 
@@ -129,7 +156,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     .controls-bar {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       border-radius: 1rem;
       padding: 1.25rem;
       display: flex;
@@ -137,6 +164,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       align-items: center;
       gap: 1rem;
       margin-bottom: 1.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
     }
 
     .filter-row {
@@ -151,83 +179,36 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 0.5rem;
-    }
-
-    .filter-group label {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
-      font-weight: 500;
-      white-space: nowrap;
-    }
-
-    .filter-input {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--card-border);
-      border-radius: 0.5rem;
-      padding: 0.5rem 0.75rem;
-      color: var(--text-main);
-      font-size: 0.85rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .filter-input:focus {
-      border-color: var(--accent-blue);
-    }
-
-    .select-input {
-      background: rgba(15, 23, 42, 0.6);
-      color: var(--text-main);
-      border: 1px solid var(--card-border);
-      border-radius: 0.5rem;
-      padding: 0.5rem 0.75rem;
-      font-size: 0.85rem;
-      outline: none;
-      cursor: pointer;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.85rem;
       font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: opacity 0.2s, background 0.2s;
     }
 
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-blue));
-      color: #fff;
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
+    .filter-input, .select-input {
+      background: var(--input-bg);
       border: 1px solid var(--card-border);
+      border-radius: 0.6rem;
+      padding: 0.5rem 0.8rem;
+      color: var(--text-main);
+      font-size: 0.875rem;
+      outline: none;
+      transition: all 0.2s;
     }
 
-    .btn:hover {
-      opacity: 0.9;
-    }
-
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
+    .filter-input:focus, .select-input:focus {
+      border-color: var(--accent-indigo);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
     }
 
     .search-box {
-      flex: 1;
-      min-width: 200px;
       position: relative;
+      flex: 1;
+      min-width: 220px;
     }
 
     .search-box input {
       width: 100%;
-      padding-left: 2.2rem;
+      padding-left: 2.25rem;
     }
 
     .search-icon {
@@ -235,173 +216,144 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       left: 0.75rem;
       top: 50%;
       transform: translateY(-50%);
+      width: 1rem;
+      height: 1rem;
       color: var(--text-muted);
-      width: 15px;
-      height: 15px;
     }
+
+    /* Buttons */
+    .btn {
+      padding: 0.55rem 1.2rem;
+      border-radius: 0.6rem;
+      border: none;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45); }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
 
     /* Table Container */
     .table-container {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       border-radius: 1rem;
-      overflow-x: auto;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.9rem;
     }
 
     th {
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.5);
       color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
       font-size: 0.75rem;
-      letter-spacing: 0.05em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
       padding: 1rem 1.25rem;
       border-bottom: 1px solid var(--card-border);
-      white-space: nowrap;
     }
 
     td {
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 1.1rem 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 0.9rem;
       vertical-align: middle;
     }
 
-    tr:last-child td {
-      border-bottom: none;
+    tr:hover {
+      background-color: var(--card-hover);
     }
 
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    .job-title-cell {
-      font-weight: 600;
+    .job-title {
+      font-weight: 700;
       color: var(--text-main);
-      max-width: 320px;
     }
 
-    .job-title-link {
-      color: var(--text-main);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-
-    .job-title-link:hover {
-      color: var(--accent-blue);
-      text-decoration: underline;
-    }
-
-    .company-cell {
+    .company-name {
       color: var(--text-muted);
-      font-weight: 500;
+      font-size: 0.85rem;
     }
 
-    .badge {
+    .score-badge {
       display: inline-flex;
       align-items: center;
-      padding: 0.25rem 0.6rem;
+      gap: 0.35rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .badge-score-high {
-      background: rgba(34, 197, 94, 0.15);
-      color: var(--accent-green);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-    }
-
-    .badge-score-med {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--accent-amber);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-
-    .btn-apply {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-blue));
-      color: #fff;
-      text-decoration: none;
-      padding: 0.45rem 0.9rem;
-      border-radius: 0.5rem;
+      font-weight: 700;
       font-size: 0.8rem;
-      font-weight: 600;
-      transition: opacity 0.2s;
     }
 
-    .btn-apply:hover {
-      opacity: 0.9;
+    .score-high {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
-    /* Pagination Footer */
+    .score-mid {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* States */
+    .loading-state, .error-state, .empty-state {
+      padding: 4rem 2rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .loading-state p { margin-top: 1rem; }
+
+    .error-title {
+      color: var(--accent-red);
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
     .pagination-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 1.25rem;
-      background: rgba(15, 23, 42, 0.4);
+      padding: 1.25rem;
       border-top: 1px solid var(--card-border);
-      font-size: 0.85rem;
+      font-size: 0.875rem;
       color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 1rem;
     }
 
     .pagination-controls {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-    }
-
-    .loading-state, .empty-state, .error-state {
-      text-align: center;
-      padding: 4rem 2rem;
-      color: var(--text-muted);
-    }
-
-    .spinner {
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top: 3px solid var(--accent-blue);
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 1rem auto;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .error-title {
-      color: var(--accent-red);
-      font-weight: 600;
-      font-size: 1.1rem;
-      margin-bottom: 0.5rem;
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding: 1rem;
-      }
-      header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .controls-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
     }
   </style>
 </head>
@@ -473,7 +425,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
           </select>
         </div>
 
-        <button class="btn btn-primary" onclick="applyFilters()">Filter</button>
+        <button class="btn btn-primary" id="btnFilter" onclick="applyFilters()">Filter</button>
         <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
       </div>
     </div>
@@ -492,7 +444,7 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
 
       <div id="emptyState" class="empty-state" style="display: none;">
         <p>No matched jobs found for the selected filter criteria.</p>
-        <p style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);">Try adjusting your Match Quality dropdown or date range.</p>
+        <p style="font-size: 0.8rem5; margin-top: 0.5rem; color: var(--text-muted);">Try adjusting your Match Quality dropdown or date range.</p>
       </div>
 
       <table id="jobsTable" style="display: none;">
@@ -529,7 +481,6 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     let totalJobsCount = 0;
     let currentJobs = [];
 
-    // Set max date limit on date pickers to today
     const todayStr = new Date().toISOString().split('T')[0];
     document.getElementById('fromDate').setAttribute('max', todayStr);
     document.getElementById('toDate').setAttribute('max', todayStr);
@@ -648,33 +599,33 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         const company = job.companyName || job.company_name || 'Direct Employer';
         const location = job.location || 'Remote / Unspecified';
         const score = job.aiScore || job.ai_score || 0;
-        
-        let scoreBadgeClass = 'badge-score-med';
-        if (score >= 80) scoreBadgeClass = 'badge-score-high';
+        const link = job.jobLink || job.job_link || '#';
+        const createdAt = job.createdAt || job.created_at || new Date().toISOString();
 
-        const seenAtFormatted = job.seenAt 
-          ? new Date(job.seenAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
-          : 'Recently';
+        const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+
+        const scoreClass = score >= 85 ? 'score-high' : 'score-mid';
 
         tr.innerHTML = \`
-          <td style="color: var(--text-muted);">\${offsetIndex + index + 1}</td>
-          <td class="job-title-cell">
-            <a href="\${escapeHtml(job.jobLink)}" target="_blank" rel="noopener noreferrer" class="job-title-link">
-              \${escapeHtml(title)}
-            </a>
+          <td style="color: var(--text-muted); font-size: 0.85rem;">\${offsetIndex + index + 1}</td>
+          <td>
+            <div class="job-title">\${escapeHtml(title)}</div>
           </td>
-          <td class="company-cell">\${escapeHtml(company)}</td>
+          <td><span class="company-name">\${escapeHtml(company)}</span></td>
           <td style="color: var(--text-muted);">\${escapeHtml(location)}</td>
           <td>
-            <span class="badge \${scoreBadgeClass}">\${score}% Match</span>
+            <span class="score-badge \${scoreClass}">
+              ★ \${score}%
+            </span>
           </td>
-          <td style="color: var(--text-muted); font-size: 0.825rem; white-space: nowrap;">\${seenAtFormatted}</td>
+          <td style="color: var(--text-muted); font-size: 0.85rem;">\${formattedDate}</td>
           <td>
-            <a href="\${escapeHtml(job.jobLink)}" target="_blank" rel="noopener noreferrer" class="btn-apply">
-              Apply
-              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-              </svg>
+            <a href="\${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+              View Job ↗
             </a>
           </td>
         \`;
@@ -683,32 +634,31 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     function filterLocalJobs() {
-      const q = document.getElementById('searchInput').value.toLowerCase().trim();
-      if (!q) {
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      if (!query) {
         renderTable(currentJobs);
         return;
       }
 
-      const filtered = currentJobs.filter(j => {
-        const title = (j.jobTitle || j.job_title || '').toLowerCase();
-        const company = (j.companyName || j.company_name || '').toLowerCase();
-        const location = (j.location || '').toLowerCase();
-        return title.includes(q) || company.includes(q) || location.includes(q);
+      const filtered = currentJobs.filter(job => {
+        const title = (job.jobTitle || job.job_title || '').toLowerCase();
+        const company = (job.companyName || job.company_name || '').toLowerCase();
+        const location = (job.location || '').toLowerCase();
+        return title.includes(query) || company.includes(query) || location.includes(query);
       });
 
       renderTable(filtered);
     }
 
     function extractTitleFromUrl(url) {
-      if (!url) return '';
+      if (!url) return null;
       try {
-        const parts = url.split('/view/')[1] || url.split('/jobs/view/')[1];
-        if (parts) {
-          const slug = parts.split('/')[0];
-          return slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const match = url.match(/\\/jobs\\/view\\/([^\\/\\?]+)/i);
+        if (match && match[1]) {
+          return match[1].replace(/-/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());
         }
       } catch (e) {}
-      return '';
+      return null;
     }
 
     function escapeHtml(str) {
@@ -717,11 +667,12 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
-    // Initialize on page load
     loadUserJobs(1);
   </script>
 </body>
-</html>`;
+</html>
+`;
