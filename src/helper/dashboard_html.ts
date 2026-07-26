@@ -420,6 +420,111 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
       margin-bottom: 6px;
     }
 
+    /* User Profile Card */
+    .user-profile-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.15s ease;
+    }
+    .user-profile-card:hover {
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-md);
+    }
+    .user-profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .user-profile-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+    }
+    .user-profile-info {
+      flex: 1;
+      min-width: 240px;
+    }
+    .user-profile-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .user-profile-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .user-profile-email {
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: var(--bg-elevated);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+    .user-profile-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .user-profile-meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .user-profile-summary {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-color);
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .user-profile-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .profile-skill-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .profile-title-badge {
+      background: #f8fafc;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
     .pagination-bar {
       display: flex;
       justify-content: space-between;
@@ -454,6 +559,24 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         <span>ID: Loading...</span>
       </div>
     </header>
+
+    <!-- Candidate Profile Card -->
+    <div id="userProfileCard" class="user-profile-card" style="display: none;">
+      <div class="user-profile-header">
+        <div class="user-profile-avatar" id="userAvatar">C</div>
+        <div class="user-profile-info">
+          <div class="user-profile-title-row">
+            <h2 class="user-profile-name" id="userName">Candidate</h2>
+            <span class="user-profile-email" id="userEmail"></span>
+          </div>
+          <div class="user-profile-meta" id="userMeta"></div>
+        </div>
+      </div>
+      <div id="userSummarySection" class="user-profile-summary" style="display: none;">
+        <div id="userSummaryText"></div>
+      </div>
+      <div id="userSkillsSection" class="user-profile-tags" style="display: none;"></div>
+    </div>
 
     <div class="stats-grid">
       <div class="stat-card">
@@ -630,6 +753,10 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         }
 
         const data = await response.json();
+        if (data.user) {
+          renderUserProfile(data.user);
+        }
+
         currentJobs = data.jobs || [];
         // Sort jobs based on AI match score descending (highest score first)
         currentJobs.sort((a, b) => {
@@ -838,6 +965,79 @@ export const DASHBOARD_HTML_CONTENT = `<!DOCTYPE html>
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+
+    function renderUserProfile(user) {
+      if (!user) return;
+      const card = document.getElementById('userProfileCard');
+      card.style.display = 'block';
+
+      // Name & Initials
+      const name = user.name || 'Candidate';
+      const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'C';
+      document.getElementById('userAvatar').innerText = initials;
+      document.getElementById('userName').innerText = name;
+
+      // Email
+      if (user.email) {
+        document.getElementById('userEmail').innerText = user.email;
+        document.getElementById('userEmail').style.display = 'inline-block';
+      } else {
+        document.getElementById('userEmail').style.display = 'none';
+      }
+
+      // User Badge in Header
+      const userBadge = document.getElementById('userBadge');
+      if (userBadge) {
+        userBadge.innerHTML = \`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> <span>\${escapeHtml(name)} (\${escapeHtml(userId.substring(0, 8))}...)</span>\`;
+      }
+
+      // Header title update
+      const headerTitleSpan = document.querySelector('.logo-group h1 span');
+      if (headerTitleSpan) {
+        headerTitleSpan.innerText = \`\${name}'s Matched Jobs\`;
+      }
+
+      // Profile Meta (Domain, YOE, Location, Employment Type)
+      const metaItems = [];
+      if (user.primaryDomain) {
+        metaItems.push(\`<span class="user-profile-meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg> \${escapeHtml(user.primaryDomain)}</span>\`);
+      }
+      if (user.experienceYears !== undefined && user.experienceYears !== null) {
+        metaItems.push(\`<span class="user-profile-meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> \${user.experienceYears} YOE</span>\`);
+      }
+      if (user.targetLocations) {
+        metaItems.push(\`<span class="user-profile-meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> \${escapeHtml(user.targetLocations)}</span>\`);
+      }
+      if (user.employmentType) {
+        metaItems.push(\`<span class="user-profile-meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> \${escapeHtml(user.employmentType)}</span>\`);
+      }
+      document.getElementById('userMeta').innerHTML = metaItems.join('<span style="color: var(--border-color); font-size: 10px;">•</span>');
+
+      // Summary
+      const summarySection = document.getElementById('userSummarySection');
+      if (user.candidateSummary) {
+        summarySection.style.display = 'block';
+        document.getElementById('userSummaryText').innerHTML = \`<strong>Candidate Profile Summary:</strong> \${escapeHtml(user.candidateSummary)}\`;
+      } else {
+        summarySection.style.display = 'none';
+      }
+
+      // Skills & Target Titles
+      const skillsSection = document.getElementById('userSkillsSection');
+      let tagsHtml = '';
+      if (user.knownSkills && Array.isArray(user.knownSkills) && user.knownSkills.length > 0) {
+        tagsHtml += user.knownSkills.map(s => \`<span class="profile-skill-badge">\${escapeHtml(s)}</span>\`).join('');
+      }
+      if (user.suggestedJobTitles && Array.isArray(user.suggestedJobTitles) && user.suggestedJobTitles.length > 0) {
+        tagsHtml += user.suggestedJobTitles.map(t => \`<span class="profile-title-badge">🎯 \${escapeHtml(t)}</span>\`).join('');
+      }
+      if (tagsHtml) {
+        skillsSection.style.display = 'flex';
+        skillsSection.innerHTML = tagsHtml;
+      } else {
+        skillsSection.style.display = 'none';
+      }
     }
 
     loadUserJobs(1);

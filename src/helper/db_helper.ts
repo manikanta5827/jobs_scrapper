@@ -251,6 +251,20 @@ export async function getJobsForUser(
     .from(jobs)
     .where(whereClause);
 
+  // Fetch candidate profile details for dashboard display
+  const userResult = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    experienceYears: users.experienceYears,
+    targetLocations: users.targetLocations,
+    employmentType: users.employmentType,
+    primaryDomain: users.primaryDomain,
+    candidateSummary: users.candidateSummary,
+    knownSkills: users.knownSkills,
+    suggestedJobTitles: users.suggestedJobTitles,
+  }).from(users).where(eq(users.id, userId)).limit(1);
+
   const total = Number(countResult[0]?.count || 0);
 
   return {
@@ -259,7 +273,8 @@ export async function getJobsForUser(
     page,
     limit,
     totalPages: Math.ceil(total / limit) || 1,
-    filters: { minScore, maxScore }
+    filters: { minScore, maxScore },
+    user: userResult[0] || null
   };
 }
 
