@@ -499,11 +499,7 @@
     </div>
     <div class="auth-box">
       <div class="auth-field">
-        <label>API Base URL:</label>
-        <input type="text" id="apiBaseInput" placeholder="https://xxxx.execute-api.ap-south-1.amazonaws.com/Prod">
-      </div>
-      <div class="auth-field">
-        <label>Secret Key:</label>
+        <label>Admin Secret Key:</label>
         <input type="password" id="apiKeyInput" placeholder="Enter ADMIN_API_KEY">
       </div>
       <button class="btn-save-key" onclick="saveSettings()">Connect</button>
@@ -946,8 +942,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      const apiInput = document.getElementById('apiBaseInput');
-      if (apiInput) apiInput.value = API_BASE_URL;
       if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
       
       const resumeInput = document.getElementById('userResumeText');
