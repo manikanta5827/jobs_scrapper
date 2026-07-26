@@ -245,31 +245,66 @@ export async function checkRelevanceBatch(
         console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
         let results = new Map<number, RelevanceResult>();
-        try {
-          // Prepare lightweight payload for each job in this batch, attaching a temporary numeric ID (0..9)
-          const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
-          const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
+        let attempt = 0;
+        const MAX_BATCH_RETRIES = 3;
+        let lastError: any = null;
 
-          // Call DeepSeek LLM for this batch
-          const res = await executellmCall(
-            batchResponseSchema,
-            userMessage,
-            systemPrompt
-          );
+        while (attempt < MAX_BATCH_RETRIES) {
+          attempt++;
+          try {
+            // Prepare lightweight payload for each job in this batch, attaching a temporary numeric ID (0..4)
+            const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
+            const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
 
-          // Track cumulative token usage across all parallel calls
-          usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
-          usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
-          usage.completionTokens += res.usage.completionTokens;
+            // Call DeepSeek LLM for this batch
+            const res = await executellmCall(
+              batchResponseSchema,
+              userMessage,
+              systemPrompt
+            );
 
-          // Store AI evaluation results keyed by job ID (0..9)
-          for (const item of res.object.results) {
-            results.set(item.id, item as RelevanceResult);
+            // Track cumulative token usage across all parallel calls
+            usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
+            usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
+            usage.completionTokens += res.usage.completionTokens;
+
+            // Store AI evaluation results keyed by job ID (0..4)
+            for (const item of res.object.results) {
+              results.set(item.id, item as RelevanceResult);
+            }
+            lastError = null;
+            break; // Success! Exit retry loop
+          } catch (err) {
+            if (err instanceof FatalError) throw err;
+            lastError = err;
+            const reason = err instanceof Error ? err.message : String(err);
+            console.warn(`[LLM Retry] Batch ${batchNum}/${totalBatches} (attempt ${attempt}/${MAX_BATCH_RETRIES}) failed: ${reason}`);
+            if (attempt < MAX_BATCH_RETRIES) {
+              await sleep(1500 * attempt); // Backoff 1.5s, 3s before retrying
+            }
           }
-        } catch (err) {
-          if (err instanceof FatalError) throw err;
-          const reason = err instanceof Error ? err.message : String(err);
-          console.error(`Batch ${batchNum}/${totalBatches} failed DeepSeek check: ${reason}`);
+        }
+
+        if (lastError) {
+          console.error(`[LLM Error] Batch ${batchNum}/${totalBatches} failed after ${MAX_BATCH_RETRIES} attempts. Retrying jobs individually as fallback...`);
+          for (let j = 0; j < batch.length; j++) {
+            if (!results.has(j)) {
+              try {
+                const singlePayload = [{ id: j, ...prepareJobPayload(batch[j]) }];
+                const singleMsg = `Job Listings (JSON array, 1 job):\n-------------------\n${JSON.stringify(singlePayload, null, 2)}\n\nEvaluate each job per the system rules.`;
+                const singleRes = await executellmCall(batchResponseSchema, singleMsg, systemPrompt);
+                usage.promptCacheHitTokens += singleRes.usage.promptCacheHitTokens;
+                usage.promptCacheMissTokens += singleRes.usage.promptCacheMissTokens;
+                usage.completionTokens += singleRes.usage.completionTokens;
+                if (singleRes.object.results && singleRes.object.results.length > 0) {
+                  results.set(j, singleRes.object.results[0] as RelevanceResult);
+                  console.log(`  ✓ Fallback individual check succeeded for "${batch[j].title}"`);
+                }
+              } catch (singleErr: any) {
+                console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErr.message}`);
+              }
+            }
+          }
         }
 
         // STEP 3: Map AI evaluations back to original job objects and classify as matched vs rejected

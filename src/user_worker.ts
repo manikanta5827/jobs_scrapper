@@ -95,8 +95,11 @@ export const handler = async (
 
   try {
     // 2. Scrape job listings via unified Job Fetcher (uses SCRAPER_PROVIDER env var, default "lambda")
+    console.time('fetch-users');
     const rawJobs = await fetchJobsForUser(user, lookbackHours);
     const rawCount = rawJobs.length;
+    console.timeEnd('fetch-users');
+
     console.log(`User ${user.id}: Scraped ${rawCount} total jobs`);
 
     if (rawCount === 0) {
