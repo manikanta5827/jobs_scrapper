@@ -444,7 +444,7 @@ MANDATORY FIELDS TO RETURN:
 7. "certifications": String array of certifications earned (e.g. ["AWS Certified Developer"]).
 8. "keyHighlights": Array of 2-3 key accomplishments/highlights.
 9. "suggestedJobTitles": String array of 3-5 target job titles recommended for this candidate (e.g. ["Junior Backend Developer", "DevOps Engineer"]).
-10. "excludeTitleKeywords": String array of titles, level codes (Senior, Lead, SDE3, Principal, Manager), and non-matching domains to reject in job searches.
+10. "excludeTitleKeywords": String array of titles, level codes (Senior, Lead, SDE3, Principal, Manager), and non-matching domains to reject in job searches, send min of 10-15 job titles keywords that are not relavant to user profile.
 
 CANDIDATE RESUME:
 ${resumeText.slice(0, 10000)}`;

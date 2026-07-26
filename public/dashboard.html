@@ -663,6 +663,10 @@
             </div>
             <div class="user-profile-meta" id="userMeta"></div>
           </div>
+          <button onclick="logoutCandidate()" class="btn btn-logout" style="margin-left: auto; padding: 6px 12px; font-size: 13px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;" title="Log out to enter a different candidate email">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Logout / Switch Email
+          </button>
         </div>
         <div id="userSummarySection" class="user-profile-summary" style="display: none;">
           <div id="userSummaryText"></div>
@@ -796,10 +800,11 @@
     const API_BASE_URL = 'https://mt07rx0ojd.execute-api.ap-south-1.amazonaws.com/Prod';
 
     function getCandidateEmail() {
+      const currentParams = new URLSearchParams(window.location.search);
       // 1. Query parameter ?email=... or ?id=... or ?userId=...
-      if (urlParams.get('email')) return urlParams.get('email').trim();
-      if (urlParams.get('id')) return urlParams.get('id').trim();
-      if (urlParams.get('userId')) return urlParams.get('userId').trim();
+      if (currentParams.get('email')) return currentParams.get('email').trim();
+      if (currentParams.get('id')) return currentParams.get('id').trim();
+      if (currentParams.get('userId')) return currentParams.get('userId').trim();
       
       // 2. Read from localStorage
       const storedEmail = localStorage.getItem('CANDIDATE_USER_EMAIL');
@@ -832,7 +837,7 @@
         userBadge.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
           <span style="font-weight: 500;">${escapeHtml(userId)}</span>
-          <button onclick="logoutCandidate()" class="btn btn-logout" style="padding: 4px 10px; font-size: 12px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;">
+          <button onclick="logoutCandidate()" class="btn btn-logout" title="Log out to enter a new email" style="padding: 4px 10px; font-size: 12px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             Logout
           </button>
@@ -904,10 +909,17 @@
       localStorage.removeItem('CANDIDATE_USER_EMAIL');
       localStorage.removeItem('CANDIDATE_USER_ID');
       userId = '';
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       const emailInput = document.getElementById('candidateEmailInput');
       if (emailInput) emailInput.value = '';
       const errorAlert = document.getElementById('loginErrorAlert');
       if (errorAlert) errorAlert.style.display = 'none';
+      const userProfileCard = document.getElementById('userProfileCard');
+      if (userProfileCard) userProfileCard.style.display = 'none';
+      const headerTitleSpan = document.querySelector('.logo-group h1 span');
+      if (headerTitleSpan) headerTitleSpan.innerText = 'Matched Jobs Dashboard';
       updateUIState();
     }
 
@@ -1199,7 +1211,15 @@
 
       const userBadge = document.getElementById('userBadge');
       if (userBadge) {
-        userBadge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> <span>${escapeHtml(name)} (${escapeHtml(userId.substring(0, 8))}...)</span>`;
+        const displayId = userId.includes('@') ? userId : (userId.length > 16 ? userId.substring(0, 16) + '...' : userId);
+        userBadge.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span style="font-weight: 500;">${escapeHtml(name)} (${escapeHtml(displayId)})</span>
+          <button onclick="logoutCandidate()" class="btn btn-logout" title="Log out to enter a new email" style="padding: 4px 10px; font-size: 12px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Logout
+          </button>
+        `;
       }
 
       const headerTitleSpan = document.querySelector('.logo-group h1 span');
