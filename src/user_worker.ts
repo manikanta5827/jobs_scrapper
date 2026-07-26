@@ -16,6 +16,7 @@ import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
+import { shutdownTelemetry } from './helper/telemetry';
 import { 
   getSuccessHeader, 
   getMatchedJobMessage,
@@ -33,6 +34,17 @@ export const handler = async (
   event: { userId: string; lookbackHours?: number },
   _context: Context
 ): Promise<{ statusCode: number; body: string }> => {
+  try {
+    return await processUserWorker(event, _context);
+  } finally {
+    await shutdownTelemetry();
+  }
+};
+
+async function processUserWorker(
+  event: { userId: string; lookbackHours?: number },
+  _context: Context
+): Promise<{ statusCode: number; body: string }> {
   const userId = event.userId;
   const lookbackHours = event.lookbackHours || 12;
 

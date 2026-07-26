@@ -3,6 +3,7 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PostHogSpanProcessor } from "@posthog/ai/otel";
 
 let initialized = false;
+let sdkInstance: NodeSDK | null = null;
 
 /**
  * Initializes OpenTelemetry NodeSDK with PostHogSpanProcessor for AI observability.
@@ -16,8 +17,8 @@ export function initTelemetry(): void {
   const host = process.env.POSTHOG_HOST || "https://us.i.posthog.com";
 
   if (token) {
-    const sdk = new NodeSDK({
-      resource: resourceFromAttributes({ "service.name": "job-scraper-lambda" }),
+    sdkInstance = new NodeSDK({
+      resource: resourceFromAttributes({ "service.name": process.env.AWS_LAMBDA_FUNCTION_NAME || "job-scraper-lambda" }),
       spanProcessors: [
         new PostHogSpanProcessor({
           projectToken: token,
@@ -25,8 +26,25 @@ export function initTelemetry(): void {
         }),
       ],
     });
-    sdk.start();
+    sdkInstance.start();
     initialized = true;
+  }
+}
+
+/**
+ * Flushes pending OpenTelemetry spans and shuts down SDK.
+ * Call this in Lambda handler finally block to ensure zero span loss before environment freezes.
+ */
+export async function shutdownTelemetry(): Promise<void> {
+  if (sdkInstance) {
+    try {
+      await sdkInstance.shutdown();
+    } catch (err) {
+      console.warn("Failed to shutdown OpenTelemetry SDK:", err);
+    } finally {
+      sdkInstance = null;
+      initialized = false;
+    }
   }
 }
 

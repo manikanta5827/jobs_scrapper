@@ -20,6 +20,7 @@ import {
   getJobsForUser
 } from './helper/db_helper';
 import { analyzeResumeWithLLM } from './helper/llm';
+import { shutdownTelemetry } from './helper/telemetry';
 import { ADMIN_HTML_CONTENT } from './helper/admin_html';
 import { DASHBOARD_HTML_CONTENT } from './helper/dashboard_html';
 import { 
@@ -38,6 +39,14 @@ import {
 const lambdaClient = new LambdaClient({});
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    return await processAdminRequest(event);
+  } finally {
+    await shutdownTelemetry();
+  }
+};
+
+async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const method = event.httpMethod;
   const path = event.resource || event.path;
   const body = event.body ? JSON.parse(event.body) : {};
