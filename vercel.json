@@ -5,6 +5,9 @@
     { "source": "/dashboard", "destination": "/public/dashboard.html" },
     { "source": "/dashboard/:id", "destination": "/public/dashboard.html" },
     { "source": "/admin", "destination": "/public/admin.html" },
-    { "source": "/admin.html", "destination": "/public/admin.html" }
+    { "source": "/admin.html", "destination": "/public/admin.html" },
+    { "source": "/resume", "destination": "/public/resume.html" },
+    { "source": "/resume/:id", "destination": "/public/resume.html" },
+    { "source": "/resume.html", "destination": "/public/resume.html" }
   ]
 }

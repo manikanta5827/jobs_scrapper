@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" ADD COLUMN "optimized_resume_md" text;

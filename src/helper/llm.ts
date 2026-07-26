@@ -5,7 +5,7 @@
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult, TokenUsage } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
@@ -462,4 +462,66 @@ ${resumeText.slice(0, 10000)}`;
     console.error("Error analyzing resume with LLM:", err);
     throw err;
   }
+}
+
+// ponytail: ATS resume generation returns clean Markdown via generateText instead of PDF binaries or JSON schema to minimize output tokens and avoid Lambda bundle bloat.
+export async function generateAtsResume(
+  candidateResumeText: string,
+  jobTitle: string,
+  companyName: string,
+  jobDescription: string,
+  matchedSkills: string[] = []
+): Promise<{ resumeMd: string; usage: TokenUsage }> {
+  if (!process.env.DEEPSEEK_API_KEY) {
+    throw new FatalError("Missing DEEPSEEK_API_KEY");
+  }
+
+  const deepseek = createDeepSeek({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+  });
+
+  const model = wrapModelWithTelemetry(deepseek('deepseek-v4-flash'), {
+    functionId: 'generate-ats-resume',
+    metadata: { jobTitle, companyName },
+  });
+
+  const systemPrompt = `You are an expert ATS (Applicant Tracking System) resume optimizer.
+Your task is to tailor the candidate's existing resume for the target job role.
+
+### CRITICAL RULES:
+1. STRICT TRUTHFULNESS: DO NOT invent skills, employers, degrees, or metrics not present in the original resume.
+2. KEYWORD ALIGNMENT: Incorporate keywords from the job description and matched skills (${matchedSkills.join(', ')}) naturally into bullet points and summary.
+3. ATS FORMAT: Output STRICTLY in clean Markdown using standard headings (# Summary, ## Skills, ## Work Experience, ## Education, ## Projects).
+4. Do NOT use tables, columns, emojis, or decorative characters.
+5. Do NOT wrap the entire response in a markdown code block (no \`\`\`markdown ... \`\`\`). Return raw markdown directly.`;
+
+  const prompt = `### CANDIDATE ORIGINAL RESUME:
+${candidateResumeText.slice(0, 10000)}
+
+### TARGET JOB (${jobTitle} at ${companyName}):
+${jobDescription.slice(0, 8000)}
+
+Return ONLY the tailored Markdown resume text.`;
+
+  const { text, usage: apiUsage } = await generateText({
+    model,
+    system: systemPrompt,
+    prompt: prompt,
+    maxRetries: 3,
+    temperature: 0.2,
+  });
+
+  const anyUsage = apiUsage as Record<string, any>;
+  const inputTokens = (anyUsage.promptTokens as number | undefined) ?? apiUsage.inputTokens ?? 0;
+  const cachedTokens = (anyUsage.promptTokensDetails as { cachedTokens?: number } | undefined)?.cachedTokens ?? (anyUsage.cachedInputTokens as number | undefined) ?? 0;
+  const outputTokens = (anyUsage.completionTokens as number | undefined) ?? apiUsage.outputTokens ?? 0;
+
+  return {
+    resumeMd: text.trim(),
+    usage: {
+      promptCacheHitTokens: cachedTokens,
+      promptCacheMissTokens: inputTokens - cachedTokens,
+      completionTokens: outputTokens,
+    }
+  };
 }

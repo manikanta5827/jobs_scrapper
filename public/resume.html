@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATS-Optimized Resume | AI Job Scraper</title>
+  <meta name="description" content="ATS-tailored professional resume generated for your target LinkedIn job match." />
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Marked.js Markdown Parser from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --card-bg: #ffffff;
+      --border-color: #e2e8f0;
+      --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 850px;
+      margin: 0 auto;
+    }
+
+    /* Top Action Bar */
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-color);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .job-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .job-meta h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .job-meta span {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-outline:hover {
+      background: #f8fafc;
+    }
+
+    /* Resume Card */
+    .resume-card {
+      background: var(--card-bg);
+      padding: 48px;
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    /* Clean Typography inside Resume */
+    #resumeContent {
+      color: #1e293b;
+    }
+
+    #resumeContent h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+
+    #resumeContent h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: #1e293b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 6px;
+    }
+
+    #resumeContent h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+
+    #resumeContent p {
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    #resumeContent ul, #resumeContent ol {
+      margin-left: 20px;
+      margin-bottom: 16px;
+    }
+
+    #resumeContent li {
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    /* Loading state */
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    /* Error alert */
+    .error-alert {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #f87171;
+      color: #991b1b;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    /* PRISTINE ATS PRINT-TO-PDF STYLESHEET */
+    @media print {
+      body {
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        color: black !important;
+      }
+
+      .no-print, .action-bar, .error-alert {
+        display: none !important;
+      }
+
+      .container {
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+
+      .resume-card {
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+      }
+
+      #resumeContent {
+        color: black !important;
+        font-size: 11pt;
+        line-height: 1.4;
+      }
+
+      #resumeContent h1, #resumeContent h2, #resumeContent h3 {
+        color: black !important;
+        page-break-after: avoid;
+      }
+
+      #resumeContent ul, #resumeContent ol, #resumeContent p {
+        page-break-inside: avoid;
+      }
+
+      @page {
+        margin: 0.75in;
+        size: A4;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Top Bar -->
+    <div class="action-bar no-print">
+      <div class="job-meta">
+        <h1 id="jobTitleHeading">ATS-Optimized Resume</h1>
+        <span id="companySubtext">Tailored for LinkedIn Match</span>
+      </div>
+      <div class="btn-group">
+        <a id="applyLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="display: none;">
+          🚀 Open Job on LinkedIn
+        </a>
+        <button id="printBtn" class="btn btn-primary" onclick="window.print()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Save as ATS PDF (Ctrl+P)
+        </button>
+      </div>
+    </div>
+
+    <!-- Error container -->
+    <div id="errorAlert" class="error-alert"></div>
+
+    <!-- Main Resume Page -->
+    <main class="resume-card">
+      <div id="loadingState" class="loading-state">
+        <p>Loading your ATS-optimized resume...</p>
+      </div>
+      <div id="resumeContent" style="display: none;"></div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE_URL = 'https://mt07rx0ojd.execute-api.ap-south-1.amazonaws.com/Prod';
+
+    function getJobIdParam() {
+      const params = new URLSearchParams(window.location.search);
+      // Support ?id=123 or ?jobId=123 or ?fingerprint=xyz or /resume/xyz
+      const fromQuery = params.get('id') || params.get('jobId') || params.get('fingerprint');
+      if (fromQuery) return fromQuery;
+
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      if (pathParts.length >= 2 && pathParts[0] === 'resume') {
+        return decodeURIComponent(pathParts[1]);
+      }
+      return null;
+    }
+
+    async function loadResume() {
+      const jobId = getJobIdParam();
+      const errorDiv = document.getElementById('errorAlert');
+      const loadingDiv = document.getElementById('loadingState');
+      const contentDiv = document.getElementById('resumeContent');
+      const heading = document.getElementById('jobTitleHeading');
+      const subtext = document.getElementById('companySubtext');
+
+      if (!jobId) {
+        loadingDiv.style.display = 'none';
+        errorDiv.style.display = 'block';
+        errorDiv.innerText = '⚠️ No Job ID or fingerprint provided in URL.';
+        return;
+      }
+
+      try {
+        // Fetch ATS resume Markdown from API
+        const response = await fetch(`${API_BASE_URL}/jobs/${encodeURIComponent(jobId)}/resume`);
+        if (!response.ok) {
+          throw new Error(`Failed to load resume: ${response.statusText} (${response.status})`);
+        }
+
+        const data = await response.json();
+        
+        if (data.jobTitle) heading.innerText = data.jobTitle;
+        if (data.companyName) subtext.innerText = `Tailored for ${data.companyName} (${data.location || 'LinkedIn'})`;
+
+        if (!data.optimizedResumeMd) {
+          throw new Error('No ATS-optimized resume Markdown found for this job. It may be below the score threshold.');
+        }
+
+        // Render clean Markdown using Marked.js
+        contentDiv.innerHTML = marked.parse(data.optimizedResumeMd);
+        loadingDiv.style.display = 'none';
+        contentDiv.style.display = 'block';
+
+      } catch (err) {
+        console.error('Error fetching ATS resume:', err);
+        loadingDiv.style.display = 'none';
+        errorDiv.style.display = 'block';
+        errorDiv.innerText = `⚠️ ${err.message || err}`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadResume);
+  </script>
+</body>
+</html>

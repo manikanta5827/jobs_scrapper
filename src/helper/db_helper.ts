@@ -133,6 +133,7 @@ export async function trackJobs(
     requiredYoe?: string;
     directApply?: string | null;
     applicantsCount?: string | number;
+    optimizedResumeMd?: string;
   }[]
 ): Promise<void> {
   if (jobsToTrack.length === 0) return;
@@ -158,6 +159,7 @@ export async function trackJobs(
           requiredYoe: j.requiredYoe,
           directApply: j.directApply,
           applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
+          optimizedResumeMd: j.optimizedResumeMd,
         })))
         .onConflictDoNothing();
     });
@@ -286,6 +288,7 @@ export async function getJobsForUser(
     candidateSummary: users.candidateSummary,
     knownSkills: users.knownSkills,
     suggestedJobTitles: users.suggestedJobTitles,
+    telegramChatId: users.telegramChatId,
   }).from(users).where(eq(users.id, targetUserId)).limit(1);
 
   const total = Number(countResult[0]?.count || 0);
@@ -299,6 +302,29 @@ export async function getJobsForUser(
     filters: { minScore, maxScore },
     user: userResult[0] || null
   };
+}
+
+// ponytail: Get a single job by DB ID or fingerprint for ATS resume rendering
+export async function getJobByFingerprintOrId(idOrFingerprint: string) {
+  await initDb();
+  const numericId = parseInt(idOrFingerprint, 10);
+  const rows = await db.select()
+    .from(jobs)
+    .where(
+      !isNaN(numericId) && String(numericId) === idOrFingerprint.trim()
+        ? eq(jobs.id, numericId)
+        : eq(jobs.fingerprint, idOrFingerprint.trim())
+    )
+    .limit(1);
+  return rows[0] || null;
+}
+
+// ponytail: Cache newly generated ATS resume Markdown for a job
+export async function updateJobResumeMd(jobId: number, resumeMd: string) {
+  await initDb();
+  await db.update(jobs)
+    .set({ optimizedResumeMd: resumeMd })
+    .where(eq(jobs.id, jobId));
 }
 
 // ─── Multi-Tenant Users & Wallet Helpers ─────────────────────────────────────

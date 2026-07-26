@@ -17,9 +17,11 @@ import {
   updateApifyToken,
   deleteApifyToken,
   getAnalyticsStats,
-  getJobsForUser
+  getJobsForUser,
+  getJobByFingerprintOrId,
+  updateJobResumeMd
 } from './helper/db_helper';
-import { analyzeResumeWithLLM } from './helper/llm';
+import { analyzeResumeWithLLM, generateAtsResume } from './helper/llm';
 import { shutdownTelemetry } from './helper/telemetry';
 import { 
   UuidParamSchema, 
@@ -50,7 +52,52 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   const body = event.body ? JSON.parse(event.body) : {};
   const pathParameters = event.pathParameters || {};
 
-  // 1. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs by email or UUID
+  // 1a. Public endpoint: GET /jobs/{id}/resume — Retrieve or generate (On-Demand) candidate ATS-optimized resume Markdown for a job
+  if ((path === '/jobs/{id}/resume' || path.endsWith('/resume')) && method === 'GET') {
+    const rawId = pathParameters.id || path.split('/')[2] || '';
+    const idOrFingerprint = decodeURIComponent(rawId).trim();
+    if (!idOrFingerprint) {
+      return response(400, { error: 'Missing Job ID or fingerprint parameter' });
+    }
+    const job = await getJobByFingerprintOrId(idOrFingerprint);
+    if (!job) {
+      return response(404, { error: 'Job not found' });
+    }
+
+    let resumeMd = job.optimizedResumeMd || null;
+
+    // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet and score >= 70
+    if (!resumeMd && (job.aiScore ?? 0) >= 70 && job.userId) {
+      const user = await getUserById(job.userId);
+      if (user && user.resumeText) {
+        try {
+          const { resumeMd: generatedMd } = await generateAtsResume(
+            user.resumeText,
+            job.jobTitle || 'Job Role',
+            job.companyName || 'Company',
+            job.aiReason || job.jobTitle || '',
+            job.matchedSkills || []
+          );
+          resumeMd = generatedMd;
+          await updateJobResumeMd(job.id, resumeMd);
+        } catch (genErr) {
+          console.error(`Failed on-demand ATS resume generation for job ${job.id}:`, genErr);
+        }
+      }
+    }
+
+    return response(200, {
+      jobId: job.id,
+      jobTitle: job.jobTitle,
+      companyName: job.companyName,
+      location: job.location,
+      aiScore: job.aiScore,
+      optimizedResumeMd: resumeMd,
+      createdAt: job.createdAt
+    });
+  }
+
+  // 1b. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs by email or UUID
   if ((path === '/users/{id}/jobs' || path.endsWith('/jobs')) && method === 'GET') {
     const rawId = pathParameters.id || path.split('/')[2] || '';
     const identifier = decodeURIComponent(rawId).trim();

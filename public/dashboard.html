@@ -119,6 +119,12 @@
       box-shadow: var(--shadow-sm);
     }
 
+    .btn-telegram:hover {
+      background: #0077b3 !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 136, 204, 0.35) !important;
+    }
+
     /* Config Bar */
     .config-bar {
       background: #eff6ff;
@@ -618,9 +624,15 @@
         </h1>
         <p>Curated AI-matched job postings with quality and date range filters</p>
       </div>
-      <div class="user-badge" id="userBadge">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        <span>ID: Loading...</span>
+      <div class="header-right-actions" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <a id="telegramConnectBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn-telegram" style="display: none; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-decoration: none; background: #0088cc; color: #ffffff; box-shadow: 0 2px 4px rgba(0, 136, 204, 0.25); transition: all 0.2s ease;" title="Open Telegram Bot to connect and receive automated job alerts">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+          <span id="telegramConnectBtnText">Connect Telegram</span>
+        </a>
+        <div class="user-badge" id="userBadge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span>ID: Loading...</span>
+        </div>
       </div>
     </header>
 
@@ -799,6 +811,9 @@
     // Direct backend API Gateway URL
     const API_BASE_URL = 'https://mt07rx0ojd.execute-api.ap-south-1.amazonaws.com/Prod';
 
+    // Configure your Telegram Bot Username here (without @ symbol)
+    const TELEGRAM_BOT_USERNAME = 'ApifyJobsFetcherBot'; // e.g. 'YourJobMatcher_bot'
+
     function getCandidateEmail() {
       const currentParams = new URLSearchParams(window.location.search);
       // 1. Query parameter ?email=... or ?id=... or ?userId=...
@@ -830,10 +845,17 @@
       const loginCard = document.getElementById('loginCard');
       const dashContent = document.getElementById('dashboardContent');
       const userBadge = document.getElementById('userBadge');
+      const tgBtn = document.getElementById('telegramConnectBtn');
+      const tgText = document.getElementById('telegramConnectBtnText');
 
       if (userId) {
         loginCard.style.display = 'none';
         dashContent.style.display = 'block';
+        if (tgBtn) {
+          tgBtn.href = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${encodeURIComponent(userId)}`;
+          if (tgText && !tgText.innerText) tgText.innerText = '🚀 Connect Telegram';
+          tgBtn.style.display = 'inline-flex';
+        }
         userBadge.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
           <span style="font-weight: 500;">${escapeHtml(userId)}</span>
@@ -845,6 +867,7 @@
       } else {
         loginCard.style.display = 'block';
         dashContent.style.display = 'none';
+        if (tgBtn) tgBtn.style.display = 'none';
         userBadge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>Not Logged In</span>`;
       }
     }
@@ -1141,6 +1164,11 @@
                 <span>View</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               </a>
+              ${score >= 70 ? `
+                <a href="/resume.html?id=${encodeURIComponent(job.fingerprint || job.id || '')}" target="_blank" rel="noopener noreferrer" class="btn btn-ats-resume" style="padding: 5px 10px; font-size: 12px; background: #8b5cf6; color: #ffffff; border: none; box-shadow: 0 2px 4px rgba(139, 92, 246, 0.25); text-decoration: none;" title="Generate / View ATS-Optimized Resume for this job">
+                  <span>📄 ATS Resume</span>
+                </a>
+              ` : ''}
               ${directApply ? `
                 <a href="${escapeHtml(directApply.startsWith('http') || directApply.startsWith('mailto:') ? directApply : 'mailto:' + directApply)}" target="_blank" rel="noopener noreferrer" class="btn btn-apply-direct" style="padding: 5px 10px; font-size: 12px;" title="Direct Application Link / Email">
                   <span>Direct Apply</span>
@@ -1220,6 +1248,24 @@
             Logout
           </button>
         `;
+      }
+
+      const tgBtn = document.getElementById('telegramConnectBtn');
+      const tgText = document.getElementById('telegramConnectBtnText');
+      if (tgBtn && user.id) {
+        tgBtn.href = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${encodeURIComponent(user.id)}`;
+        if (user.telegramChatId) {
+          tgBtn.style.background = '#10b981';
+          tgBtn.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.25)';
+          if (tgText) tgText.innerText = '💬 Telegram Connected';
+          tgBtn.title = 'Your Telegram is linked! Click to open the bot.';
+        } else {
+          tgBtn.style.background = '#0088cc';
+          tgBtn.style.boxShadow = '0 2px 4px rgba(0, 136, 204, 0.25)';
+          if (tgText) tgText.innerText = '🚀 Connect Telegram';
+          tgBtn.title = 'Click to connect your Telegram account and receive automated job alerts';
+        }
+        tgBtn.style.display = 'inline-flex';
       }
 
       const headerTitleSpan = document.querySelector('.logo-group h1 span');

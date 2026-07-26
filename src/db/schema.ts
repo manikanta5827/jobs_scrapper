@@ -66,6 +66,7 @@ export const jobs = pgTable("jobs", {
   requiredYoe: text("required_yoe"),
   directApply: text("direct_apply"),
   applicantsCount: text("applicants_count"),
+  optimizedResumeMd: text("optimized_resume_md"),
 }, (table) => [
   // Composite unique index on user_id and job_link to prevent duplicate delivery per user
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),
