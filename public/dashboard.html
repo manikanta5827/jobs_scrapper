@@ -631,14 +631,19 @@
           <img src="logo.png" alt="JobFinder Logo" style="height: 56px; width: auto; object-fit: contain;">
         </div>
         <h2>Access Candidate Dashboard</h2>
-        <p>Enter your unique Candidate UUID to view your personalized matched job listings.</p>
+        <p>Enter your registered email address to view your personalized AI-matched job listings.</p>
       </div>
       <form onsubmit="handleLoginSubmit(event)">
-        <div class="login-form-group">
-          <label for="candidateIdInput">Candidate UUID</label>
-          <input type="text" id="candidateIdInput" class="login-input" placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000" required>
+        <!-- Error notification inside login card -->
+        <div id="loginErrorAlert" class="error-alert" style="display: none; margin-bottom: 16px; padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; font-size: 13px; text-align: left;">
+          <span id="loginErrorMessage">Candidate email not found or invalid.</span>
         </div>
-        <button type="submit" class="btn btn-primary login-btn">
+
+        <div class="login-form-group">
+          <label for="candidateEmailInput">Candidate Email Address</label>
+          <input type="email" id="candidateEmailInput" class="login-input" placeholder="e.g. candidate@example.com" required>
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary login-btn">
           <span>View Matched Jobs</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </button>
@@ -790,14 +795,18 @@
     // Direct backend API Gateway URL
     const API_BASE_URL = 'https://mt07rx0ojd.execute-api.ap-south-1.amazonaws.com/Prod';
 
-    function getUserId() {
-      // 1. Query parameter ?id=... or ?userId=...
-      if (urlParams.get('id')) return urlParams.get('id');
-      if (urlParams.get('userId')) return urlParams.get('userId');
+    function getCandidateEmail() {
+      // 1. Query parameter ?email=... or ?id=... or ?userId=...
+      if (urlParams.get('email')) return urlParams.get('email').trim();
+      if (urlParams.get('id')) return urlParams.get('id').trim();
+      if (urlParams.get('userId')) return urlParams.get('userId').trim();
       
       // 2. Read from localStorage
-      const stored = localStorage.getItem('CANDIDATE_USER_ID');
-      if (stored) return stored.trim();
+      const storedEmail = localStorage.getItem('CANDIDATE_USER_EMAIL');
+      if (storedEmail) return storedEmail.trim();
+
+      const storedId = localStorage.getItem('CANDIDATE_USER_ID');
+      if (storedId) return storedId.trim();
 
       // 3. Path parameter fallback e.g. /dashboard/{id}
       const pathParts = window.location.pathname.split('/').filter(Boolean);
@@ -810,7 +819,7 @@
       return '';
     }
 
-    let userId = getUserId();
+    let userId = getCandidateEmail();
 
     function updateUIState() {
       const loginCard = document.getElementById('loginCard');
@@ -822,29 +831,83 @@
         dashContent.style.display = 'block';
         userBadge.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span>ID: ${escapeHtml(userId.substring(0, 8))}...</span>
-          <button onclick="switchCandidateId()" class="btn" style="padding: 2px 8px; font-size: 11px; margin-left: 6px; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">Switch ID</button>
+          <span style="font-weight: 500;">${escapeHtml(userId)}</span>
+          <button onclick="logoutCandidate()" class="btn btn-logout" style="padding: 4px 10px; font-size: 12px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Logout
+          </button>
         `;
       } else {
         loginCard.style.display = 'block';
         dashContent.style.display = 'none';
-        userBadge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>No User ID Set</span>`;
+        userBadge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>Not Logged In</span>`;
       }
     }
 
-    function handleLoginSubmit(e) {
+    async function handleLoginSubmit(e) {
       e.preventDefault();
-      const inputVal = document.getElementById('candidateIdInput').value.trim();
-      if (!inputVal) return;
-      localStorage.setItem('CANDIDATE_USER_ID', inputVal);
-      userId = inputVal;
-      updateUIState();
-      loadUserJobs(1);
+      const emailInput = document.getElementById('candidateEmailInput');
+      const errorAlert = document.getElementById('loginErrorAlert');
+      const errorMsg = document.getElementById('loginErrorMessage');
+      const submitBtn = document.getElementById('loginSubmitBtn');
+      const inputVal = emailInput ? emailInput.value.trim() : '';
+
+      if (errorAlert) errorAlert.style.display = 'none';
+
+      // 1. Frontend Email Regex Validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!inputVal || !emailRegex.test(inputVal)) {
+        if (errorMsg) errorMsg.innerText = 'Please enter a valid email address (e.g. candidate@example.com).';
+        if (errorAlert) errorAlert.style.display = 'block';
+        if (emailInput) emailInput.focus();
+        return;
+      }
+
+      // 2. Preflight API Verification Request
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span>Verifying email...</span>`;
+      }
+
+      try {
+        const testUrl = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(inputVal)}/jobs?page=1&limit=1`;
+        const res = await fetch(testUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Candidate email not found or invalid (status ${res.status}).`);
+        }
+
+        const data = await res.json();
+        if (!data.user) {
+          throw new Error('No candidate account found for this email address.');
+        }
+
+        // 3. Success (200 OK & user exists) -> Store in localStorage & show dashboard
+        localStorage.setItem('CANDIDATE_USER_EMAIL', inputVal);
+        userId = inputVal;
+        updateUIState();
+        loadUserJobs(1);
+      } catch (err) {
+        if (errorMsg) errorMsg.innerText = err.message || 'Candidate email address not found. Please try again.';
+        if (errorAlert) errorAlert.style.display = 'block';
+        // User remains on login card!
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = `<span>View Matched Jobs</span> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
+        }
+      }
     }
 
-    function switchCandidateId() {
+    function logoutCandidate() {
+      localStorage.removeItem('CANDIDATE_USER_EMAIL');
       localStorage.removeItem('CANDIDATE_USER_ID');
       userId = '';
+      const emailInput = document.getElementById('candidateEmailInput');
+      if (emailInput) emailInput.value = '';
+      const errorAlert = document.getElementById('loginErrorAlert');
+      if (errorAlert) errorAlert.style.display = 'none';
       updateUIState();
     }
 

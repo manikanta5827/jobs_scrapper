@@ -197,7 +197,7 @@ export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
 
 // Retrieve matched jobs with pagination, date range, and min/max score filtering
 export async function getJobsForUser(
-  userId: string,
+  identifier: string,
   options: {
     page?: number;
     limit?: number;
@@ -220,9 +220,32 @@ export async function getJobsForUser(
 
   await initDb();
 
+  // Resolve identifier (email or UUID) to target user ID
+  let targetUserId = identifier.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId);
+  if (!isUuid || targetUserId.includes('@')) {
+    const userRows = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(sql`LOWER(${users.email})`, targetUserId.toLowerCase()))
+      .limit(1);
+    if (userRows.length > 0) {
+      targetUserId = userRows[0].id;
+    } else {
+      return {
+        jobs: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 1,
+        filters: { minScore, maxScore },
+        user: null
+      };
+    }
+  }
+
   // Filter matched jobs within [minScore, maxScore] range
   const conditions: SQL[] = [
-    eq(jobs.userId, userId),
+    eq(jobs.userId, targetUserId),
     gte(jobs.aiScore, minScore),
     lte(jobs.aiScore, maxScore)
   ];
@@ -263,7 +286,7 @@ export async function getJobsForUser(
     candidateSummary: users.candidateSummary,
     knownSkills: users.knownSkills,
     suggestedJobTitles: users.suggestedJobTitles,
-  }).from(users).where(eq(users.id, userId)).limit(1);
+  }).from(users).where(eq(users.id, targetUserId)).limit(1);
 
   const total = Number(countResult[0]?.count || 0);
 

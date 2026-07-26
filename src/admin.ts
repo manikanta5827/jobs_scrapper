@@ -50,12 +50,12 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   const body = event.body ? JSON.parse(event.body) : {};
   const pathParameters = event.pathParameters || {};
 
-  // 1. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs with pagination & date filters
+  // 1. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs by email or UUID
   if ((path === '/users/{id}/jobs' || path.endsWith('/jobs')) && method === 'GET') {
-    const userId = pathParameters.id || path.split('/')[2];
-    const paramParse = UuidParamSchema.safeParse(userId);
-    if (!paramParse.success) {
-      return response(400, { error: `Invalid User ID: ${formatZodError(paramParse.error)}` });
+    const rawId = pathParameters.id || path.split('/')[2] || '';
+    const identifier = decodeURIComponent(rawId).trim();
+    if (!identifier) {
+      return response(400, { error: 'Missing Candidate Email or User ID parameter' });
     }
 
     const qp = event.queryStringParameters || {};
@@ -66,7 +66,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     const minScore = qp.minScore ? parseInt(qp.minScore, 10) : undefined;
     const maxScore = qp.maxScore ? parseInt(qp.maxScore, 10) : undefined;
 
-    const result = await getJobsForUser(paramParse.data, { page, limit, fromDate, toDate, minScore, maxScore });
+    const result = await getJobsForUser(identifier, { page, limit, fromDate, toDate, minScore, maxScore });
     return response(200, result);
   }
 
