@@ -1,0 +1,24 @@
+# .samignore
+# Ignore non-Lambda frontend, documentation, scripts, and configuration files
+# to prevent 'sam sync --watch' from triggering unnecessary AWS re-deployments.
+
+public/
+docs/
+scripts/
+vercel.json
+README.md
+CLAUDE.md
+report.md
+resume.txt
+test_apify_results.json
+drizzle.config.ts
+drizzle/
+event.json
+env.json
+
+# Tooling and IDE directories
+.vscode/
+.serena/
+.claude/
+.commandcode/
+temp_out/

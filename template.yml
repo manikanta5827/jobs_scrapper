@@ -117,8 +117,8 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogFormat: JSON
-      CodeUri: ./
-      Handler: src/lambda.handler
+      CodeUri: src/
+      Handler: lambda.handler
       Timeout: 60
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -178,7 +178,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/lambda.ts
+          - lambda.ts
 
   # Isolated Per-User Worker Lambda (Invoked asynchronously per candidate user)
   UserWorkerLambda:
@@ -190,8 +190,8 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogFormat: JSON
-      CodeUri: ./
-      Handler: src/user_worker.handler
+      CodeUri: src/
+      Handler: user_worker.handler
       Timeout: 900
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -239,7 +239,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/user_worker.ts
+          - user_worker.ts
 
   # Admin Lambda Endpoint for manual triggers and RESTful user CRUD API
   AdminLambda:
@@ -251,8 +251,8 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogFormat: JSON
-      CodeUri: ./
-      Handler: src/admin.handler
+      CodeUri: src/
+      Handler: admin.handler
       Timeout: 300
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -385,7 +385,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/admin.ts
+          - admin.ts
 
   # Telegram Bot Webhook Lambda for /start, /stop, /balance commands
   TelegramWebhookLambda:
@@ -397,8 +397,8 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogFormat: JSON
-      CodeUri: ./
-      Handler: src/telegram_webhook.handler
+      CodeUri: src/
+      Handler: telegram_webhook.handler
       Timeout: 30
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -430,7 +430,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/telegram_webhook.ts
+          - telegram_webhook.ts
 
   PostQueue:
     Type: AWS::SQS::Queue
@@ -448,8 +448,8 @@ Resources:
       ReservedConcurrentExecutions: 1
       LoggingConfig:
         LogFormat: JSON
-      CodeUri: ./
-      Handler: src/post_scheduler.handler
+      CodeUri: src/
+      Handler: post_scheduler.handler
       Timeout: 60
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -491,7 +491,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - src/post_scheduler.ts
+          - post_scheduler.ts
 
   # ─── CLOUDWATCH LOG GROUPS WITH 3-DAY RETENTION ────────────────────────────
   MyLogGroup:
