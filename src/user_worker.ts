@@ -4,8 +4,8 @@
  */
 
 import type { Context } from 'aws-lambda';
-import { scrapeJobs } from './helper/apify';
-import { checkRelevanceBatch, calculateCostUsd } from './helper/deepseek';
+import { fetchJobsForUser } from './helper/job_fetcher';
+import { checkRelevanceBatch, calculateCostUsd } from './helper/llm';
 import { 
   getExistingJobsData, 
   trackJobs, 
@@ -13,7 +13,7 @@ import {
   recordAndDeductUserRun 
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
-import { keywordFilter, prepareSearchUrls } from './helper/filter';
+import { keywordFilter } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
 import { 
@@ -35,7 +35,6 @@ export const handler = async (
 ): Promise<{ statusCode: number; body: string }> => {
   const userId = event.userId;
   const lookbackHours = event.lookbackHours || 12;
-  const lookbackSeconds = Math.floor(lookbackHours * 3600);
 
   // Format current date and time in IST timezone (e.g. "24 Jul 2026, 09:00 AM IST")
   const dateStr = new Date().toLocaleString('en-IN', { 
@@ -95,11 +94,8 @@ export const handler = async (
   }
 
   try {
-    // 2. Prepare user specific LinkedIn search URLs with lookback time
-    const searchUrls = prepareSearchUrls(user.linkedinSearchUrls as string[], lookbackSeconds);
-    
-    // 3. Scrape job listings via Apify shared key rotation
-    const rawJobs = await scrapeJobs(searchUrls);
+    // 2. Scrape job listings via unified Job Fetcher (uses SCRAPER_PROVIDER env var, default "lambda")
+    const rawJobs = await fetchJobsForUser(user, lookbackHours);
     const rawCount = rawJobs.length;
     console.log(`User ${user.id}: Scraped ${rawCount} total jobs`);
 

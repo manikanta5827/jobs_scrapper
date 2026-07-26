@@ -195,6 +195,10 @@ Resources:
                 - sqs:SendMessage
                 - sqs:SendMessageBatch
               Resource: !GetAtt PostQueue.Arn
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:linkedin-jobs-scraper-prod'
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
@@ -207,6 +211,7 @@ Resources:
           POST_QUEUE_URL: !Ref PostQueue
           DEFAULT_BILLED_RUN_COST_USD: "0.1"
           MIN_RUN_BALANCE: "0.1"
+          LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
     EventInvokeConfig:
       MaximumRetryAttempts: 1
       MaximumEventAgeInSeconds: 3600

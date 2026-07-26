@@ -6,7 +6,6 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(), // Unique email identifier
   name: text("name"), // User full name
   resumeText: text("resume_text").notNull(), // Full plain text content of candidate's resume
-  linkedinSearchUrls: jsonb("linkedin_search_urls").$type<string[]>().notNull(), // Array of LinkedIn search URLs to scrape
   telegramChatId: text("telegram_chat_id"), // Candidate's Telegram chat ID (linked via /register <UUID>)
   linkedinCredentials: jsonb("linkedin_credentials").$type<{
     accessToken?: string;
@@ -20,7 +19,6 @@ export const users = pgTable("users", {
   
   // Onboarding Candidate Preferences & Experience
   experienceYears: integer("experience_years").default(0).notNull(), // Candidate total experience in years (required)
-  targetRoles: text("target_roles"), // Optional comma-separated target roles (e.g. "QA Engineer, SDET")
   targetLocations: text("target_locations"), // Optional preferred locations (e.g. "Hyderabad, Remote")
   employmentType: text("employment_type"), // Optional employment type (e.g. "Full-time")
 

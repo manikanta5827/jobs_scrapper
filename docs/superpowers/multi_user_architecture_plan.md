@@ -72,7 +72,6 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name"),
   resumeText: text("resume_text").notNull(), // User's resume text string
-  linkedinSearchUrls: jsonb("linkedin_search_urls").$type<string[]>().notNull(), // Array of search URLs
   telegramChatId: text("telegram_chat_id").notNull(), // Target Telegram Chat ID
   telegramBotToken: text("telegram_bot_token"), // Optional custom bot token (falls back to ENV)
   linkedinCredentials: jsonb("linkedin_credentials").$type<{

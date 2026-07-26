@@ -283,13 +283,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         </div>
 
         <div class="form-group">
-          <label>Target Job Titles (Optional — Comma Separated)</label>
-          <input type="text" id="userTargetRoles" maxlength="500" placeholder="e.g. QA Engineer, SDET, Backend Developer">
-        </div>
-
-        <div class="form-group">
-          <label>Target Locations (Optional)</label>
-          <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote">
+          <label>Target Locations (Optional — e.g. Bangalore, Hyderabad)</label>
+          <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote (leave empty to search all major cities)">
         </div>
 
         <div class="form-group">
@@ -299,7 +294,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         
         <!-- AI Extracted Profile Data -->
         <div style="border: 1px solid #334155; padding: 12px; margin-bottom: 16px; border-radius: 6px; background: rgba(30, 41, 59, 0.5);">
-          <h4 style="margin-top: 0; margin-bottom: 12px; color: #94a3b8; font-size: 13px;">AI Extracted Profile (Auto-filled)</h4>
+          <h4 style="margin-top: 0; margin-bottom: 12px; color: #94a3b8; font-size: 13px;">AI Extracted Profile (Auto-filled on Analyze)</h4>
           <div class="form-group">
             <label>Primary Domain</label>
             <input type="text" id="aiPrimaryDomain" placeholder="e.g. Backend Engineering">
@@ -325,23 +320,13 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
             <textarea id="aiKeyHighlights" style="height: 50px;" placeholder="Scaled system to 1M users..."></textarea>
           </div>
           <div class="form-group">
-            <label>Suggested Job Titles (Comma Separated)</label>
+            <label>Suggested Job Titles (Comma Separated — Auto-drives search)</label>
             <textarea id="aiSuggestedJobTitles" style="height: 50px;" placeholder="Backend Developer, SDE..."></textarea>
           </div>
           <div class="form-group">
             <label>Projects (JSON Array)</label>
             <textarea id="aiProjects" style="height: 80px;" placeholder='[{"project_title": "X", "project_description": "Y"}]'></textarea>
           </div>
-        </div>
-
-        <!-- Interactive LinkedIn Search URLs Add/Remove Component -->
-        <div class="form-group">
-          <label id="searchUrlCounterLabel">LinkedIn Search URLs (Min 1, Max 4 URLs) *</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="url" id="newSearchUrlInput" placeholder="https://www.linkedin.com/jobs/search?keywords=Backend..." style="flex: 1;">
-            <button type="button" class="btn btn-secondary" onclick="addLinkedInUrl()" style="white-space: nowrap;">+ Add URL</button>
-          </div>
-          <div id="urlChipsContainer" class="url-chip-list"></div>
         </div>
 
         <div class="form-group">
@@ -449,7 +434,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     let apiBase = localStorage.getItem('ADMIN_API_BASE') || window.location.origin + window.location.pathname.replace(/\\/(admin\\.html|admin)?$/, '');
     let apiKey = localStorage.getItem('ADMIN_API_KEY') || '';
-    let addedUrlsList = []; // Interactive state array for LinkedIn search URLs
     let currentProfileFields = null; // Holds extracted AI profile fields object
 
     async function analyzeResumeWithAI() {
@@ -484,11 +468,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           document.getElementById('userExcludeKeywords').value = analysis.excludeTitleKeywords.join(', ');
         }
 
-        const currentRoles = document.getElementById('userTargetRoles').value.trim();
-        if (!currentRoles && analysis.suggestedJobTitles && Array.isArray(analysis.suggestedJobTitles)) {
-          document.getElementById('userTargetRoles').value = analysis.suggestedJobTitles.join(', ');
-        }
-
         statusEl.style.color = 'var(--success)';
         statusEl.innerText = '✓ AI Analysis Complete! Primary Domain: "' + (analysis.primaryDomain || 'N/A') + '"';
         showToast('Resume analyzed successfully by DeepSeek!');
@@ -509,17 +488,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       if (resumeInput) {
         resumeInput.addEventListener('input', () => {
           document.getElementById('resumeCharCounter').innerText = resumeInput.value.length + ' / 15,000 characters';
-        });
-      }
-
-      // Enter key handler for quick URL adding
-      const urlInput = document.getElementById('newSearchUrlInput');
-      if (urlInput) {
-        urlInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            addLinkedInUrl();
-          }
         });
       }
 
@@ -721,59 +689,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-    // ─── Interactive LinkedIn URL Component Helpers ─────────────────────────────
-    function renderUrlChips() {
-      const container = document.getElementById('urlChipsContainer');
-      const label = document.getElementById('searchUrlCounterLabel');
-      label.innerText = \`LinkedIn Search URLs (\${addedUrlsList.length} / 4 added) *\`;
-
-      if (addedUrlsList.length === 0) {
-        container.innerHTML = '<span style="font-size: 12px; color: var(--text-muted); padding: 4px 0;">No LinkedIn URLs added yet. Paste URL above and click + Add URL.</span>';
-        return;
-      }
-
-      container.innerHTML = addedUrlsList.map((url, idx) => \`
-        <div class="url-chip-item">
-          <span>🔗 \${url}</span>
-          <button type="button" class="remove-url-btn" onclick="removeLinkedInUrl(\${idx})" title="Remove URL">&times;</button>
-        </div>
-      \`).join('');
-    }
-
-    function addLinkedInUrl() {
-      const input = document.getElementById('newSearchUrlInput');
-      const rawUrl = input.value.trim();
-
-      if (!rawUrl) {
-        alert('Please paste a valid LinkedIn search URL!');
-        return;
-      }
-
-      if (!/^https?:\\/\\/.+/i.test(rawUrl)) {
-        alert('Invalid URL format! URL must start with http:// or https://');
-        return;
-      }
-
-      if (addedUrlsList.length >= 4) {
-        alert('Maximum 4 LinkedIn search URLs allowed per candidate!');
-        return;
-      }
-
-      if (addedUrlsList.includes(rawUrl)) {
-        alert('This LinkedIn search URL has already been added!');
-        return;
-      }
-
-      addedUrlsList.push(rawUrl);
-      input.value = ''; // Reset input placeholder for next URL
-      renderUrlChips();
-    }
-
-    function removeLinkedInUrl(idx) {
-      addedUrlsList.splice(idx, 1);
-      renderUrlChips();
-    }
-
     function openAddUserModal() {
       document.getElementById('userModalTitle').innerText = 'Add Candidate';
       document.getElementById('editUserId').value = '';
@@ -783,8 +698,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       document.getElementById('analyzeAiStatus').innerText = '';
       
       currentProfileFields = null;
-      addedUrlsList = []; // Reset URLs array
-      renderUrlChips();
       openModal('userModal');
     }
 
@@ -831,10 +744,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         statusEl.innerText = '';
       }
 
-      // Load candidate's existing URLs into interactive list
-      addedUrlsList = [...(user.linkedinSearchUrls || [])];
-      renderUrlChips();
-
       document.getElementById('userExcludeKeywords').value = (user.excludeTitleKeywords || []).join(', ');
       
       const creds = user.linkedinCredentials || {};
@@ -856,20 +765,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         return;
       }
 
-      // Check if user typed a URL into input box without clicking + Add URL button
-      const pendingUrl = document.getElementById('newSearchUrlInput').value.trim();
-      if (pendingUrl && /^https?:\\/\\/.+/i.test(pendingUrl) && addedUrlsList.length < 4 && !addedUrlsList.includes(pendingUrl)) {
-        addedUrlsList.push(pendingUrl);
-        document.getElementById('newSearchUrlInput').value = '';
-        renderUrlChips();
-      }
-
-      // Validate search URLs count (min 1, max 4 URLs)
-      if (addedUrlsList.length < 1 || addedUrlsList.length > 4) {
-        alert('Please add between 1 and 4 LinkedIn search URLs! (Currently added: ' + addedUrlsList.length + ')');
-        return;
-      }
-
       const excludesRaw = document.getElementById('userExcludeKeywords').value;
       const excludeTitleKeywords = excludesRaw.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
 
@@ -877,7 +772,6 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const accessToken = document.getElementById('userLinkedinAccessToken').value.trim();
 
       const expYears = parseInt(document.getElementById('userExperienceYears').value || '0', 10);
-      const targetRoles = document.getElementById('userTargetRoles').value.trim();
       const targetLocations = document.getElementById('userTargetLocations').value.trim();
       const employmentType = document.getElementById('userEmploymentType').value.trim();
 
@@ -886,9 +780,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         name: document.getElementById('userName').value.trim(),
         telegramChatId: document.getElementById('userTelegramChatId').value.trim(),
         resumeText,
-        linkedinSearchUrls: addedUrlsList,
         experienceYears: isNaN(expYears) ? 0 : expYears,
-        targetRoles: targetRoles || undefined,
         targetLocations: targetLocations || undefined,
         employmentType: employmentType || undefined,
         customRunCostUsd: document.getElementById('userCustomRate').value ? parseFloat(document.getElementById('userCustomRate').value) : null

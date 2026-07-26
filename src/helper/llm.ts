@@ -75,7 +75,6 @@ export async function executellmCall<T>(
 
 export interface UserPromptContext {
   experienceYears?: number | null;
-  targetRoles?: string | null;
   targetLocations?: string | null;
   employmentType?: string | null;
   resumeText?: string | null;
@@ -126,9 +125,6 @@ export function buildSystemPrompt(context: UserPromptContext | string): string {
   }
 
   let preferencesSection = "";
-  if (user.targetRoles) {
-    preferencesSection += `- Candidate Target Job Roles: ${user.targetRoles}\n`;
-  }
   if (user.targetLocations) {
     preferencesSection += `- Candidate Preferred Locations: ${user.targetLocations}\n`;
   }
@@ -158,7 +154,6 @@ ${expRule}
 - STRICT GROUNDING: "matched_skills" MUST ONLY list skills that are explicitly mentioned or required in the job description AND present in the candidate's known skills or resume. NEVER list candidate skills under "matched_skills" if they are absent from the job description text.
 
 ### 3. DOMAIN & ROLE RELEVANCE
-${user.targetRoles ? `- Enforce preference for candidate target roles (${user.targetRoles}).` : ''}
 - Evaluate whether the job's functional domain matches the candidate's background.
 - REJECT: Completely unrelated roles that have zero functional overlap with the candidate's experience.
 

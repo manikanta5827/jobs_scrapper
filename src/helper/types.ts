@@ -75,7 +75,6 @@ export interface CandidateProfileData {
 export interface UserPromptContext {
   resumeText: string;
   experienceYears?: number | null;
-  targetRoles?: string | null;
   targetLocations?: string | null;
   employmentType?: string | null;
   primaryDomain?: string | null;

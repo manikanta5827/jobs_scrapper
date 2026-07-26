@@ -19,7 +19,7 @@ import {
   getAnalyticsStats,
   getJobsForUser
 } from './helper/db_helper';
-import { generateExcludeKeywordsWithLLM, analyzeResumeWithLLM } from './helper/deepseek';
+import { generateExcludeKeywordsWithLLM, analyzeResumeWithLLM } from './helper/llm';
 import { ADMIN_HTML_CONTENT } from './helper/admin_html';
 import { DASHBOARD_HTML_CONTENT } from './helper/dashboard_html';
 import { 
@@ -155,9 +155,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
 
         const { 
-          email, name, resumeText, linkedinSearchUrls, telegramChatId, 
+          email, name, resumeText, telegramChatId, 
           linkedinCredentials, initialInr, customRunCostUsd, excludeTitleKeywords,
-          experienceYears, targetRoles, targetLocations, employmentType,
+          experienceYears, targetLocations, employmentType,
           primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles
         } = parseResult.data;
 
@@ -173,14 +173,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           email,
           name,
           resumeText,
-          linkedinSearchUrls,
           telegramChatId: telegramChatId || "",
           linkedinCredentials,
           balanceUsd: initialUsd,
           customRunCostUsd: customRunCostUsd ?? undefined,
           excludeTitleKeywords: finalExcludes,
           experienceYears: experienceYears ?? 0,
-          targetRoles: targetRoles || undefined,
           targetLocations: targetLocations || undefined,
           employmentType: employmentType || undefined,
           primaryDomain,
@@ -230,13 +228,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const addUsd = Number((parseResult.data.amountInr / 100).toFixed(2));
           updateData.balanceUsd = (existingUser.balanceUsd || 0) + addUsd;
           delete updateData.amountInr;
-        }
-
-        // Re-generate exclude keywords if resume or search URLs changed without explicit excludes
-        if ((parseResult.data.resumeText || parseResult.data.linkedinSearchUrls) && !parseResult.data.excludeTitleKeywords) {
-          const rText = parseResult.data.resumeText || existingUser.resumeText;
-          console.log(`Re-generating exclude keywords via DeepSeek LLM for user ID ${userId}...`);
-          updateData.excludeTitleKeywords = await generateExcludeKeywordsWithLLM(rText);
         }
 
         const updated = await updateUser(userId, updateData);

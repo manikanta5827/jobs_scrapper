@@ -33,11 +33,6 @@ export const CreateUserSchema = z.object({
   resumeText: z.string()
     .min(50, { message: "Resume plain text must be at least 50 characters long" })
     .max(15000, { message: "Resume plain text cannot exceed 15,000 characters" }),
-  linkedinSearchUrls: z.array(
-    z.string().trim().url({ message: "Invalid URL format in search URLs list" })
-  )
-  .min(1, { message: "At least 1 LinkedIn search URL is required" })
-  .max(4, { message: "Maximum 4 LinkedIn search URLs allowed" }),
   telegramChatId: z.string().trim().max(50, { message: "Telegram Chat ID cannot exceed 50 characters" }).optional(),
   linkedinCredentials: z.object({
     accessToken: z.string().trim().max(1000, { message: "Access token too long" }).optional(),
@@ -53,7 +48,6 @@ export const CreateUserSchema = z.object({
     .max(10.0, { message: "Custom rate cannot exceed $10.00 USD" })
     .nullable().optional(),
   experienceYears: z.number().min(0, { message: "Experience years must be 0 or greater" }).max(50).optional().default(0),
-  targetRoles: z.string().trim().max(500).optional(),
   targetLocations: z.string().trim().max(500).optional(),
   employmentType: z.string().trim().max(100).optional(),
   primaryDomain: z.string().trim().max(255).optional(),
@@ -80,12 +74,6 @@ export const UpdateUserSchema = z.object({
     .min(50, { message: "Resume plain text must be at least 50 characters long" })
     .max(15000, { message: "Resume plain text cannot exceed 15,000 characters" })
     .optional(),
-  linkedinSearchUrls: z.array(
-    z.string().trim().url()
-  )
-  .min(1, { message: "At least 1 LinkedIn search URL is required" })
-  .max(4, { message: "Maximum 4 LinkedIn search URLs allowed" })
-  .optional(),
   telegramChatId: z.string().trim().max(50).optional(),
   linkedinCredentials: z.object({
     accessToken: z.string().trim().max(1000).optional(),
@@ -96,7 +84,6 @@ export const UpdateUserSchema = z.object({
   balanceUsd: z.number().min(0).max(10000).optional(),
   customRunCostUsd: z.number().min(0.01).max(10.0).nullable().optional(),
   experienceYears: z.number().min(0).max(50).optional(),
-  targetRoles: z.string().trim().max(500).optional(),
   targetLocations: z.string().trim().max(500).optional(),
   employmentType: z.string().trim().max(100).optional(),
   primaryDomain: z.string().trim().max(255).optional(),
