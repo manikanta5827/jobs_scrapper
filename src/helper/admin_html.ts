@@ -858,8 +858,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           <input type="password" id="apifyToken" required maxlength="255" placeholder="apify_api_xxxxxxxxxxxxxxxx">
         </div>
         <div class="form-group">
-          <label>Subscription Renewal Day of Month (1 to 28)</label>
-          <input type="number" id="apifyRenewalDay" min="1" max="28" value="1" required>
+          <label>Subscription Start Date (YYYY-MM-DD) *</label>
+          <input type="date" id="apifyDate" required>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
           <button type="button" class="btn" onclick="closeModal('apifyModal')">Cancel</button>
@@ -1121,6 +1121,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
             <td><b style="color: var(--text-main);">\${u.totalRunsCount || 0}</b></td>
             <td>
               <div style="display: flex; gap: 6px;">
+                <button class="btn btn-sm" onclick="triggerUserRun('\${u.id}')" title="Trigger Run">▶ Run</button>
                 <button class="btn btn-sm" onclick="openTopupModal('\${u.id}', '\${u.email}')">Top Up</button>
                 <button class="btn btn-sm" onclick="openEditUserModal('\${u.id}')">Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteUser('\${u.id}')">
@@ -1140,27 +1141,33 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const tbody = document.getElementById('apifyTableBody');
       try {
         const data = await apiRequest('/apify-keys');
-        const keys = data.apifyKeys || [];
+        const keys = data.keys || data.apifyKeys || [];
         if (keys.length === 0) {
           tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-tertiary)">No Apify tokens in rotation pool. Click + Add Apify Token.</td></tr>';
           return;
         }
 
-        tbody.innerHTML = keys.map(k => \`
+        tbody.innerHTML = keys.map(k => {
+          const active = (Number(k.usageCost) || 0) < 5.00;
+          return \`
           <tr>
-            <td class="mono-cell">\${k.id.substring(0, 8)}...</td>
-            <td><b style="color: var(--text-main);">\${k.accountLabel}</b></td>
-            <td class="mono-cell">\${k.apiKey.substring(0, 8)}...</td>
-            <td>Day \${k.monthlyResetDay} of month</td>
-            <td>$\${k.accumulatedUsageUsd.toFixed(4)} / $5.00</td>
+            <td class="mono-cell">#\${k.id}</td>
+            <td><b style="color: var(--text-main);">\${k.name || 'Apify Token'}</b></td>
+            <td class="mono-cell"><code>\${(k.apiKey || '').substring(0, 8)}...\${(k.apiKey || '').substring((k.apiKey || '').length - 4)}</code></td>
+            <td>\${k.subscriptionStartDate || 'N/A'}</td>
+            <td>$\${(Number(k.usageCost) || 0).toFixed(4)} / $5.00</td>
             <td>
-              <span class="badge \${k.isActive ? 'badge-active' : 'badge-inactive'}">\${k.isActive ? 'Active' : 'Depleted'}</span>
+              <span class="badge \${active ? 'badge-active' : 'badge-inactive'}">\${active ? 'Active' : 'Depleted'}</span>
             </td>
             <td>
-              <button class="btn btn-danger btn-sm" onclick="deleteApifyKey('\${k.id}')">Remove</button>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-sm" onclick="resetApifyUsage(\${k.id})">Reset $0</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteApifyKey(\${k.id})">Remove</button>
+              </div>
             </td>
           </tr>
-        \`).join('');
+        \`;
+        }).join('');
       } catch (err) {
         tbody.innerHTML = \`<tr><td colspan="7" style="text-align: center; color: var(--danger)">Failed to load Apify keys: \${err.message}</td></tr>\`;
       }
@@ -1367,7 +1374,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     function openAddKeyModal() {
       document.getElementById('apifyLabel').value = '';
       document.getElementById('apifyToken').value = '';
-      document.getElementById('apifyRenewalDay').value = '1';
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('apifyDate').value = today;
       openModal('apifyModal');
     }
 
@@ -1380,10 +1388,10 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
       const accountLabel = document.getElementById('apifyLabel').value.trim();
       const apiKeyVal = document.getElementById('apifyToken').value.trim();
-      const monthlyResetDay = parseInt(document.getElementById('apifyRenewalDay').value, 10);
+      const subscriptionStartDate = document.getElementById('apifyDate').value;
 
       try {
-        await apiRequest('/apify-keys', 'POST', { accountLabel, apiKey: apiKeyVal, monthlyResetDay });
+        await apiRequest('/apify-keys', 'POST', { name: accountLabel, apiKey: apiKeyVal, subscriptionStartDate });
         showToast('Apify token added to rotation pool');
         closeModal('apifyModal');
         loadDashboardData();
@@ -1395,6 +1403,16 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       }
     }
 
+    async function resetApifyUsage(id) {
+      try {
+        await apiRequest('/apify-keys/' + id, 'PUT', { usageCost: 0 });
+        showToast('Usage cost reset to $0!');
+        loadDashboardData();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
     async function deleteApifyKey(id) {
       if (!confirm('Remove this Apify token from rotation pool?')) return;
       try {
@@ -1403,6 +1421,15 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         loadDashboardData();
       } catch (err) {
         alert('Delete failed: ' + err.message);
+      }
+    }
+
+    async function triggerUserRun(userId) {
+      try {
+        await apiRequest('/run', 'POST', { targetUserId: userId, lookbackHours: 12 });
+        showToast(\`Run dispatched for Candidate \${userId.substring(0, 8)}!\`);
+      } catch (err) {
+        alert(\`Error: \${err.message}\`);
       }
     }
   </script>
