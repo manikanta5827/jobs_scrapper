@@ -1062,10 +1062,10 @@
         const reason = job.aiReason || job.ai_reason || '';
         const link = job.jobLink || job.job_link || '#';
         const directApply = job.directApply || job.direct_apply || job.applyUrl || null;
-        const requiredYoe = job.requiredYoe || job.required_yoe || null;
+        const requiredYoe = job.requiredYoe || job.required_yoe || job.years_of_experience || job.ai_yoe || null;
         const applicantsCount = job.applicantsCount || job.applicants_count || null;
-        const matchedSkills = job.matchedSkills || job.matched_skills || job.ai_matched_skills || [];
-        const missingSkills = job.missingSkills || job.missing_skills || job.ai_missing_skills || [];
+        const matchedSkills = Array.isArray(job.matchedSkills) ? job.matchedSkills : (Array.isArray(job.matched_skills) ? job.matched_skills : (Array.isArray(job.ai_matched_skills) ? job.ai_matched_skills : []));
+        const missingSkills = Array.isArray(job.missingSkills) ? job.missingSkills : (Array.isArray(job.missing_skills) ? job.missing_skills : (Array.isArray(job.ai_missing_skills) ? job.ai_missing_skills : []));
         const createdAt = job.createdAt || job.created_at || job.postedAt || job.posted_at || new Date().toISOString();
 
         const dateObj = new Date(createdAt);
@@ -1094,8 +1094,8 @@
         }
 
         let metaHtml = '';
-        if (requiredYoe && requiredYoe !== 'Not specified') {
-          metaHtml += `<span class="meta-badge">💼 ${escapeHtml(requiredYoe)}</span>`;
+        if (requiredYoe) {
+          metaHtml += `<span class="meta-badge" title="Experience Requirement">💼 ${escapeHtml(requiredYoe)}</span>`;
         }
         if (applicantsCount) {
           metaHtml += `<span class="meta-badge">👥 ${escapeHtml(String(applicantsCount))}</span>`;
