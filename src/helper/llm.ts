@@ -236,7 +236,7 @@ const batchResponseSchema = z.object({
 export async function checkRelevanceBatch(
   jobs: Job[],
   candidateContext: UserPromptContext | string,
-  batchSize: number = 5,  // How many jobs per single LLM API call (e.g. 5 jobs in 1 prompt)
+  batchSize: number = 2,  // How many jobs per single LLM API call (e.g. 2 jobs in 1 prompt)
   delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
   concurrency: number = 3,  // How many batches (LLM API calls) to execute simultaneously in parallel
 ): Promise<BatchResult> {
