@@ -19,7 +19,7 @@ import {
   getAnalyticsStats,
   getJobsForUser
 } from './helper/db_helper';
-import { generateExcludeKeywordsWithLLM, analyzeResumeWithLLM } from './helper/llm';
+import { analyzeResumeWithLLM } from './helper/llm';
 import { ADMIN_HTML_CONTENT } from './helper/admin_html';
 import { DASHBOARD_HTML_CONTENT } from './helper/dashboard_html';
 import { 
@@ -161,13 +161,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles
         } = parseResult.data;
 
-        // Auto-generate exclude keywords via LLM if not explicitly supplied
-        let finalExcludes = excludeTitleKeywords;
-        if (!finalExcludes || !Array.isArray(finalExcludes) || finalExcludes.length === 0) {
-          console.log(`Auto-generating exclude keywords via DeepSeek LLM for ${email}...`);
-          finalExcludes = await generateExcludeKeywordsWithLLM(resumeText);
-        }
-
         const initialUsd = Number(((initialInr || 500) / 100).toFixed(2));
         const created = await createUser({
           email,
@@ -177,7 +170,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           linkedinCredentials,
           balanceUsd: initialUsd,
           customRunCostUsd: customRunCostUsd ?? undefined,
-          excludeTitleKeywords: finalExcludes,
+          excludeTitleKeywords: excludeTitleKeywords,
           experienceYears: experienceYears ?? 0,
           targetLocations: targetLocations || undefined,
           employmentType: employmentType || undefined,

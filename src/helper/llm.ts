@@ -8,6 +8,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
+import { aiTelemetry } from './telemetry';
 
 // Disable verbose AI SDK compatibility warnings in production logs
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
@@ -39,7 +40,8 @@ export async function executellmCall<T>(
   schema: z.ZodType<T>,
   prompt: string,
   systemPrompt?: string,
-  temperature?: number
+  temperature?: number,
+  telemetryOptions?: { functionId?: string; metadata?: Record<string, string> }
 ): Promise<{ object: T; usage: TokenUsage }> {
   if (!process.env.DEEPSEEK_API_KEY) {
     throw new FatalError("Missing DEEPSEEK_API_KEY");
@@ -56,6 +58,10 @@ export async function executellmCall<T>(
     schema: schema,
     maxRetries: 3,
     temperature: temperature,
+    experimental_telemetry: aiTelemetry(
+      telemetryOptions?.functionId ?? 'llm-call',
+      telemetryOptions?.metadata ?? {}
+    ),
   });
 
   const anyUsage = apiUsage as any;
@@ -265,7 +271,12 @@ export async function checkRelevanceBatch(
             const res = await executellmCall(
               batchResponseSchema,
               userMessage,
-              systemPrompt
+              systemPrompt,
+              undefined,
+              {
+                functionId: 'job-relevance-batch',
+                metadata: { batch_number: String(batchNum), batch_size: String(batch.length) }
+              }
             );
 
             // Track cumulative token usage across all parallel calls
@@ -297,7 +308,16 @@ export async function checkRelevanceBatch(
               try {
                 const singlePayload = [{ id: j, ...prepareJobPayload(batch[j]) }];
                 const singleMsg = `Job Listings (JSON array, 1 job):\n-------------------\n${JSON.stringify(singlePayload, null, 2)}\n\nEvaluate each job per the system rules.`;
-                const singleRes = await executellmCall(batchResponseSchema, singleMsg, systemPrompt);
+                const singleRes = await executellmCall(
+                  batchResponseSchema,
+                  singleMsg,
+                  systemPrompt,
+                  undefined,
+                  {
+                    functionId: 'job-relevance-fallback',
+                    metadata: { job_title: batch[j].title ?? '' }
+                  }
+                );
                 usage.promptCacheHitTokens += singleRes.usage.promptCacheHitTokens;
                 usage.promptCacheMissTokens += singleRes.usage.promptCacheMissTokens;
                 usage.completionTokens += singleRes.usage.completionTokens;
@@ -370,47 +390,6 @@ function prepareJobPayload(job: Job) {
   };
 }
 
-// Generate a comprehensive list of job title keywords and level codes to drop based on candidate resume
-export async function generateExcludeKeywordsWithLLM(
-  resumeText: string
-): Promise<string[]> {
-  const prompt = `You are an expert HR sourcer analyzing a candidate's resume plain text.
-Your goal is to extract a comprehensive JSON array "excludeTitleKeywords" containing words, phrases, level codes, and tech stacks that must be REJECTED in job titles for this candidate.
-
-Consider:
-1. Seniority & Management Titles: Senior, Sr, Lead, Principal, Architect, Staff, Manager, Director, Head of, VP, Vice President, Founder, Co-Founder, Executive.
-2. Numerical Level Codes: SDE2, SDE-2, SDE3, SDE-3, L2, L3, L4, L5, IC2, IC3, IC4, II, III, IV, Engineer 2, Engineer 3.
-3. Experience Indicators: 5+ years, 6+ years, 7+ years, 8+ years, 10+ years, 5+ YOE, 10+ YOE.
-4. Non-matching Stacks & Specializations: If candidate is a Backend/Cloud engineer, exclude non-backend roles like Frontend, UI/UX, Designer, Mobile, iOS, Android, Flutter, React Native, QA, Tester, Support, IT Helpdesk, Data Scientist, Data Engineer, Hardware, Embedded, Sales.
-
-CANDIDATE RESUME:
-${resumeText.slice(0, 4000)}`;
-
-  const fallbackList = [
-    "Senior", "Sr.", "Lead", "Principal", "Architect", "Manager", "Staff", "Director", "VP", 
-    "Head of", "SDE2", "SDE-2", "SDE3", "SDE-3", "L2", "L3", "L4", "II", "III", "IV", 
-    "5+ years", "8+ years", "10+ years"
-  ];
-
-  try {
-    const res = await executellmCall(
-      z.object({ excludeTitleKeywords: z.array(z.string()) }),
-      prompt,
-      undefined,
-      0.1
-    );
-
-    const extracted = res.object.excludeTitleKeywords;
-    if (!extracted || extracted.length === 0) {
-      return fallbackList;
-    }
-
-    return extracted.map((s) => String(s).trim()).filter(Boolean);
-  } catch (err) {
-    console.error("Error parsing LLM exclude keywords output:", err);
-    return fallbackList;
-  }
-}
 
 const analyzeResponseSchema = z.object({
   experienceYears: z.number().optional(),
@@ -453,7 +432,8 @@ ${resumeText.slice(0, 10000)}`;
       analyzeResponseSchema,
       prompt,
       undefined,
-      0.1
+      0.1,
+      { functionId: 'analyze-resume' }
     );
     return res.object;
   } catch (err) {

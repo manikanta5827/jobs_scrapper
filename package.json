@@ -20,10 +20,14 @@
         "@aws-sdk/client-sqs": "^3.999.0",
         "@aws-sdk/client-ssm": "^3.999.0",
         "@neondatabase/serverless": "^0.10.4",
+        "@opentelemetry/resources": "^2.10.0",
+        "@opentelemetry/sdk-node": "^0.221.0",
+        "@posthog/ai": "^8.4.0",
         "ai": "^7.0.37",
         "drizzle-orm": "^0.45.1",
         "esbuild": "^0.27.3",
         "pg": "^8.19.0",
+        "posthog-node": "^5.46.1",
         "zod": "^4.4.3"
     },
     "devDependencies": {

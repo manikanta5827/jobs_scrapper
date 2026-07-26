@@ -44,6 +44,14 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: URL of the Cloudflare Worker that generates company name images
     Default: /job-scraper/CLOUDFLARE_IMAGE_WORKER_URL
+  PosthogProjectToken:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: PostHog Project Token for AI Observability
+    Default: /job-scraper/POSTHOG_PROJECT_TOKEN
+  PosthogHost:
+    Type: String
+    Description: PostHog Host URL for AI Observability
+    Default: "https://us.i.posthog.com"
 
 Resources:
 
@@ -212,6 +220,8 @@ Resources:
           DEFAULT_BILLED_RUN_COST_USD: "0.1"
           MIN_RUN_BALANCE: "0.1"
           LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
+          POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
+          POSTHOG_HOST: !Ref PosthogHost
     EventInvokeConfig:
       MaximumRetryAttempts: 1
       MaximumEventAgeInSeconds: 3600
@@ -257,6 +267,8 @@ Resources:
           APP_ENV: !Ref AppEnv
           ADMIN_API_KEY: !Ref AdminApiKey
           MAIN_LAMBDA_FUNCTION_NAME: !Ref MainLambda
+          POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
+          POSTHOG_HOST: !Ref PosthogHost
       Events:
         # GET /admin.html & GET /admin — Serve static Web Dashboard HTML page
         GetAdminHtml:
