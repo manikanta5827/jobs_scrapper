@@ -267,6 +267,17 @@ export async function getActiveUsers() {
   return await db.select().from(users).where(eq(users.isActive, true));
 }
 
+// Fetch minimal active user fields for fan-out orchestration to minimize network payload
+export async function getActiveUsersMinimal() {
+  await initDb();
+  return await db.select({
+    id: users.id,
+    email: users.email,
+    isActive: users.isActive,
+    telegramChatId: users.telegramChatId
+  }).from(users).where(eq(users.isActive, true));
+}
+
 // Fetch a single user by primary key string UUID
 export async function getUserById(id: string) {
   await initDb();
@@ -388,33 +399,35 @@ export async function recordAndDeductUserRun(
   const billedCost = customRunCostUsd ?? defaultBilledCost;
   await initDb();
 
-  // Record audit log entry in user_runs table
-  await db.insert(userRuns).values({
-    userId,
-    status: runData.status,
-    scrapedJobsCount: runData.scrapedJobsCount,
-    batchDedupCount: runData.batchDedupCount ?? 0,
-    dbDedupCount: runData.dbDedupCount ?? 0,
-    keywordFilteredCount: runData.keywordFilteredCount,
-    matchedJobsCount: runData.matchedJobsCount,
-    rejectedJobsCount: runData.rejectedJobsCount,
-    actualLlmCostUsd: runData.actualLlmCostUsd,
-    actualApifyCostUsd: runData.actualApifyCostUsd,
-    billedRunCostUsd: runData.status === 'SUCCESS' ? billedCost : 0,
-    errorMessage: runData.errorMessage
-  });
+  await db.transaction(async (tx: any) => {
+    // Record audit log entry in user_runs table
+    await tx.insert(userRuns).values({
+      userId,
+      status: runData.status,
+      scrapedJobsCount: runData.scrapedJobsCount,
+      batchDedupCount: runData.batchDedupCount ?? 0,
+      dbDedupCount: runData.dbDedupCount ?? 0,
+      keywordFilteredCount: runData.keywordFilteredCount,
+      matchedJobsCount: runData.matchedJobsCount,
+      rejectedJobsCount: runData.rejectedJobsCount,
+      actualLlmCostUsd: runData.actualLlmCostUsd,
+      actualApifyCostUsd: runData.actualApifyCostUsd,
+      billedRunCostUsd: runData.status === 'SUCCESS' ? billedCost : 0,
+      errorMessage: runData.errorMessage
+    });
 
-  // Deduct billed run cost from wallet and increment user metrics on success
-  if (runData.status === 'SUCCESS') {
-    await db.update(users)
-      .set({
-        balanceUsd: sql`${users.balanceUsd} - ${billedCost}`,
-        totalRunsCount: sql`${users.totalRunsCount} + 1`,
-        lastRunAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId));
-  }
+    // Deduct billed run cost from wallet and increment user metrics on success
+    if (runData.status === 'SUCCESS') {
+      await tx.update(users)
+        .set({
+          balanceUsd: sql`${users.balanceUsd} - ${billedCost}`,
+          totalRunsCount: sql`${users.totalRunsCount} + 1`,
+          lastRunAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+    }
+  });
 }
 
 // ─── Financial Analytics & Cost Dashboard Helpers ────────────────────────────
@@ -423,10 +436,14 @@ export async function recordAndDeductUserRun(
 export async function getAnalyticsStats() {
   await initDb();
 
-  // Aggregated user metrics
-  const userList = await db.select().from(users);
-  const totalUsersCount = userList.length;
-  const activeUsersCount = userList.filter((u: { isActive: boolean }) => u.isActive).length;
+  // Aggregated user metrics natively in SQL
+  const userCounts = await db.select({
+    totalUsersCount: sql<number>`COUNT(*)`,
+    activeUsersCount: sql<number>`COUNT(*) FILTER (WHERE ${users.isActive} = true)`
+  }).from(users);
+
+  const totalUsersCount = Number(userCounts[0]?.totalUsersCount || 0);
+  const activeUsersCount = Number(userCounts[0]?.activeUsersCount || 0);
 
   // Aggregate user_runs financial stats
   const runsStats = await db.select({

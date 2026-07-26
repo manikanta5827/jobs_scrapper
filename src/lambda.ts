@@ -5,7 +5,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { resetHighUsageTokens, purgeOldUnmatchedJobs, getActiveUsers, getUserById } from './helper/db_helper';
+import { resetHighUsageTokens, purgeOldUnmatchedJobs, getActiveUsersMinimal, getUserById } from './helper/db_helper';
 
 const lambdaClient = new LambdaClient({});
 
@@ -35,7 +35,7 @@ export const handler = async (
     const singleUser = await getUserById(event.targetUserId);
     if (singleUser && singleUser.isActive) usersToProcess.push(singleUser);
   } else {
-    usersToProcess = await getActiveUsers();
+    usersToProcess = await getActiveUsersMinimal();
   }
 
   if (usersToProcess.length === 0) {

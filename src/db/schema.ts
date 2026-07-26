@@ -65,7 +65,11 @@ export const jobs = pgTable("jobs", {
   // Composite unique index on user_id and job_link to prevent duplicate delivery per user
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),
   // Index on user_id and fingerprint for fast deduplication lookup per user
-  index("jobs_user_id_fingerprint_idx").on(table.userId, table.fingerprint)
+  index("jobs_user_id_fingerprint_idx").on(table.userId, table.fingerprint),
+  // Index on created_at for fast purging of old unmatched jobs
+  index("jobs_created_at_idx").on(table.createdAt),
+  // Composite index on user_id and created_at for fast paginated retrieval per user
+  index("jobs_user_id_created_at_idx").on(table.userId, table.createdAt)
 ]);
 
 // Shared key rotation table for rotating Apify API tokens across accounts
@@ -109,3 +113,11 @@ export const userRuns = pgTable("user_runs", {
   // Composite index on user_id and run_at for fast audit queries and reporting per user
   index("user_runs_user_id_run_at_idx").on(table.userId, table.runAt)
 ]);
+
+// ─── Inferred TypeScript Types ───────────────────────────────────────────────
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type JobRecord = typeof jobs.$inferSelect;
+export type NewJobRecord = typeof jobs.$inferInsert;
+export type KeyRotationRecord = typeof keyRotation.$inferSelect;
+export type UserRunRecord = typeof userRuns.$inferSelect;
