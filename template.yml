@@ -52,10 +52,6 @@ Parameters:
     Type: String
     Description: PostHog Host URL for AI Observability
     Default: "https://us.i.posthog.com"
-  AllowedOrigins:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: Allowed origins for CORS (comma-separated or single domain)
-    Default: /job-scraper/ALLOWED_ORIGINS
 
 Resources:
 
@@ -273,7 +269,6 @@ Resources:
           MAIN_LAMBDA_FUNCTION_NAME: !Ref MainLambda
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
-          ALLOWED_ORIGINS: !Ref AllowedOrigins
       Events:
         # GET /users/{id}/jobs — Retrieve candidate matched jobs list JSON
         GetUserJobs:
