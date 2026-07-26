@@ -1,5 +1,4 @@
-// Embedded HTML content for Admin Web Dashboard
-export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -889,8 +888,11 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       document.getElementById('topupInrHint').innerText = '₹' + (inrVal || 0) + ' INR = +$' + usd.toFixed(2) + ' USD wallet balance';
     }
 
-    let apiBase = localStorage.getItem('ADMIN_API_BASE') || window.location.origin + window.location.pathname.replace(/\\/(admin\\.html|admin)?$/, '');
-    let apiKey = localStorage.getItem('ADMIN_API_KEY') || '';
+    // ── BACKEND API BASE URL ────────────────────────────────────────────────
+    // Direct backend API Gateway URL
+    const API_BASE_URL = 'https://mt07rx0ojd.execute-api.ap-south-1.amazonaws.com/Prod';
+
+    let apiKey = localStorage.getItem('ADMIN_API_KEY') || new URLSearchParams(window.location.search).get('apiKey') || '';
     let currentProfileFields = null;
 
     async function analyzeResumeWithAI() {
@@ -920,9 +922,9 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         document.getElementById('aiPrimaryDomain').value = analysis.primaryDomain || '';
         document.getElementById('aiCandidateSummary').value = analysis.candidateSummary || '';
         document.getElementById('aiKnownSkills').value = (analysis.knownSkills || []).join(', ');
-        document.getElementById('aiEducation').value = (analysis.education || []).join('\\n');
-        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\\n');
-        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\\n');
+        document.getElementById('aiEducation').value = (analysis.education || []).join('\n');
+        document.getElementById('aiCertifications').value = (analysis.certifications || []).join('\n');
+        document.getElementById('aiKeyHighlights').value = (analysis.keyHighlights || []).join('\n');
         document.getElementById('aiSuggestedJobTitles').value = (analysis.suggestedJobTitles || []).join(', ');
         document.getElementById('aiProjects').value = analysis.projects ? JSON.stringify(analysis.projects, null, 2) : '';
 
@@ -944,7 +946,8 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      if (apiBase) document.getElementById('apiBaseInput').value = apiBase;
+      const apiInput = document.getElementById('apiBaseInput');
+      if (apiInput) apiInput.value = API_BASE_URL;
       if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
       
       const resumeInput = document.getElementById('userResumeText');
@@ -960,7 +963,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         }
       });
 
-      if (apiBase && apiKey) {
+      if (API_BASE_URL && apiKey) {
         loadDashboardData();
       }
     });
@@ -972,15 +975,13 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     }
 
     function saveSettings() {
-      apiBase = document.getElementById('apiBaseInput').value.trim().replace(/\\/+$/, '');
       apiKey = document.getElementById('apiKeyInput').value.trim();
 
-      if (!apiBase || !apiKey) {
-        alert('Please enter both your API Base URL and Secret Key');
+      if (!apiKey) {
+        alert('Please enter your Admin API Secret Key');
         return;
       }
 
-      localStorage.setItem('ADMIN_API_BASE', apiBase);
       localStorage.setItem('ADMIN_API_KEY', apiKey);
       showToast('Settings saved & connected');
       loadDashboardData();
@@ -995,14 +996,17 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
     function copyToClipboard(str) {
       navigator.clipboard.writeText(str);
-      showToast(\`Copied to clipboard: \${str}\`);
+      showToast(`Copied to clipboard: ${str}`);
     }
 
     async function apiRequest(endpoint, method = 'GET', body = null) {
-      if (!apiBase || !apiKey) {
-        throw new Error('API Base URL or Secret Key not set. Please enter credentials in the header and click Connect.');
+      if (!API_BASE_URL) {
+        throw new Error('API_BASE_URL is not configured in admin.html.');
       }
-      const url = apiBase + endpoint;
+      if (!apiKey) {
+        throw new Error('Admin API Key not set. Please enter credentials in header and click Connect.');
+      }
+      const url = API_BASE_URL.replace(/\/+$/, '') + endpoint;
       const headers = {
         'x-api-key': apiKey,
         'Content-Type': 'application/json'
@@ -1014,7 +1018,7 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
       const res = await fetch(url, opts);
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || \`HTTP Error \${res.status}\`);
+        throw new Error(data.error || `HTTP Error ${res.status}`);
       }
       return data;
     }
@@ -1040,9 +1044,9 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         await Promise.all([loadStats(), loadUsers(), loadApifyKeys()]);
       } catch (err) {
         console.error('Load error:', err);
-        showToast(\`Error: \${err.message}\`);
+        showToast(`Error: ${err.message}`);
       } finally {
-        if (refBtn) refBtn.innerHTML = \`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Refresh\`;
+        if (refBtn) refBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Refresh`;
       }
     }
 
@@ -1052,14 +1056,14 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
         const s = data.stats;
 
         document.getElementById('kpiUsers').innerText = (s.totalUsersCount || 0).toLocaleString();
-        document.getElementById('kpiActiveUsers').innerText = \`\${s.activeUsersCount} active users\`;
-        document.getElementById('kpiRevenue').innerText = \`$\${(s.totalBilledRevenueUsd || 0).toFixed(2)}\`;
-        document.getElementById('kpiRevenueInr').innerText = \`≈ ₹\${convertUsdToInr(s.totalBilledRevenueUsd).toLocaleString('en-IN')} INR\`;
-        document.getElementById('kpiCost').innerText = \`$\${(s.totalActualCostUsd || 0).toFixed(4)}\`;
-        document.getElementById('kpiProfit').innerText = \`$\${(s.totalProfitUsd || 0).toFixed(2)}\`;
+        document.getElementById('kpiActiveUsers').innerText = `${s.activeUsersCount} active users`;
+        document.getElementById('kpiRevenue').innerText = `$${(s.totalBilledRevenueUsd || 0).toFixed(2)}`;
+        document.getElementById('kpiRevenueInr').innerText = `≈ ₹${convertUsdToInr(s.totalBilledRevenueUsd).toLocaleString('en-IN')} INR`;
+        document.getElementById('kpiCost').innerText = `$${(s.totalActualCostUsd || 0).toFixed(4)}`;
+        document.getElementById('kpiProfit').innerText = `$${(s.totalProfitUsd || 0).toFixed(2)}`;
         
         const margin = s.totalBilledRevenueUsd > 0 ? ((s.totalProfitUsd / s.totalBilledRevenueUsd) * 100).toFixed(1) : '0';
-        document.getElementById('kpiMargin').innerText = \`\${margin}% profit margin\`;
+        document.getElementById('kpiMargin').innerText = `${margin}% profit margin`;
         document.getElementById('kpiTurns').innerText = (s.totalRunsCount || 0).toLocaleString();
 
         const mBody = document.getElementById('monthlyTableBody');
@@ -1068,16 +1072,16 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
           return;
         }
 
-        mBody.innerHTML = s.monthlyStats.map(m => \`
+        mBody.innerHTML = s.monthlyStats.map(m => `
           <tr>
-            <td><b>\${m.month}</b></td>
-            <td>\${m.runsCount}</td>
-            <td>$\${m.billedRevenueUsd.toFixed(2)}</td>
-            <td>$\${m.actualCostUsd.toFixed(4)}</td>
-            <td class="text-green"><b>$\${m.netProfitUsd.toFixed(2)}</b></td>
-            <td><span class="badge badge-active">\${m.billedRevenueUsd > 0 ? ((m.netProfitUsd / m.billedRevenueUsd) * 100).toFixed(1) : 0}%</span></td>
+            <td><b>${m.month}</b></td>
+            <td>${m.runsCount}</td>
+            <td>$${m.billedRevenueUsd.toFixed(2)}</td>
+            <td>$${m.actualCostUsd.toFixed(4)}</td>
+            <td class="text-green"><b>$${m.netProfitUsd.toFixed(2)}</b></td>
+            <td><span class="badge badge-active">${m.billedRevenueUsd > 0 ? ((m.netProfitUsd / m.billedRevenueUsd) * 100).toFixed(1) : 0}%</span></td>
           </tr>
-        \`).join('');
+        `).join('');
       } catch (err) {
         console.error('Stats error:', err);
       }
@@ -1095,45 +1099,45 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
         tbody.innerHTML = usersList.map(u => {
           const balanceInr = convertUsdToInr(u.balanceUsd);
-          return \`
+          return `
           <tr>
-            <td class="mono-cell">\${u.id.substring(0, 8)}...</td>
+            <td class="mono-cell">${u.id.substring(0, 8)}...</td>
             <td>
-              <div style="font-weight: 600; color: var(--text-main);">\${u.name || 'Unnamed Candidate'}</div>
-              <div style="font-size: 12px; color: var(--text-tertiary);">\${u.email}</div>
+              <div style="font-weight: 600; color: var(--text-main);">${u.name || 'Unnamed Candidate'}</div>
+              <div style="font-size: 12px; color: var(--text-tertiary);">${u.email}</div>
             </td>
             <td>
-              <button class="btn btn-sm" onclick="copyToClipboard('/register \${u.id}')">
+              <button class="btn btn-sm" onclick="copyToClipboard('/register ${u.id}')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 Copy Code
               </button>
             </td>
             <td>
-              <b style="color: var(--text-main);">$\${u.balanceUsd.toFixed(2)}</b>
-              <div style="font-size: 11px; color: var(--text-tertiary);">≈ ₹\${balanceInr.toLocaleString('en-IN')} INR</div>
+              <b style="color: var(--text-main);">$${u.balanceUsd.toFixed(2)}</b>
+              <div style="font-size: 11px; color: var(--text-tertiary);">≈ ₹${balanceInr.toLocaleString('en-IN')} INR</div>
             </td>
-            <td>\${u.customRunCostUsd ? '$' + u.customRunCostUsd.toFixed(2) : '<span style="color:var(--text-tertiary);">Default ($0.10)</span>'}</td>
+            <td>${u.customRunCostUsd ? '$' + u.customRunCostUsd.toFixed(2) : '<span style="color:var(--text-tertiary);">Default ($0.10)</span>'}</td>
             <td>
-              <span class="badge \${u.isActive ? 'badge-active' : 'badge-inactive'}">
-                \${u.isActive ? 'Active' : 'Inactive'}
+              <span class="badge ${u.isActive ? 'badge-active' : 'badge-inactive'}">
+                ${u.isActive ? 'Active' : 'Inactive'}
               </span>
             </td>
-            <td><b style="color: var(--text-main);">\${u.totalRunsCount || 0}</b></td>
+            <td><b style="color: var(--text-main);">${u.totalRunsCount || 0}</b></td>
             <td>
               <div style="display: flex; gap: 6px;">
-                <button class="btn btn-sm" onclick="triggerUserRun('\${u.id}')" title="Trigger Run">▶ Run</button>
-                <button class="btn btn-sm" onclick="openTopupModal('\${u.id}', '\${u.email}')">Top Up</button>
-                <button class="btn btn-sm" onclick="openEditUserModal('\${u.id}')">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteUser('\${u.id}')">
+                <button class="btn btn-sm" onclick="triggerUserRun('${u.id}')" title="Trigger Run">▶ Run</button>
+                <button class="btn btn-sm" onclick="openTopupModal('${u.id}', '${u.email}')">Top Up</button>
+                <button class="btn btn-sm" onclick="openEditUserModal('${u.id}')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
               </div>
             </td>
           </tr>
-          \`;
+          `;
         }).join('');
       } catch (err) {
-        tbody.innerHTML = \`<tr><td colspan="8" style="text-align: center; color: var(--danger)">Failed to load candidates: \${err.message}</td></tr>\`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger)">Failed to load candidates: ${err.message}</td></tr>`;
       }
     }
 
@@ -1149,27 +1153,27 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
 
         tbody.innerHTML = keys.map(k => {
           const active = (Number(k.usageCost) || 0) < 5.00;
-          return \`
+          return `
           <tr>
-            <td class="mono-cell">#\${k.id}</td>
-            <td><b style="color: var(--text-main);">\${k.name || 'Apify Token'}</b></td>
-            <td class="mono-cell"><code>\${(k.apiKey || '').substring(0, 8)}...\${(k.apiKey || '').substring((k.apiKey || '').length - 4)}</code></td>
-            <td>\${k.subscriptionStartDate || 'N/A'}</td>
-            <td>$\${(Number(k.usageCost) || 0).toFixed(4)} / $5.00</td>
+            <td class="mono-cell">#${k.id}</td>
+            <td><b style="color: var(--text-main);">${k.name || 'Apify Token'}</b></td>
+            <td class="mono-cell"><code>${(k.apiKey || '').substring(0, 8)}...${(k.apiKey || '').substring((k.apiKey || '').length - 4)}</code></td>
+            <td>${k.subscriptionStartDate || 'N/A'}</td>
+            <td>$${(Number(k.usageCost) || 0).toFixed(4)} / $5.00</td>
             <td>
-              <span class="badge \${active ? 'badge-active' : 'badge-inactive'}">\${active ? 'Active' : 'Depleted'}</span>
+              <span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Depleted'}</span>
             </td>
             <td>
               <div style="display: flex; gap: 6px;">
-                <button class="btn btn-sm" onclick="resetApifyUsage(\${k.id})">Reset $0</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteApifyKey(\${k.id})">Remove</button>
+                <button class="btn btn-sm" onclick="resetApifyUsage(${k.id})">Reset $0</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteApifyKey(${k.id})">Remove</button>
               </div>
             </td>
           </tr>
-        \`;
+        `;
         }).join('');
       } catch (err) {
-        tbody.innerHTML = \`<tr><td colspan="7" style="text-align: center; color: var(--danger)">Failed to load Apify keys: \${err.message}</td></tr>\`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--danger)">Failed to load Apify keys: ${err.message}</td></tr>`;
       }
     }
 
@@ -1427,12 +1431,11 @@ export const ADMIN_HTML_CONTENT = `<!DOCTYPE html>
     async function triggerUserRun(userId) {
       try {
         await apiRequest('/run', 'POST', { targetUserId: userId, lookbackHours: 12 });
-        showToast(\`Run dispatched for Candidate \${userId.substring(0, 8)}!\`);
+        showToast(`Run dispatched for Candidate ${userId.substring(0, 8)}!`);
       } catch (err) {
-        alert(\`Error: \${err.message}\`);
+        alert(`Error: ${err.message}`);
       }
     }
   </script>
 </body>
 </html>
-`;

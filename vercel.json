@@ -1,0 +1,10 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/public/dashboard.html" },
+    { "source": "/dashboard", "destination": "/public/dashboard.html" },
+    { "source": "/dashboard/:id", "destination": "/public/dashboard.html" },
+    { "source": "/admin", "destination": "/public/admin.html" },
+    { "source": "/admin.html", "destination": "/public/admin.html" }
+  ]
+}

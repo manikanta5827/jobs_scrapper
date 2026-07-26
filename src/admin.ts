@@ -21,8 +21,6 @@ import {
 } from './helper/db_helper';
 import { analyzeResumeWithLLM } from './helper/llm';
 import { shutdownTelemetry } from './helper/telemetry';
-import { ADMIN_HTML_CONTENT } from './helper/admin_html';
-import { DASHBOARD_HTML_CONTENT } from './helper/dashboard_html';
 import { 
   UuidParamSchema, 
   NumericIdParamSchema, 
@@ -51,37 +49,14 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   const path = event.resource || event.path;
   const body = event.body ? JSON.parse(event.body) : {};
   const pathParameters = event.pathParameters || {};
+  const requestOrigin = event.headers?.origin || event.headers?.Origin || event.headers?.ORIGIN;
 
-  // 1. Serve static admin.html Web Dashboard page on GET /admin or GET /admin.html without requiring API key
-  if ((path === '/admin.html' || path === '/admin') && method === 'GET') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: ADMIN_HTML_CONTENT
-    };
-  }
-
-  // 1b. Serve static candidate jobs dashboard on GET /dashboard/{id} without requiring API key
-  if ((path === '/dashboard/{id}' || path.startsWith('/dashboard')) && method === 'GET') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: DASHBOARD_HTML_CONTENT
-    };
-  }
-
-  // 1c. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs with pagination & date filters
+  // 1. Public endpoint: GET /users/{id}/jobs — Retrieve candidate's matched jobs with pagination & date filters
   if ((path === '/users/{id}/jobs' || path.endsWith('/jobs')) && method === 'GET') {
     const userId = pathParameters.id || path.split('/')[2];
     const paramParse = UuidParamSchema.safeParse(userId);
     if (!paramParse.success) {
-      return response(400, { error: `Invalid User ID: ${formatZodError(paramParse.error)}` });
+      return response(400, { error: `Invalid User ID: ${formatZodError(paramParse.error)}` }, requestOrigin);
     }
 
     const qp = event.queryStringParameters || {};
@@ -93,12 +68,12 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     const maxScore = qp.maxScore ? parseInt(qp.maxScore, 10) : undefined;
 
     const result = await getJobsForUser(paramParse.data, { page, limit, fromDate, toDate, minScore, maxScore });
-    return response(200, result);
+    return response(200, result, requestOrigin);
   }
 
   // 2. Handle HTTP OPTIONS pre-flight requests for browser CORS before API key check
   if (method === 'OPTIONS') {
-    return response(200, { message: 'CORS preflight OK' });
+    return response(200, { message: 'CORS preflight OK' }, requestOrigin);
   }
 
   // 3. Security Check: verify x-api-key header matches configured ADMIN_API_KEY for API endpoints
@@ -106,7 +81,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   const requestApiKey = rawApiKey.split(',')[0].trim();
   if (!requestApiKey || requestApiKey !== process.env.ADMIN_API_KEY) {
     console.warn(`Unauthorized access attempt to Admin API (received: "${requestApiKey}")`);
-    return response(401, { error: 'Unauthorized: Invalid or missing API Key' });
+    return response(401, { error: 'Unauthorized: Invalid or missing API Key' }, requestOrigin);
   }
 
   try {
@@ -317,16 +292,34 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   }
 };
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+function getAllowedOrigin(requestOrigin: string | undefined): string {
+  const stage = process.env.STAGE || process.env.NODE_ENV || 'dev';
+
+  // Dev: reflect any Origin (or * when absent, e.g. curl)
+  if (stage === 'dev' || !ALLOWED_ORIGINS.length) {
+    return requestOrigin || '*';
+  }
+
+  // Echo the request origin when allowlisted
+  if (requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  return ALLOWED_ORIGINS[0] || requestOrigin || '*';
+}
+
 // Helper function to format JSON API response with standard CORS headers
-function response(statusCode: number, body: unknown): APIGatewayProxyResult {
+function response(statusCode: number, body: unknown, requestOrigin?: string): APIGatewayProxyResult {
   return {
     statusCode,
     body: JSON.stringify(body),
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type,X-Api-Key,Authorization,x-api-key',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+      'Access-Control-Allow-Origin': getAllowedOrigin(requestOrigin),
+      'Access-Control-Allow-Headers': 'Content-Type,X-Api-Key,Authorization,x-api-key,X-API-KEY,Accept',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,PATCH,OPTIONS'
     }
   };
 }
