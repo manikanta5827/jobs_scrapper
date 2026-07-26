@@ -205,15 +205,16 @@ Return ONLY valid JSON. No markdown, no explanation outside the JSON object.
 "results" must contain exactly one object per input job, tagged with the matching "id". Order does not matter.`;
 }
 
+// ponytail: resilient schema handles nulls, string coercions, and missing arrays from LLM outputs to prevent schema validation crashes
 const relevanceResultSchema = z.object({
-  id: z.number(),
-  score: z.number(),
-  reason: z.string(),
-  matched_skills: z.array(z.string()),
-  missing_skills: z.array(z.string()),
-  job_location: z.string().nullable().optional(),
-  years_of_experience: z.string(),
-  direct_apply: z.string().nullable().optional(),
+  id: z.coerce.number(),
+  score: z.coerce.number().catch(0),
+  reason: z.string().nullish().transform(val => val ?? "No reason provided"),
+  matched_skills: z.array(z.string()).nullish().transform(val => val ?? []),
+  missing_skills: z.array(z.string()).nullish().transform(val => val ?? []),
+  job_location: z.string().nullish().transform(val => val ?? null),
+  years_of_experience: z.string().nullish().transform(val => val ?? "Not specified"),
+  direct_apply: z.string().nullish().transform(val => val ?? null),
 });
 
 const batchResponseSchema = z.object({
@@ -328,6 +329,15 @@ export async function checkRelevanceBatch(
               } catch (singleErr: unknown) {
                 const singleErrMsg = singleErr instanceof Error ? singleErr.message : String(singleErr);
                 console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErrMsg}`);
+                results.set(j, {
+                  score: 0,
+                  reason: `DeepSeek check failed: ${singleErrMsg}`,
+                  matched_skills: [],
+                  missing_skills: [],
+                  job_location: null,
+                  years_of_experience: "Not specified",
+                  direct_apply: null,
+                });
               }
             }
           }
