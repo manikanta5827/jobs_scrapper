@@ -72,8 +72,8 @@ export const jobs = pgTable("jobs", {
 }, (table) => [
   // Composite unique index on user_id and job_link to prevent duplicate delivery per user
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),
-  // Index on user_id and fingerprint for fast deduplication lookup per user
-  index("jobs_user_id_fingerprint_idx").on(table.userId, table.fingerprint),
+  // Unique constraint on user_id and fingerprint to prevent duplicate jobs per user (also serves as lookup index)
+  uniqueIndex("jobs_user_id_fingerprint_unique").on(table.userId, table.fingerprint),
   // Index on created_at for fast purging of old unmatched jobs
   index("jobs_created_at_idx").on(table.createdAt),
   // Composite index on user_id and created_at for fast paginated retrieval per user

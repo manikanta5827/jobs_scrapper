@@ -18,7 +18,7 @@ import {
   deleteApifyToken,
   getAnalyticsStats,
   getJobsForUser,
-  getJobByFingerprintOrId,
+  getJobByFingerprint,
   updateJobResumeMd
 } from './helper/db_helper';
 import { analyzeResumeWithLLM, generateAtsResume } from './helper/llm';
@@ -36,7 +36,6 @@ import {
   formatZodError 
 } from './helper/validation';
 
-const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "80", 10);
 const lambdaClient = new LambdaClient({});
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -55,12 +54,11 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
 
   // 1a. Public endpoint: GET /jobs/{id}/resume — Retrieve or generate (On-Demand) candidate ATS-optimized resume Markdown for a job
   if ((path === '/jobs/{id}/resume' || path.endsWith('/resume')) && method === 'GET') {
-    const rawId = pathParameters.id || path.split('/')[2] || '';
-    const idOrFingerprint = decodeURIComponent(rawId).trim();
-    if (!idOrFingerprint) {
-      return response(400, { error: 'Missing Job ID or fingerprint parameter' });
+    const fingerprint = decodeURIComponent(pathParameters.id || '').trim();
+    if (!fingerprint) {
+      return response(400, { error: 'Missing Job fingerprint parameter' });
     }
-    const job = await getJobByFingerprintOrId(idOrFingerprint);
+    const job = await getJobByFingerprint(fingerprint);
     if (!job) {
       return response(404, { error: 'Job not found' });
     }
@@ -69,8 +67,8 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     let changesMade: string[] = [];
     let keywordsUsed: string[] = [];
 
-    // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet and score >= MIN_MATCH_SCORE
-    if (!resumeMd && (job.aiScore ?? 0) >= MIN_MATCH_SCORE && job.userId) {
+    // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet
+    if (!resumeMd && job.userId) {
       const user = await getUserById(job.userId);
       if (user && user.resumeText) {
         try {

@@ -87,34 +87,24 @@ export async function resetHighUsageTokens(): Promise<void> {
 // Fetch candidate's previously seen job links and fingerprints for the incoming batch to prevent duplicate delivery per user (UUID)
 export async function getExistingJobsData(
   userId: string,
-  candidateLinks: string[] = [],
   candidateFingerprints: string[] = []
-): Promise<{ links: Set<string>, fingerprints: Set<string> }> {
-  if (candidateLinks.length === 0 && candidateFingerprints.length === 0) {
-    return { links: new Set(), fingerprints: new Set() };
+): Promise<Set<string>> {
+  if (candidateFingerprints.length === 0) {
+    return new Set();
   }
 
   await initDb();
 
-  const conditions = [];
-  if (candidateLinks.length > 0) {
-    conditions.push(inArray(jobs.jobLink, candidateLinks));
-  }
-  if (candidateFingerprints.length > 0) {
-    conditions.push(inArray(jobs.fingerprint, candidateFingerprints));
-  }
-
   const result = await db.select({ 
-    jobLink: jobs.jobLink, 
     fingerprint: jobs.fingerprint 
   })
   .from(jobs)
-  .where(and(eq(jobs.userId, userId), or(...conditions)));
+  .where(and(
+    eq(jobs.userId, userId),
+    inArray(jobs.fingerprint, candidateFingerprints)
+  ));
   
-  return {
-    links: new Set(result.map((r: { jobLink: string }) => r.jobLink)),
-    fingerprints: new Set(result.map((r: { fingerprint: string | null }) => r.fingerprint).filter((f: string | null): f is string => !!f))
-  };
+  return new Set(result.map((r) => r.fingerprint as string));
 }
 
 // Insert newly processed job links into candidate's personal ledger using ON CONFLICT DO NOTHING (UUID) inside an atomic transaction
@@ -308,17 +298,12 @@ export async function getJobsForUser(
   };
 }
 
-// ponytail: Get a single job by DB ID or fingerprint for ATS resume rendering
-export async function getJobByFingerprintOrId(idOrFingerprint: string) {
+// ponytail: Get a single job by fingerprint for ATS resume rendering
+export async function getJobByFingerprint(fingerprint: string) {
   await initDb();
-  const numericId = parseInt(idOrFingerprint, 10);
   const rows = await db.select()
     .from(jobs)
-    .where(
-      !isNaN(numericId) && String(numericId) === idOrFingerprint.trim()
-        ? eq(jobs.id, numericId)
-        : eq(jobs.fingerprint, idOrFingerprint.trim())
-    )
+    .where(eq(jobs.fingerprint, fingerprint.trim()))
     .limit(1);
   return rows[0] || null;
 }
