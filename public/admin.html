@@ -1216,9 +1216,9 @@
         document.getElementById('aiPrimaryDomain').value = u.primaryDomain || '';
         document.getElementById('aiCandidateSummary').value = u.candidateSummary || '';
         document.getElementById('aiKnownSkills').value = (u.knownSkills || []).join(', ');
-        document.getElementById('aiEducation').value = (u.education || []).join('\\n');
-        document.getElementById('aiCertifications').value = (u.certifications || []).join('\\n');
-        document.getElementById('aiKeyHighlights').value = (u.keyHighlights || []).join('\\n');
+        document.getElementById('aiEducation').value = (u.education || []).join('\n');
+        document.getElementById('aiCertifications').value = (u.certifications || []).join('\n');
+        document.getElementById('aiKeyHighlights').value = (u.keyHighlights || []).join('\n');
         document.getElementById('aiSuggestedJobTitles').value = (u.suggestedJobTitles || []).join(', ');
         document.getElementById('aiProjects').value = u.projects ? JSON.stringify(u.projects, null, 2) : '';
 
@@ -1258,7 +1258,7 @@
       }
 
       const excludesRaw = document.getElementById('userExcludeKeywords').value;
-      const excludeTitleKeywords = excludesRaw.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
+      const excludeTitleKeywords = excludesRaw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
 
       const personUrn = document.getElementById('userLinkedinPersonUrn').value.trim();
       const accessToken = document.getElementById('userLinkedinAccessToken').value.trim();
@@ -1282,9 +1282,9 @@
       if (sourceVal) payload.source = sourceVal;
 
       const aiKnownSkills = document.getElementById('aiKnownSkills').value.split(',').map(s => s.trim()).filter(Boolean);
-      const aiEducation = document.getElementById('aiEducation').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
-      const aiCertifications = document.getElementById('aiCertifications').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
-      const aiKeyHighlights = document.getElementById('aiKeyHighlights').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);
+      const aiEducation = document.getElementById('aiEducation').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      const aiCertifications = document.getElementById('aiCertifications').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      const aiKeyHighlights = document.getElementById('aiKeyHighlights').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
       const aiSuggestedJobTitles = document.getElementById('aiSuggestedJobTitles').value.split(',').map(s => s.trim()).filter(Boolean);
       
       let aiProjects = undefined;
