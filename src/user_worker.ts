@@ -13,7 +13,7 @@ import {
   recordAndDeductUserRun 
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
-import { keywordFilter } from './helper/filter';
+import { keywordFilter, companyBlockFilter } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
 import { shutdownTelemetry } from './helper/telemetry';
@@ -114,12 +114,19 @@ async function processUserWorker(
 
     console.log(`User ${user.id}: Scraped ${rawCount} total jobs`);
 
-    if (rawCount === 0) {
-      const stats: JobStats = { scraped: 0, duplicateRemoved: 0, dbDeduplicated: 0, keywordFiltered: 0, aiRejected: 0, matched: 0 };
+    // 3. Filter out blocked companies (system-wide, before dedup)
+    const { relevant: jobsAfterBlock } = companyBlockFilter(rawJobs);
+    const blockedCount = rawCount - jobsAfterBlock.length;
+    if (blockedCount > 0) {
+      console.log(`User ${user.id}: Blocked ${blockedCount} jobs from blocked companies`);
+    }
+
+    if (jobsAfterBlock.length === 0) {
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: 0, dbDeduplicated: 0, keywordFiltered: 0, aiRejected: 0, matched: 0 };
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
       await recordAndDeductUserRun(user.id, {
         status: 'SUCCESS',
-        scrapedJobsCount: 0,
+        scrapedJobsCount: rawCount,
         batchDedupCount: 0,
         dbDedupCount: 0,
         keywordFilteredCount: 0,
@@ -132,9 +139,9 @@ async function processUserWorker(
     }
 
     // 4. Batch deduplication (within single scraped batch)
-    const uniqueRawJobs = getUniqueJobsFromBatch(rawJobs);
+    const uniqueRawJobs = getUniqueJobsFromBatch(jobsAfterBlock);
     const uniqueCount = uniqueRawJobs.length;
-    const batchDedupCount = rawCount - uniqueCount;
+    const batchDedupCount = jobsAfterBlock.length - uniqueCount;
 
     console.log(`User ${user.id}: Deduped ${batchDedupCount} duplicate jobs, final jobs count ${uniqueCount}`);
 

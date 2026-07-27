@@ -5,6 +5,33 @@ export interface FilterResult {
   binned: Job[];
 }
 
+/** System-wide blocked companies — case-insensitive match on job.companyName */
+const BLOCKED_COMPANIES: string[] = [
+  'Scoutit',
+];
+
+/**
+ * Filters out jobs from blocked companies.
+ * Matches case-insensitively against job companyName.
+ * Uses .includes() so "Scoutit Inc" and "Scoutit" both match.
+ */
+export function companyBlockFilter(jobs: Job[]): { relevant: Job[]; blocked: Job[] } {
+  const blockedLower = BLOCKED_COMPANIES.map(c => c.toLowerCase().trim());
+  const relevant: Job[] = [];
+  const blocked: Job[] = [];
+
+  for (const job of jobs) {
+    const company = (job.companyName || '').toLowerCase().trim();
+    if (company && blockedLower.some(b => company.includes(b))) {
+      blocked.push(job);
+    } else {
+      relevant.push(job);
+    }
+  }
+
+  return { relevant, blocked };
+}
+
 // Applies dynamic lookback seconds parameter to target search URLs array
 export function prepareSearchUrls(urls: string[], lookbackSeconds: number): string[] {
   return urls.map(url => {
