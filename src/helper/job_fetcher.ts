@@ -148,7 +148,7 @@ function extractLocations(user: {
     }
   }
 
-  // Default: Search across all major Indian tech cities for maximum precision
+  // Default: Search across all major Indian tech cities + nationwide for maximum precision
   return [
     { name: 'Bengaluru', geoId: '90009633' },
     { name: 'Hyderabad', geoId: '90009650' },
@@ -159,6 +159,7 @@ function extractLocations(user: {
     { name: 'Pune', geoId: '114806696' },
     { name: 'Chennai', geoId: '106888327' },
     { name: 'Kolkata', geoId: '111795395' },
+    { name: 'India', geoId: '102713980' },
   ];
 }
 
