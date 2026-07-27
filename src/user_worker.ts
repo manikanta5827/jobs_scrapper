@@ -10,7 +10,8 @@ import {
   getExistingJobsData, 
   trackJobs, 
   getUserById,
-  recordAndDeductUserRun 
+  recordUserRun,
+  downgradeUserToFree
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, companyBlockFilter } from './helper/filter';
@@ -23,9 +24,8 @@ import {
   getZeroMatchesMessage
 } from './helper/telegram_templates';
 import type { Job, EnrichedJob, JobStats } from './helper/types';
+import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './helper/constants';
 
-// Minimum required wallet balance before starting execution for a user ($0.1 USD)
-const MIN_RUN_BALANCE = parseFloat(process.env.MIN_RUN_BALANCE ?? "0.1");
 const DEEPSEEK_BATCH_SIZE = 3;
 const BATCH_DELAY_MS = 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
@@ -76,33 +76,24 @@ async function processUserWorker(
 
   const chatId = user.telegramChatId;
 
-  // 1. Pre-Flight Wallet Balance Check
-  if (user.balanceUsd < MIN_RUN_BALANCE) {
-    console.warn(`User ${user.id} has low balance: $${user.balanceUsd}. Skipping execution.`);
-    
-    // Send low-balance Telegram alert directly to CANDIDATE user
-    if (chatId) {
-      const lowBalMsg = `⚠️ **Job Search Paused: Low Balance**\n` +
-        `Your current wallet balance is **$${user.balanceUsd.toFixed(2)} USD** (Minimum required per run is **$${MIN_RUN_BALANCE.toFixed(2)} USD**).\n\n` +
-        `Please contact Admin to recharge your account balance.`;
-      await sendTelegramMessage(TELEGRAM_BOT_TOKEN, chatId, lowBalMsg);
+  // 1. Subscription Expiry Check — auto-downgrade expired premium users to free tier
+  if (user.tier === Tier.PREMIUM && user.subscriptionExpiresAt) {
+    const now = new Date();
+    const expiresAt = new Date(user.subscriptionExpiresAt);
+    if (now > expiresAt) {
+      console.log(`User ${userId}: Premium subscription expired. Downgrading to free tier.`);
+      const downgraded = await downgradeUserToFree(userId);
+      if (downgraded && chatId) {
+        const amountText = user.subscriptionAmount && user.subscriptionAmount > 0
+          ? `₹${user.subscriptionAmount}/month`
+          : 'Premium';
+        const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
+        await sendTelegramMessage(TELEGRAM_BOT_TOKEN, chatId,
+          `⏰ <b>Subscription Expired</b>\nYour ${amountText} subscription has ended. You're now on the free tier (${freeAlerts} alert/day).\nContact admin to renew.`
+        );
+      }
+      user.tier = Tier.FREE;
     }
-
-    // Record skipped run in user_runs audit table
-    await recordAndDeductUserRun(user.id, {
-      status: 'SKIPPED_LOW_BALANCE',
-      scrapedJobsCount: 0,
-      batchDedupCount:0,
-      dbDedupCount: 0,
-      keywordFilteredCount: 0,
-      matchedJobsCount: 0,
-      rejectedJobsCount: 0,
-      actualLlmCostUsd: 0,
-      actualApifyCostUsd: 0,
-      errorMessage: 'Insufficient wallet balance'
-    }, user.customRunCostUsd);
-
-    return { statusCode: 200, body: JSON.stringify({ status: 'SKIPPED_LOW_BALANCE' }) };
   }
 
   try {
@@ -123,8 +114,8 @@ async function processUserWorker(
 
     if (jobsAfterBlock.length === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: 0, dbDeduplicated: 0, keywordFiltered: 0, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
-      await recordAndDeductUserRun(user.id, {
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
         batchDedupCount: 0,
@@ -134,7 +125,7 @@ async function processUserWorker(
         rejectedJobsCount: 0,
         actualLlmCostUsd: 0,
         actualApifyCostUsd: 0
-      }, user.customRunCostUsd);
+      });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -158,8 +149,8 @@ async function processUserWorker(
 
     if (newCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: 0, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
-      await recordAndDeductUserRun(user.id, {
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
         batchDedupCount: batchDedupCount,
@@ -169,7 +160,7 @@ async function processUserWorker(
         rejectedJobsCount: 0,
         actualLlmCostUsd: 0,
         actualApifyCostUsd: 0
-      }, user.customRunCostUsd);
+      });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -183,8 +174,8 @@ async function processUserWorker(
 
     if (toCheckCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: keywordFilteredCount, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats);
-      await recordAndDeductUserRun(user.id, {
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
         batchDedupCount: batchDedupCount,
@@ -194,7 +185,7 @@ async function processUserWorker(
         rejectedJobsCount: 0,
         actualLlmCostUsd: 0,
         actualApifyCostUsd: 0
-      }, user.customRunCostUsd);
+      });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -231,8 +222,8 @@ async function processUserWorker(
       };
     }));
 
-    // 10. Audit log and deduct flat fee from user wallet
-    await recordAndDeductUserRun(user.id, {
+    // 10. Audit log
+    await recordUserRun(user.id, {
       status: 'SUCCESS',
       scrapedJobsCount: rawCount,
       batchDedupCount: batchDedupCount,
@@ -242,12 +233,12 @@ async function processUserWorker(
       rejectedJobsCount: aiRejectedCount,
       actualLlmCostUsd,
       actualApifyCostUsd: 0
-    }, user.customRunCostUsd);
+    });
 
     // 11. Send simplified matched jobs summary to CANDIDATE Telegram chat if Chat ID exists
     if (chatId) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: keywordFilteredCount, aiRejected: aiRejectedCount, matched: matchedCount };
-      await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, matched, dateStr, stats);
+      await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, matched, dateStr, stats, user.tier);
     }
 
     // 12. Queue jobs to user's LinkedIn profile ONLY if candidate has custom OAuth credentials
@@ -268,7 +259,7 @@ async function processUserWorker(
     console.error(`Execution failed for user ${user.id}:`, errorMsg);
 
     // Log failure in user_runs audit table
-    await recordAndDeductUserRun(user.id, {
+    await recordUserRun(user.id, {
       status: 'FAILED',
       scrapedJobsCount: 0,
       batchDedupCount: 0,
@@ -279,18 +270,25 @@ async function processUserWorker(
       actualLlmCostUsd: 0,
       actualApifyCostUsd: 0,
       errorMessage: errorMsg
-    }, user.customRunCostUsd);
+    });
 
     throw userErr instanceof Error ? userErr : new Error(errorMsg);
   }
 };
 
 // Send matched jobs or zero-matches header message to candidate Telegram
-async function sendMatchedJobs(botToken: string, chatId: string, matched: EnrichedJob[], dateStr: string, stats: JobStats) {
+async function sendMatchedJobs(botToken: string, chatId: string, matched: EnrichedJob[], dateStr: string, stats: JobStats, tier: string) {
   if (!chatId) return;
 
   if (matched.length === 0) {
     await sendTelegramMessage(botToken, chatId, getZeroMatchesMessage(dateStr, stats));
+    if (tier === Tier.FREE) {
+      const premiumAlerts = TIER_CONFIG[Tier.PREMIUM].alertsPerDay;
+      const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
+      await sendTelegramMessage(botToken, chatId,
+        `💡 <b>Want more job alerts?</b>\nUpgrade to Premium to get ${premiumAlerts} alerts daily instead of ${freeAlerts}.\nContact admin to upgrade.`
+      );
+    }
     return;
   }
 
@@ -300,5 +298,14 @@ async function sendMatchedJobs(botToken: string, chatId: string, matched: Enrich
   // Send individual job card messages
   for (let i = 0; i < matched.length; i++) {
     await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(matched[i], i + 1));
+  }
+
+  // Upgrade nudge for free tier users
+  if (tier === Tier.FREE) {
+    const premiumAlerts = TIER_CONFIG[Tier.PREMIUM].alertsPerDay;
+    const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
+    await sendTelegramMessage(botToken, chatId,
+      `💡 <b>Want ${premiumAlerts - freeAlerts} more alerts today?</b>\nYou're on the Free tier (${freeAlerts} alert/day). Upgrade to Premium at ₹${PREMIUM_PRICE_MONTHLY_INR}/month and get ${premiumAlerts} job alerts daily.\nContact admin to upgrade.`
+    );
   }
 }

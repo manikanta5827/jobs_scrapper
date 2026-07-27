@@ -11,7 +11,7 @@ import {
   createUser, 
   updateUser, 
   deleteUser, 
-  topUpUserBalance,
+  updateUserSubscription,
   getAllApifyTokens,
   addApifyToken,
   updateApifyToken,
@@ -28,15 +28,17 @@ import {
   NumericIdParamSchema, 
   TriggerRunSchema, 
   CreateUserSchema, 
-  UpdateUserSchema, 
+  UpdateUserSchema,
+  UpdateSubscriptionSchema, 
   AnalyzeResumeSchema,
-  TopupWalletSchema, 
   CreateApifyKeySchema, 
   UpdateApifyKeySchema, 
   formatZodError 
 } from './helper/validation';
+import { Tier } from './helper/constants';
 
 const lambdaClient = new LambdaClient({});
+const FREE_TRIAL_DAYS= 7 * 24 * 60 * 60 * 1000;
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -184,7 +186,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         return response(200, { users: usersList });
       }
 
-      // POST /users — Create a new user record with strict Zod validation
+      // POST /users — Create a new user record with strict Zod validation (7-day premium trial by default)
       if (method === 'POST') {
         const parseResult = CreateUserSchema.safeParse(body);
         if (!parseResult.success) {
@@ -193,12 +195,16 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
 
         const { 
           email, name, phone, resumeText, telegramChatId, 
-          linkedinCredentials, initialInr, customRunCostUsd, excludeTitleKeywords,
+          linkedinCredentials, tier, subscriptionAmount, subscriptionExpiresAt, excludeTitleKeywords,
           experienceYears, linkedinProfileUrl, targetLocations, employmentType,
           primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles, source
         } = parseResult.data;
 
-        const initialUsd = Number(((initialInr || 500) / 100).toFixed(2));
+        // Default: 7-day premium trial if no subscription expiry provided
+        const trialExpiresAt = subscriptionExpiresAt 
+          ? new Date(subscriptionExpiresAt)
+          : new Date(Date.now() + FREE_TRIAL_DAYS);
+
         const created = await createUser({
           email,
           name,
@@ -206,8 +212,9 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           resumeText,
           telegramChatId: telegramChatId || "",
           linkedinCredentials,
-          balanceUsd: initialUsd,
-          customRunCostUsd: customRunCostUsd ?? undefined,
+          tier: tier || Tier.PREMIUM,
+          subscriptionAmount: subscriptionAmount ?? 0,
+          subscriptionExpiresAt: trialExpiresAt,
           excludeTitleKeywords: excludeTitleKeywords,
           experienceYears: experienceYears ?? 0,
           linkedinProfileUrl,
@@ -244,7 +251,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         return response(200, { user });
       }
 
-      // PUT /users/{id} — Update existing user profile or wallet balance with Zod validation
+      // PUT /users/{id} — Update existing user profile with Zod validation
       if (method === 'PUT') {
         const parseResult = UpdateUserSchema.safeParse(body);
         if (!parseResult.success) {
@@ -256,11 +263,8 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
 
         const updateData: Record<string, unknown> = { ...parseResult.data };
 
-        // Convert amountInr to USD balance if amountInr is passed in PUT body
-        if (parseResult.data.amountInr) {
-          const addUsd = Number((parseResult.data.amountInr / 100).toFixed(2));
-          updateData.balanceUsd = (existingUser.balanceUsd || 0) + addUsd;
-          delete updateData.amountInr;
+        if (parseResult.data.subscriptionExpiresAt) {
+          updateData.subscriptionExpiresAt = new Date(parseResult.data.subscriptionExpiresAt);
         }
 
         const updated = await updateUser(userId, updateData as Parameters<typeof updateUser>[1]);
@@ -275,26 +279,26 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
       }
     }
 
-    // ─── Route: /users/{id}/topup (Recharge User Wallet Balance) ──────────────
-    if (path === '/users/{id}/topup' && pathParameters.id && method === 'POST') {
+    // ─── Route: /users/{id}/subscription (Update User Subscription) ────────────
+    if (path === '/users/{id}/subscription' && pathParameters.id && method === 'POST') {
       const paramParse = UuidParamSchema.safeParse(pathParameters.id);
       if (!paramParse.success) {
         return response(400, { error: `Validation Error: ${formatZodError(paramParse.error)}` });
       }
       const userId = paramParse.data;
 
-      const parseResult = TopupWalletSchema.safeParse(body);
+      const parseResult = UpdateSubscriptionSchema.safeParse(body);
       if (!parseResult.success) {
         return response(400, { error: `Validation Error: ${formatZodError(parseResult.error)}` });
       }
 
-      const { amountInr } = parseResult.data;
-      const updated = await topUpUserBalance(userId, amountInr);
+      const { tier, subscriptionAmount, subscriptionExpiresAt } = parseResult.data;
+      const updated = await updateUserSubscription(userId, { tier, subscriptionAmount, subscriptionExpiresAt });
       if (updated.length === 0) return response(404, { error: 'User not found' });
 
       return response(200, { 
-        message: `Successfully topped up user ID ${userId} with ₹${amountInr} INR`, 
-        newBalanceUsd: updated[0].balanceUsd 
+        message: `User ID ${userId} subscription updated to ${tier} tier`, 
+        user: updated[0] 
       });
     }
 

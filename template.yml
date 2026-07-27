@@ -140,7 +140,7 @@ Resources:
           Properties:
             ScheduleExpression: cron(30 11 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 14, "adminApiKey": "${AdminApiKey}"}'
+            Input: !Sub '{"lookbackHours": 14, "adminApiKey": "${AdminApiKey}", "includeFreeTier": true}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
@@ -227,8 +227,6 @@ Resources:
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           ADMIN_API_KEY: !Ref AdminApiKey
           POST_QUEUE_URL: !Ref PostQueue
-          DEFAULT_BILLED_RUN_COST_USD: "0.1"
-          MIN_RUN_BALANCE: "0.1"
           LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
@@ -355,12 +353,12 @@ Resources:
             Path: /users/{id}
             Method: DELETE
 
-        # POST /users/{id}/topup — Recharge user wallet balance
-        TopupUser:
+        # POST /users/{id}/subscription — Update user subscription tier
+        ManageSubscription:
           Type: Api
           Properties:
             RestApiId: !Ref APIGateway
-            Path: /users/{id}/topup
+            Path: /users/{id}/subscription
             Method: POST
 
         # GET /apify-keys & POST /apify-keys

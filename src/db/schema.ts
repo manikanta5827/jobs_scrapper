@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp, serial, doublePrecision, date, integer, boolean, jsonb, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { Tier } from '../helper/constants';
 
-// Multi-tenant users table storing profile settings, credentials, and wallet balance
+// Multi-tenant users table storing profile settings, credentials, and tier subscriptions
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(), // UUID primary key
   email: text("email").notNull().unique(), // Unique email identifier
@@ -14,9 +15,10 @@ export const users = pgTable("users", {
     personUrn?: string;
   }>(), // Optional LinkedIn OAuth details for automated posting
   
-  // Wallet balance and custom run rate overrides
-  balanceUsd: doublePrecision("balance_usd").default(0.0).notNull(), // Prepaid balance in USD
-  customRunCostUsd: doublePrecision("custom_run_cost_usd"), // Optional custom cost override per run
+  // Subscription tier and billing
+  tier: text("tier").default(Tier.PREMIUM).notNull(), // See Tier enum
+  subscriptionAmount: doublePrecision("subscription_amount"), // Monthly subscription rate (nullable for free tier)
+  subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }), // Premium expiry timestamp
   
   // Onboarding Candidate Preferences & Experience
   experienceYears: doublePrecision("experience_years").default(0).notNull(), // Candidate total experience in years (required)
@@ -114,7 +116,7 @@ export const userRuns = pgTable("user_runs", {
   // Financial audit metrics
   actualLlmCostUsd: doublePrecision("actual_llm_cost_usd").default(0).notNull(), // Actual DeepSeek API cost incurred
   actualApifyCostUsd: doublePrecision("actual_apify_cost_usd").default(0).notNull(), // Actual Apify API cost incurred
-  billedRunCostUsd: doublePrecision("billed_run_cost_usd").notNull(), // Flat fee charged to user wallet
+  billedRunCostUsd: doublePrecision("billed_run_cost_usd").default(0).notNull(), // Deprecated: kept for historical data
   
   errorMessage: text("error_message"), // Error message if run failed
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

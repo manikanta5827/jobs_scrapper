@@ -551,17 +551,20 @@
       <div class="kpi-value" id="kpiUsers">0</div>
       <div class="kpi-sub">
         <span id="kpiActiveUsers">0 active users</span>
+        <span style="margin-left: 8px;">|</span>
+        <span id="kpiPremiumUsers" style="color: var(--primary); font-weight: 600;">0 premium</span>
+        <span id="kpiFreeUsers" style="color: var(--text-tertiary); margin-left: 4px;">0 free</span>
       </div>
     </div>
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">Billed Revenue</span>
+        <span class="kpi-title">MRR (Monthly Revenue)</span>
         <div class="kpi-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
         </div>
       </div>
-      <div class="kpi-value text-green" id="kpiRevenue">$0.00</div>
-      <div class="kpi-sub" id="kpiRevenueInr">≈ ₹0 INR</div>
+      <div class="kpi-value text-green" id="kpiRevenue">₹0</div>
+      <div class="kpi-sub" id="kpiRevenueUsd">≈ $0.00 USD</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-header">
@@ -632,8 +635,8 @@
               <th>Candidate</th>
               <th>Source</th>
               <th>Registration Link</th>
-              <th>Wallet Balance</th>
-              <th>Rate</th>
+              <th>Tier</th>
+              <th>Subscription</th>
               <th>Status</th>
               <th>Runs</th>
               <th>Actions</th>
@@ -659,7 +662,7 @@
             <tr>
               <th>Month</th>
               <th>Executed Runs</th>
-              <th>Billed Revenue ($)</th>
+              <th>Subscription Revenue (₹)</th>
               <th>Actual Cost ($)</th>
               <th>Net Profit ($)</th>
               <th>Margin %</th>
@@ -676,10 +679,10 @@
     <div class="card">
       <div class="card-title" style="margin-bottom: 12px; font-size: 14px;">Pricing & Cost Structure Policy</div>
       <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
-        • <b>Global Default Per-Run Charge:</b> Managed via environment variable <code>DEFAULT_BILLED_RUN_COST_USD</code> (Default: <b>$0.10 USD</b> / ~₹8.50 INR per execution turn).<br>
-        • <b>Custom Candidate Rate Override:</b> Can be customized per candidate via <code>customRunCostUsd</code> in candidate record.<br>
-        • <b>Wallet Top-Up Rate:</b> Standard exchange rate conversion applies (1 USD = ₹100 INR).<br>
-        • <b>Scraper Cost:</b> Free self-hosted microservice ($0 compute overhead).
+        • <b>Tier Model:</b> Free tier (1 alert/day) and Premium tier (4 alerts/day) with subscription billing.<br>
+        • <b>New User Trial:</b> 7-day premium trial on signup — full access, no charge.<br>
+        • <b>Subscription Amount:</b> Configurable per candidate via <code>subscriptionAmount</code> (₹/month). Managed by Admin.<br>
+        • <b>Cost Tracking:</b> DeepSeek LLM and Scraper costs tracked per run in <code>user_runs</code> audit log.
       </p>
     </div>
   </div>
@@ -726,7 +729,7 @@
         <div class="modal-tab-nav">
           <button type="button" class="modal-tab-btn active" onclick="switchModalTab('userTabBasic', this)">1. Basic & Resume</button>
           <button type="button" class="modal-tab-btn" onclick="switchModalTab('userTabAi', this)">2. AI Extracted Profile</button>
-          <button type="button" class="modal-tab-btn" onclick="switchModalTab('userTabExclusions', this)">3. Exclusions & Wallet</button>
+          <button type="button" class="modal-tab-btn" onclick="switchModalTab('userTabExclusions', this)">3. Exclusions & Subscription</button>
         </div>
 
         <!-- TAB 1: Basic & Resume -->
@@ -865,13 +868,22 @@
             <label>LinkedIn Access Token (Optional for auto-posting)</label>
             <input type="password" id="userLinkedinAccessToken" maxlength="1000" placeholder="LinkedIn OAuth Access Token">
           </div>
-          <div class="form-group" id="initialInrGroup">
-            <label>Initial Balance Top-Up (₹100 to ₹100,000 INR)</label>
-            <input type="number" id="userInitialInr" min="100" max="100000" value="500" placeholder="500">
+          <div class="form-section-title">Subscription & Billing</div>
+          <div class="form-group" id="tierGroup">
+            <label>Subscription Tier *</label>
+            <select id="userTier" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-main); font-size: 14px;">
+              <option value="premium">Premium (4 alerts/day)</option>
+              <option value="free">Free (1 alert/day)</option>
+            </select>
           </div>
           <div class="form-group">
-            <label>Custom Per-Run Rate Override ($0.01 to $10.00 USD)</label>
-            <input type="number" step="0.01" min="0.01" max="10.00" id="userCustomRate" placeholder="Default: $0.10">
+            <label>Subscription Amount (₹ per month, 0 for free/trial)</label>
+            <input type="number" id="userSubscriptionAmount" min="0" max="10000" value="0" placeholder="e.g. 300">
+          </div>
+          <div class="form-group">
+            <label>Subscription Expires At</label>
+            <input type="datetime-local" id="userSubscriptionExpiresAt" placeholder="YYYY-MM-DD HH:MM">
+            <span style="font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px;">Leave blank for new users (auto-sets to 7-day trial).</span>
           </div>
         </div>
         
@@ -883,27 +895,42 @@
     </div>
   </div>
 
-  <!-- MODAL: Top Up Wallet -->
-  <div class="modal-overlay" id="topupModal" onclick="handleBackdropClick(event, 'topupModal')">
-    <div class="modal" style="max-width: 440px;">
+  <!-- MODAL: Manage Subscription -->
+  <div class="modal-overlay" id="subscriptionModal" onclick="handleBackdropClick(event, 'subscriptionModal')">
+    <div class="modal" style="max-width: 480px;">
       <div class="modal-header">
-        <span>Recharge Wallet Balance</span>
-        <span class="close-btn" onclick="closeModal('topupModal')">&times;</span>
+        <span>Manage Subscription</span>
+        <span class="close-btn" onclick="closeModal('subscriptionModal')">&times;</span>
       </div>
-      <form onsubmit="handleTopupSubmit(event)">
-        <input type="hidden" id="topupUserId">
+      <form onsubmit="handleSubscriptionSubmit(event)">
+        <input type="hidden" id="subscriptionUserId">
         <div class="form-group">
           <label>Candidate</label>
-          <input type="text" id="topupUserLabel" readonly style="opacity: 0.7;">
+          <input type="text" id="subscriptionUserLabel" readonly style="opacity: 0.7;">
         </div>
         <div class="form-group">
-          <label>Recharge Amount in INR (₹100 to ₹100,000)</label>
-          <input type="number" id="topupAmountInr" min="100" max="100000" value="500" required oninput="updateTopupHint(this.value)">
-          <span style="font-size: 12px; color: var(--success); display: block; margin-top: 6px; font-weight: 500;" id="topupInrHint">₹500 INR = +$5.00 USD wallet balance</span>
+          <label>Current Tier</label>
+          <input type="text" id="subscriptionCurrentTier" readonly style="opacity: 0.7;">
+        </div>
+        <div class="form-group">
+          <label>New Tier *</label>
+          <select id="subscriptionTier" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-main); font-size: 14px;">
+            <option value="premium">Premium (4 alerts/day)</option>
+            <option value="free">Free (1 alert/day)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Subscription Amount (₹ per month)</label>
+          <input type="number" id="subscriptionAmount" min="0" max="10000" value="0" required>
+        </div>
+        <div class="form-group">
+          <label>Expires At *</label>
+          <input type="datetime-local" id="subscriptionExpiresAt" required>
+          <span style="font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px;">Set to 30 days from now for monthly renewal.</span>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-          <button type="button" class="btn" onclick="closeModal('topupModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="btnSubmitTopup">Add Funds</button>
+          <button type="button" class="btn" onclick="closeModal('subscriptionModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitSubscription">Update Subscription</button>
         </div>
       </form>
     </div>
@@ -941,21 +968,7 @@
   <div id="toast"></div>
 
   <script>
-    const INR_PER_USD = 100;
-
-    function convertUsdToInr(usdAmount) {
-      return Math.round((usdAmount || 0) * INR_PER_USD);
-    }
-
-    function convertInrToUsd(inrAmount) {
-      if (!inrAmount || inrAmount <= 0) return 0;
-      return parseFloat((inrAmount / INR_PER_USD).toFixed(2));
-    }
-
-    function updateTopupHint(inrVal) {
-      const usd = convertInrToUsd(parseFloat(inrVal || 0));
-      document.getElementById('topupInrHint').innerText = '₹' + (inrVal || 0) + ' INR = +$' + usd.toFixed(2) + ' USD wallet balance';
-    }
+    const INR_PER_USD = 85;
 
     // ── BACKEND API BASE URL ────────────────────────────────────────────────
     // Direct backend API Gateway URL
@@ -1124,12 +1137,17 @@
 
         document.getElementById('kpiUsers').innerText = (s.totalUsersCount || 0).toLocaleString();
         document.getElementById('kpiActiveUsers').innerText = `${s.activeUsersCount} active users`;
-        document.getElementById('kpiRevenue').innerText = `$${(s.totalBilledRevenueUsd || 0).toFixed(2)}`;
-        document.getElementById('kpiRevenueInr').innerText = `≈ ₹${convertUsdToInr(s.totalBilledRevenueUsd).toLocaleString('en-IN')} INR`;
+        document.getElementById('kpiPremiumUsers').innerText = `${s.premiumUsersCount || 0} premium`;
+        document.getElementById('kpiFreeUsers').innerText = `${s.freeUsersCount || 0} free`;
+
+        const mrr = s.mrr || 0;
+        document.getElementById('kpiRevenue').innerText = `₹${Math.round(mrr).toLocaleString('en-IN')}`;
+        document.getElementById('kpiRevenueUsd').innerText = `≈ $${(mrr / INR_PER_USD).toFixed(2)} USD`;
+
         document.getElementById('kpiCost').innerText = `$${(s.totalActualCostUsd || 0).toFixed(4)}`;
         document.getElementById('kpiProfit').innerText = `$${(s.totalProfitUsd || 0).toFixed(2)}`;
         
-        const margin = s.totalBilledRevenueUsd > 0 ? ((s.totalProfitUsd / s.totalBilledRevenueUsd) * 100).toFixed(1) : '0';
+        const margin = mrr > 0 ? ((s.totalProfitUsd / (mrr / INR_PER_USD)) * 100).toFixed(1) : '0';
         document.getElementById('kpiMargin').innerText = `${margin}% profit margin`;
         document.getElementById('kpiTurns').innerText = (s.totalRunsCount || 0).toLocaleString();
 
@@ -1139,16 +1157,20 @@
           return;
         }
 
-        mBody.innerHTML = s.monthlyStats.map(m => `
+        mBody.innerHTML = s.monthlyStats.map(m => {
+          const subRev = m.subscriptionRevenue || 0;
+          const marginPct = subRev > 0 ? ((m.netProfitUsd / (subRev / INR_PER_USD)) * 100).toFixed(1) : '0';
+          return `
           <tr>
             <td><b>${m.month}</b></td>
             <td>${m.runsCount}</td>
-            <td>$${m.billedRevenueUsd.toFixed(2)}</td>
+            <td>₹${Math.round(subRev).toLocaleString('en-IN')}</td>
             <td>$${m.actualCostUsd.toFixed(4)}</td>
             <td class="text-green"><b>$${m.netProfitUsd.toFixed(2)}</b></td>
-            <td><span class="badge badge-active">${m.billedRevenueUsd > 0 ? ((m.netProfitUsd / m.billedRevenueUsd) * 100).toFixed(1) : 0}%</span></td>
+            <td><span class="badge badge-active">${marginPct}%</span></td>
           </tr>
-        `).join('');
+          `;
+        }).join('');
       } catch (err) {
         console.error('Stats error:', err);
       }
@@ -1165,7 +1187,18 @@
         }
 
         tbody.innerHTML = usersList.map(u => {
-          const balanceInr = convertUsdToInr(u.balanceUsd);
+          const isPremium = u.tier === 'premium';
+          const tierBadge = isPremium
+            ? '<span class="badge badge-active">⭐ Premium</span>'
+            : '<span class="badge badge-inactive">Free</span>';
+          const subInfo = isPremium && u.subscriptionAmount > 0
+            ? `<div style="font-size: 11px; color: var(--text-tertiary);">₹${Math.round(u.subscriptionAmount).toLocaleString('en-IN')}/mo</div>`
+            : isPremium
+              ? '<div style="font-size: 11px; color: var(--success);">Trial</div>'
+              : '';
+          const expiryText = u.subscriptionExpiresAt
+            ? `<div style="font-size: 11px; color: var(--text-tertiary);">Exp: ${new Date(u.subscriptionExpiresAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>`
+            : '';
           return `
           <tr>
             <td class="mono-cell">${u.id.substring(0, 8)}...</td>
@@ -1183,10 +1216,10 @@
               </button>
             </td>
             <td>
-              <b style="color: var(--text-main);">$${u.balanceUsd.toFixed(2)}</b>
-              <div style="font-size: 11px; color: var(--text-tertiary);">≈ ₹${balanceInr.toLocaleString('en-IN')} INR</div>
+              ${tierBadge}
+              ${expiryText}
             </td>
-            <td>${u.customRunCostUsd ? '$' + u.customRunCostUsd.toFixed(2) : '<span style="color:var(--text-tertiary);">Default ($0.10)</span>'}</td>
+            <td>${subInfo}</td>
             <td>
               <span class="badge ${u.isActive ? 'badge-active' : 'badge-inactive'}">
                 ${u.isActive ? 'Active' : 'Inactive'}
@@ -1196,7 +1229,7 @@
             <td>
               <div style="display: flex; gap: 6px;">
                 <button class="btn btn-sm" onclick="triggerUserRun('${u.id}')" title="Trigger Run">▶ Run</button>
-                <button class="btn btn-sm" onclick="openTopupModal('${u.id}', '${u.email}')">Top Up</button>
+                <button class="btn btn-sm" onclick="openSubscriptionModal('${u.id}', '${u.email}', '${u.tier || 'free'}')">Manage</button>
                 <button class="btn btn-sm" onclick="openEditUserModal('${u.id}')">Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -1254,7 +1287,9 @@
       document.getElementById('userForm').reset();
       document.getElementById('editUserId').value = '';
       document.getElementById('userModalTitle').innerText = 'Add Candidate';
-      document.getElementById('initialInrGroup').style.display = 'block';
+      document.getElementById('userTier').value = 'premium';
+      document.getElementById('userSubscriptionAmount').value = '0';
+      document.getElementById('userSubscriptionExpiresAt').value = '';
       document.getElementById('analyzeAiStatus').innerText = '';
       document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
       currentProfileFields = null;
@@ -1292,7 +1327,16 @@
         }
         toggleCityGrid();
         document.getElementById('userEmploymentType').value = u.employmentType || '';
-        document.getElementById('initialInrGroup').style.display = 'none';
+
+        document.getElementById('userTier').value = u.tier || 'premium';
+        document.getElementById('userSubscriptionAmount').value = u.subscriptionAmount ?? 0;
+        if (u.subscriptionExpiresAt) {
+          const d = new Date(u.subscriptionExpiresAt);
+          const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+          document.getElementById('userSubscriptionExpiresAt').value = local;
+        } else {
+          document.getElementById('userSubscriptionExpiresAt').value = '';
+        }
 
         document.getElementById('aiPrimaryDomain').value = u.primaryDomain || '';
         document.getElementById('aiCandidateSummary').value = u.candidateSummary || '';
@@ -1311,7 +1355,6 @@
 
         document.getElementById('userLinkedinPersonUrn').value = u.linkedinCredentials?.personUrn || '';
         document.getElementById('userLinkedinAccessToken').value = u.linkedinCredentials?.accessToken || '';
-        document.getElementById('userCustomRate').value = u.customRunCostUsd || '';
         document.getElementById('userSource').value = u.source || '';
 
         switchModalTab('userTabBasic', document.querySelector('.modal-tab-btn'));
@@ -1364,9 +1407,22 @@
         resumeText,
         experienceYears: isNaN(expYears) ? 0 : expYears,
         targetLocations: targetLocations || undefined,
-        employmentType: employmentType || undefined,
-        customRunCostUsd: document.getElementById('userCustomRate').value ? parseFloat(document.getElementById('userCustomRate').value) : null
+        employmentType: employmentType || undefined
       };
+
+      const tierVal = document.getElementById('userTier').value;
+      const subAmt = parseFloat(document.getElementById('userSubscriptionAmount').value || '0');
+      const subExpStr = document.getElementById('userSubscriptionExpiresAt').value;
+
+      if (editId) {
+        payload.tier = tierVal;
+        payload.subscriptionAmount = subAmt;
+        if (subExpStr) payload.subscriptionExpiresAt = new Date(subExpStr).toISOString();
+      } else {
+        payload.tier = tierVal || 'premium';
+        payload.subscriptionAmount = subAmt;
+        if (subExpStr) payload.subscriptionExpiresAt = new Date(subExpStr).toISOString();
+      }
 
       const sourceVal = document.getElementById('userSource').value;
       if (sourceVal) payload.source = sourceVal;
@@ -1412,14 +1468,6 @@
           await apiRequest('/users/' + editId, 'PUT', payload);
           showToast('Candidate profile updated successfully');
         } else {
-          const initInr = parseFloat(document.getElementById('userInitialInr').value || '500');
-          if (initInr < 100 || initInr > 100000) {
-            alert('Initial recharge amount must be between ₹100 and ₹100,000 INR');
-            saveBtn.disabled = false;
-            saveBtn.innerText = origText;
-            return;
-          }
-          payload.initialInr = initInr;
           const res = await apiRequest('/users', 'POST', payload);
           const u = res.user;
           alert('Candidate created successfully!\\n\\nCandidate ID: ' + u.id + '\\nEmail: ' + u.email + '\\n\\nCandidate Telegram Command:\\n/register ' + u.id);
@@ -1434,30 +1482,42 @@
       }
     }
 
-    function openTopupModal(id, email) {
-      document.getElementById('topupUserId').value = id;
-      document.getElementById('topupUserLabel').value = email + ' (' + id.substring(0, 8) + ')';
-      updateTopupHint(500);
-      openModal('topupModal');
+    function openSubscriptionModal(id, email, currentTier) {
+      document.getElementById('subscriptionUserId').value = id;
+      document.getElementById('subscriptionUserLabel').value = email + ' (' + id.substring(0, 8) + ')';
+      document.getElementById('subscriptionCurrentTier').value = currentTier === 'premium' ? 'Premium' : 'Free';
+      document.getElementById('subscriptionTier').value = currentTier === 'premium' ? 'premium' : 'free';
+      document.getElementById('subscriptionAmount').value = 300;
+      const now = new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const local = new Date(in30Days.getTime() - in30Days.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      document.getElementById('subscriptionExpiresAt').value = local;
+      openModal('subscriptionModal');
     }
 
-    async function handleTopupSubmit(e) {
+    async function handleSubscriptionSubmit(e) {
       e.preventDefault();
-      const submitBtn = document.getElementById('btnSubmitTopup');
+      const submitBtn = document.getElementById('btnSubmitSubscription');
       const origText = submitBtn.innerText;
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Processing...';
+      submitBtn.innerHTML = '<span class="spinner"></span> Updating...';
 
-      const id = document.getElementById('topupUserId').value;
-      const amountInr = parseFloat(document.getElementById('topupAmountInr').value);
+      const id = document.getElementById('subscriptionUserId').value;
+      const tier = document.getElementById('subscriptionTier').value;
+      const subscriptionAmount = parseFloat(document.getElementById('subscriptionAmount').value);
+      const expiresAt = document.getElementById('subscriptionExpiresAt').value;
 
       try {
-        await apiRequest('/users/' + id, 'PUT', { amountInr });
-        showToast('Wallet recharged successfully');
-        closeModal('topupModal');
+        await apiRequest('/users/' + id + '/subscription', 'POST', {
+          tier,
+          subscriptionAmount,
+          subscriptionExpiresAt: new Date(expiresAt).toISOString()
+        });
+        showToast('Subscription updated successfully');
+        closeModal('subscriptionModal');
         loadDashboardData();
       } catch (err) {
-        alert('Top-up failed: ' + err.message);
+        alert('Subscription update failed: ' + err.message);
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerText = origText;

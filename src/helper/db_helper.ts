@@ -1,7 +1,7 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
-import { convertInrToUsd } from "./currency_helper";
+import { Tier } from './constants';
 
 const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "80", 10);
 
@@ -316,7 +316,7 @@ export async function updateJobResumeMd(jobId: number, resumeMd: string) {
     .where(eq(jobs.id, jobId));
 }
 
-// ─── Multi-Tenant Users & Wallet Helpers ─────────────────────────────────────
+// ─── Multi-Tenant Users & Subscription Helpers ────────────────────────────────
 
 // Fetch all users from database regardless of active state
 export async function getAllUsers() {
@@ -330,15 +330,19 @@ export async function getActiveUsers() {
   return await db.select().from(users).where(eq(users.isActive, true));
 }
 
-// Fetch minimal active user fields for fan-out orchestration to minimize network payload
-export async function getActiveUsersMinimal() {
+// Fetch minimal active user fields for fan-out orchestration, optionally filtered by tier
+export async function getActiveUsersMinimal(tier?: string) {
   await initDb();
+  const conditions: SQL[] = [eq(users.isActive, true)];
+  if (tier) conditions.push(eq(users.tier, tier));
   return await db.select({
     id: users.id,
     email: users.email,
     isActive: users.isActive,
-    telegramChatId: users.telegramChatId
-  }).from(users).where(eq(users.isActive, true));
+    telegramChatId: users.telegramChatId,
+    tier: users.tier,
+    subscriptionExpiresAt: users.subscriptionExpiresAt,
+  }).from(users).where(and(...conditions));
 }
 
 // Fetch a single user by primary key string UUID
@@ -355,7 +359,7 @@ export async function getUserByTelegramChatId(chatId: string) {
   return result[0] || null;
 }
 
-// Create a new user record in database
+// Create a new user record in database (7-day premium trial by default)
 export async function createUser(userData: {
   email: string;
   name?: string;
@@ -363,8 +367,9 @@ export async function createUser(userData: {
   resumeText: string;
   telegramChatId?: string;
   linkedinCredentials?: { accessToken?: string; refreshToken?: string; personUrn?: string };
-  balanceUsd?: number;
-  customRunCostUsd?: number;
+  tier?: string;
+  subscriptionAmount?: number;
+  subscriptionExpiresAt?: Date;
   excludeTitleKeywords?: string[];
   experienceYears?: number;
   linkedinProfileUrl?: string;
@@ -393,8 +398,9 @@ export async function updateUser(id: string, data: Partial<{
   resumeText: string;
   telegramChatId: string;
   linkedinCredentials: { accessToken?: string; refreshToken?: string; personUrn?: string };
-  balanceUsd: number;
-  customRunCostUsd: number;
+  tier: string;
+  subscriptionAmount: number;
+  subscriptionExpiresAt: Date;
   excludeTitleKeywords: string[];
   experienceYears: number;
   linkedinProfileUrl: string;
@@ -433,22 +439,42 @@ export async function setUserActiveStatus(userId: string, isActive: boolean) {
     .returning();
 }
 
-// Recharge user wallet balance converting INR payment to USD balance
-export async function topUpUserBalance(userId: string, amountInr: number) {
-  const usdAmount = convertInrToUsd(amountInr);
+// Update user subscription tier, amount, and expiry date
+export async function updateUserSubscription(
+  userId: string,
+  data: { tier: string; subscriptionAmount: number; subscriptionExpiresAt: string }
+) {
   await initDb();
   return await db.update(users)
-    .set({ 
-      balanceUsd: sql`${users.balanceUsd} + ${usdAmount}`,
-      isActive: true,
+    .set({
+      tier: data.tier,
+      subscriptionAmount: data.subscriptionAmount,
+      subscriptionExpiresAt: new Date(data.subscriptionExpiresAt),
       updatedAt: new Date()
     })
     .where(eq(users.id, userId))
     .returning();
 }
 
-// Log execution turn details into userRuns and deduct flat rate from user wallet (UUID)
-export async function recordAndDeductUserRun(
+// Downgrade user to free tier when premium subscription expires
+export async function downgradeUserToFree(userId: string): Promise<boolean> {
+  await initDb();
+  const result = await db.update(users)
+    .set({
+      tier: Tier.FREE,
+      subscriptionExpiresAt: null,
+      updatedAt: new Date()
+    })
+    .where(and(
+      eq(users.id, userId),
+      eq(users.tier, Tier.PREMIUM)
+    ))
+    .returning();
+  return result.length > 0;
+}
+
+// Log execution turn details into userRuns (no wallet deduction — subscription model)
+export async function recordUserRun(
   userId: string,
   runData: {
     status: string;
@@ -461,15 +487,11 @@ export async function recordAndDeductUserRun(
     actualLlmCostUsd: number;
     actualApifyCostUsd: number;
     errorMessage?: string;
-  },
-  customRunCostUsd?: number | null
+  }
 ) {
-  const defaultBilledCost = parseFloat(process.env.DEFAULT_BILLED_RUN_COST_USD ?? "0.1");
-  const billedCost = customRunCostUsd ?? defaultBilledCost;
   await initDb();
 
   await db.transaction(async (tx) => {
-    // Record audit log entry in user_runs table
     await tx.insert(userRuns).values({
       userId,
       status: runData.status,
@@ -481,15 +503,13 @@ export async function recordAndDeductUserRun(
       rejectedJobsCount: runData.rejectedJobsCount,
       actualLlmCostUsd: runData.actualLlmCostUsd,
       actualApifyCostUsd: runData.actualApifyCostUsd,
-      billedRunCostUsd: runData.status === 'SUCCESS' ? billedCost : 0,
+      billedRunCostUsd: 0,
       errorMessage: runData.errorMessage
     });
 
-    // Deduct billed run cost from wallet and increment user metrics on success
     if (runData.status === 'SUCCESS') {
       await tx.update(users)
         .set({
-          balanceUsd: sql`${users.balanceUsd} - ${billedCost}`,
           totalRunsCount: sql`${users.totalRunsCount} + 1`,
           lastRunAt: new Date(),
           updatedAt: new Date()
@@ -501,24 +521,33 @@ export async function recordAndDeductUserRun(
 
 // ─── Financial Analytics & Cost Dashboard Helpers ────────────────────────────
 
-// Fetch aggregated metrics, profit analytics, and monthly breakdown for Admin Dashboard
+// Fetch aggregated metrics, profit analytics, subscription MRR, and monthly breakdown for Admin Dashboard
 export async function getAnalyticsStats() {
   await initDb();
 
   // Aggregated user metrics natively in SQL
   const userCounts = await db.select({
     totalUsersCount: sql<number>`COUNT(*)`,
-    activeUsersCount: sql<number>`COUNT(*) FILTER (WHERE ${users.isActive} = true)`
+    activeUsersCount: sql<number>`COUNT(*) FILTER (WHERE ${users.isActive} = true)`,
+    premiumUsersCount: sql<number>`COUNT(*) FILTER (WHERE ${users.tier} = ${Tier.PREMIUM})`,
+    freeUsersCount: sql<number>`COUNT(*) FILTER (WHERE ${users.tier} = ${Tier.FREE})`
   }).from(users);
 
   const totalUsersCount = Number(userCounts[0]?.totalUsersCount || 0);
   const activeUsersCount = Number(userCounts[0]?.activeUsersCount || 0);
+  const premiumUsersCount = Number(userCounts[0]?.premiumUsersCount || 0);
+  const freeUsersCount = Number(userCounts[0]?.freeUsersCount || 0);
 
-  // Aggregate user_runs financial stats
+  // Subscription MRR (Monthly Recurring Revenue) from premium users
+  const mrrResult = await db.select({
+    mrr: sql<number>`COALESCE(SUM(${users.subscriptionAmount}), 0)`
+  }).from(users).where(eq(users.tier, Tier.PREMIUM));
+  const mrr = Number(mrrResult[0]?.mrr || 0);
+
+  // Aggregate user_runs stats
   const runsStats = await db.select({
     totalRuns: sql<number>`COUNT(*)`,
     successfulRuns: sql<number>`COUNT(*) FILTER (WHERE ${userRuns.status} = 'SUCCESS')`,
-    totalBilledRevenueUsd: sql<number>`COALESCE(SUM(${userRuns.billedRunCostUsd}), 0)`,
     totalActualLlmCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd}), 0)`,
     totalActualApifyCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualApifyCostUsd}), 0)`
   }).from(userRuns);
@@ -526,49 +555,44 @@ export async function getAnalyticsStats() {
   const stats = runsStats[0] || {
     totalRuns: 0,
     successfulRuns: 0,
-    totalBilledRevenueUsd: 0,
     totalActualLlmCostUsd: 0,
     totalActualApifyCostUsd: 0
   };
 
-  const totalBilledRevenueUsd = Number(stats.totalBilledRevenueUsd);
   const totalActualCostUsd = Number(stats.totalActualLlmCostUsd) + Number(stats.totalActualApifyCostUsd);
-  const totalProfitUsd = totalBilledRevenueUsd - totalActualCostUsd;
+  const totalProfitUsd = mrr - totalActualCostUsd;
 
-  // Monthly breakdown of revenue, actual cost, and net profit
+  // Monthly breakdown of actual costs
   const monthlyStats = await db.select({
     month: sql<string>`TO_CHAR(${userRuns.runAt}, 'YYYY-MM')`,
     runsCount: sql<number>`COUNT(*)`,
-    billedRevenueUsd: sql<number>`COALESCE(SUM(${userRuns.billedRunCostUsd}), 0)`,
     actualCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}), 0)`
   })
   .from(userRuns)
   .groupBy(sql`TO_CHAR(${userRuns.runAt}, 'YYYY-MM')`)
   .orderBy(sql`TO_CHAR(${userRuns.runAt}, 'YYYY-MM') DESC`);
 
-  const formattedMonthly = monthlyStats.map((m: { month: string; runsCount: number; billedRevenueUsd: number; actualCostUsd: number }) => {
-    const rev = Number(m.billedRevenueUsd);
+  const formattedMonthly = monthlyStats.map((m: { month: string; runsCount: number; actualCostUsd: number }) => {
     const cost = Number(m.actualCostUsd);
     return {
       month: m.month,
       runsCount: Number(m.runsCount),
-      billedRevenueUsd: rev,
       actualCostUsd: cost,
-      netProfitUsd: rev - cost
+      subscriptionRevenue: mrr,
+      netProfitUsd: mrr - cost
     };
   });
-
-  const defaultBilledRunCostUsd = parseFloat(process.env.DEFAULT_BILLED_RUN_COST_USD ?? "0.1");
 
   return {
     totalUsersCount,
     activeUsersCount,
+    premiumUsersCount,
+    freeUsersCount,
+    mrr,
     totalRunsCount: Number(stats.totalRuns),
     successfulRunsCount: Number(stats.successfulRuns),
-    totalBilledRevenueUsd,
     totalActualCostUsd,
     totalProfitUsd,
-    defaultBilledRunCostUsd,
     monthlyStats: formattedMonthly
   };
 }

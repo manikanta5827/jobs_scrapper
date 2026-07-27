@@ -1,4 +1,5 @@
 import type { EnrichedJob, JobStats } from './types';
+import { HIGH_SCORE_THRESHOLD, APP_FALLBACK_URL } from './constants';
 
 // Candidate User info structure for failure alerts sent to Admin
 export interface CandidateUserInfo {
@@ -32,7 +33,7 @@ export function getSuccessHeader(dateTimeStr: string, stats: JobStats): string {
  * Formats a SINGLE job match message for Telegram (HTML mode).
  */
 export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
-  const scoreEmoji = (j.ai_score ?? 0) >= 85 ? '✅' : '⚠️';
+  const scoreEmoji = (j.ai_score ?? 0) >= HIGH_SCORE_THRESHOLD ? '✅' : '⚠️';
   
   let msg = `<b>[ #${index} ] — ${j.title}</b>\n`;
   msg += `────────────────────\n`;
@@ -48,19 +49,19 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   }
 
   if (j.ai_matched_skills && j.ai_matched_skills.length > 0) {
-    msg += `✅ <b>Matched Skills:</b> <i>${j.ai_matched_skills.join(', ')}</i>\n`;
+    msg += `✅ <b>Matched Skills:</b> <i>${j.ai_matched_skills.join(', ')}</i>\n\n`;
   }
 
   if (j.ai_missing_skills && j.ai_missing_skills.length > 0) {
-    msg += `❌ <b>Missing Skills:</b> <i>${j.ai_missing_skills.join(', ')}</i>\n`;
+    msg += `❌ <b>Missing Skills:</b> <i>${j.ai_missing_skills.join(', ')}</i>\n\n`;
   }
 
   if (j.ai_reason) {
-    msg += `📝 <b>AI Reason:</b> <i>${j.ai_reason}</i>\n`;
+    msg += `📝 <b>AI Reason:</b> <i>${j.ai_reason}</i>\n\n`;
   }
 
   msg += `\n🚀 <a href="${j.link}"><b>APPLY ON LINKEDIN</b></a>`;
-  const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://jobs-scrapper-gold.vercel.app';
+  const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || APP_FALLBACK_URL;
   const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.fingerprint || j.link || '')}`;
   msg += `\n📄 <a href="${resumeUrl}"><b>VIEW & PRINT ATS RESUME</b></a>`;
   return msg;

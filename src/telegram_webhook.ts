@@ -1,6 +1,6 @@
 /**
  * telegram_webhook.ts
- * Webhook handler with Zod validation for Telegram Bot commands (/register, /start, /stop, /balance, /status)
+ * Webhook handler with Zod validation for Telegram Bot commands (/register, /start, /stop, /status)
  */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { 
@@ -11,7 +11,7 @@ import {
 } from "./helper/db_helper";
 import { sendTelegramMessage } from "./helper/telegram_helper";
 import { TelegramWebhookMessageSchema } from "./helper/validation";
-import { convertUsdToInr } from "./helper/currency_helper";
+import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from "./helper/constants";
 
 // Handle incoming Telegram webhook updates
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -60,7 +60,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Link candidate's Telegram Chat ID to user record in database
       const updated = await updateUser(candidateId, { telegramChatId: chatId, isActive: true });
       const u = updated[0] || pendingUser;
-      const balanceInr = convertUsdToInr(u.balanceUsd || 0);
+
+      const cfg = TIER_CONFIG[u.tier as Tier];
+      const tierText = `${cfg.emoji} ${cfg.label} (${cfg.alertsPerDay} alert/day)`;
+      const expiryText = u.subscriptionExpiresAt
+        ? `\n📅 <b>Expires:</b> ${new Date(u.subscriptionExpiresAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}`
+        : '';
 
       await sendTelegramMessage(
         botToken,
@@ -68,8 +73,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         `🎉 <b>Welcome ${escapeHtml(u.name || u.email)}!</b>\n\n` +
         `Your Telegram account has been linked successfully! ✅\n\n` +
         `👤 <b>Candidate ID:</b> ${u.id}\n` +
-        `💳 <b>Wallet Balance:</b> $${(u.balanceUsd || 0).toFixed(2)} USD (~₹${balanceInr} INR)\n` +
-        `✨ You will now receive automated matched job alerts twice daily.`
+        `🏷️ <b>Tier:</b> ${tierText}${expiryText}\n` +
+        `✨ You will now receive automated matched job alerts.`
       );
 
       return { statusCode: 200, body: JSON.stringify({ status: "registered", userId: u.id }) };
@@ -101,25 +106,42 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // 4. Process /start command to resume job alerts
     if (text.startsWith("/start")) {
       await setUserActiveStatus(user.id, true);
-      const balanceInr = convertUsdToInr(user.balanceUsd);
+      const tierText = `${TIER_CONFIG[user.tier as Tier].emoji} ${TIER_CONFIG[user.tier as Tier].label} (${TIER_CONFIG[user.tier as Tier].alertsPerDay} alerts/day)`;
       await sendTelegramMessage(
         botToken,
         chatId,
-        `▶️ <b>Job Notifications Active</b>\nYou will receive fresh matched job alerts twice daily.\n\n💳 <b>Current Balance:</b> $${user.balanceUsd.toFixed(2)} USD (~₹${balanceInr} INR)`
+        `▶️ <b>Job Notifications Active</b>\nYou will receive fresh matched job alerts.\n\n🏷️ <b>Tier:</b> ${tierText}`
       );
       return { statusCode: 200, body: JSON.stringify({ status: "resumed" }) };
     }
 
-    // 5. Process /balance or /status command to check wallet balance and run statistics
-    if (text.startsWith("/balance") || text.startsWith("/status")) {
+    // 5. Process /status or /balance command to check tier, subscription, and run statistics
+    if (text.startsWith("/status") || text.startsWith("/balance")) {
       const statusText = user.isActive ? "Active ✅" : "Paused ⏸️";
-      const balanceInr = convertUsdToInr(user.balanceUsd);
-      const msg = `📊 <b>Account Status & Wallet Balance</b>\n\n` +
+      const tierCfg = TIER_CONFIG[user.tier as Tier];
+      const tierEmoji = tierCfg.emoji;
+      const tierLabel = `${tierCfg.label} (${tierCfg.alertsPerDay} alert${tierCfg.alertsPerDay > 1 ? 's' : ''}/day)`;
+
+      let subInfo = '';
+      if (user.subscriptionExpiresAt) {
+        const expDate = new Date(user.subscriptionExpiresAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+        const amountText = user.subscriptionAmount && user.subscriptionAmount > 0
+          ? ` (₹${user.subscriptionAmount}/month)`
+          : ' (Trial)';
+        subInfo = `📅 <b>Expires:</b> ${expDate}${amountText}\n`;
+      }
+
+      if (user.tier === Tier.FREE) {
+        subInfo = `💡 <b>Upgrade:</b> Contact admin for Premium at ₹${PREMIUM_PRICE_MONTHLY_INR}/month\n`;
+      }
+
+      const msg = `📊 <b>Account Status</b>\n\n` +
         `👤 <b>User:</b> ${escapeHtml(user.name || user.email)}\n` +
         `🆔 <b>ID:</b> ${user.id}\n` +
         `🔄 <b>Status:</b> ${statusText}\n` +
-        `💳 <b>Wallet Balance:</b> $${user.balanceUsd.toFixed(2)} USD (~₹${balanceInr} INR)\n` +
-        `🚀 <b>Total Runs Executed:</b> ${user.totalRunsCount}`;
+        `${tierEmoji} <b>Tier:</b> ${tierLabel}\n` +
+        subInfo +
+        `🚀 <b>Total Runs:</b> ${user.totalRunsCount}`;
       
       await sendTelegramMessage(botToken, chatId, msg);
       return { statusCode: 200, body: JSON.stringify({ status: "info_sent" }) };
@@ -129,7 +151,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     await sendTelegramMessage(
       botToken,
       chatId,
-      "🤖 <b>Available Commands:</b>\n• <code>/start</code> — Resume job alerts\n• <code>/stop</code> — Pause job alerts\n• <code>/balance</code> — Check wallet balance"
+      "🤖 <b>Available Commands:</b>\n• <code>/start</code> — Resume job alerts\n• <code>/stop</code> — Pause job alerts\n• <code>/status</code> — Check account status & tier"
     );
 
     return { statusCode: 200, body: JSON.stringify({ status: "ok" }) };

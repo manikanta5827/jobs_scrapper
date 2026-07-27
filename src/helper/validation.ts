@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { Tier } from './constants';
 
 // UUID parameter validation schema
 export const UuidParamSchema = z.string().uuid({ message: "Invalid candidate UUID format" });
@@ -40,14 +41,9 @@ export const CreateUserSchema = z.object({
     refreshToken: z.string().trim().max(1000, { message: "Refresh token too long" }).optional(),
     personUrn: z.string().trim().max(100, { message: "Person URN cannot exceed 100 characters" }).optional()
   }).optional(),
-  initialInr: z.number()
-    .min(100, { message: "Initial recharge must be at least ₹100 INR" })
-    .max(100000, { message: "Initial recharge cannot exceed ₹100,000 INR" })
-    .optional().default(500),
-  customRunCostUsd: z.number()
-    .min(0.01, { message: "Custom rate must be at least $0.01 USD" })
-    .max(10.0, { message: "Custom rate cannot exceed $10.00 USD" })
-    .nullable().optional(),
+  tier: z.nativeEnum(Tier).optional().default(Tier.PREMIUM),
+  subscriptionAmount: z.number().min(0).max(10000).optional().default(0),
+  subscriptionExpiresAt: z.string().datetime().optional(),
   experienceYears: z.number().min(0, { message: "Experience years must be 0 or greater" }).max(50).optional().default(0),
   linkedinProfileUrl: z.string().trim().max(500).optional(),
   targetLocations: z.string().trim().max(500).optional(),
@@ -84,9 +80,9 @@ export const UpdateUserSchema = z.object({
     refreshToken: z.string().trim().max(1000).optional(),
     personUrn: z.string().trim().max(100).optional()
   }).optional(),
-  amountInr: z.number().min(10).max(100000).optional(),
-  balanceUsd: z.number().min(0).max(10000).optional(),
-  customRunCostUsd: z.number().min(0.01).max(10.0).nullable().optional(),
+  tier: z.nativeEnum(Tier).optional(),
+  subscriptionAmount: z.number().min(0).max(10000).optional(),
+  subscriptionExpiresAt: z.string().datetime().optional(),
   experienceYears: z.number().min(0).max(50).optional(),
   linkedinProfileUrl: z.string().trim().max(500).optional(),
   targetLocations: z.string().trim().max(500).optional(),
@@ -107,11 +103,11 @@ export const UpdateUserSchema = z.object({
   source: z.enum(['linkedin', 'whatsapp', 'other']).optional()
 });
 
-// POST /users/{id}/topup request body schema
-export const TopupWalletSchema = z.object({
-  amountInr: z.number()
-    .min(10, { message: "Recharge amount must be at least ₹10 INR" })
-    .max(100000, { message: "Recharge amount cannot exceed ₹100,000 INR" })
+// POST /users/{id}/subscription request body schema
+export const UpdateSubscriptionSchema = z.object({
+  tier: z.nativeEnum(Tier),
+  subscriptionAmount: z.number().min(0, { message: "Subscription amount must be 0 or greater" }).max(10000),
+  subscriptionExpiresAt: z.string().datetime({ message: "Must be a valid ISO 8601 datetime string" })
 });
 
 // POST /apify-keys request body schema

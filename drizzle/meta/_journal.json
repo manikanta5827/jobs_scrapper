@@ -169,6 +169,13 @@
       "when": 1785171366703,
       "tag": "0023_absurd_the_liberteens",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785183541321,
+      "tag": "0024_closed_fabian_cortez",
+      "breakpoints": true
     }
   ]
 }

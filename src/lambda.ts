@@ -6,11 +6,12 @@
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { resetHighUsageTokens, purgeOldUnmatchedJobs, getActiveUsersMinimal, getUserById } from './helper/db_helper';
+import { Tier } from './helper/constants';
 
 const lambdaClient = new LambdaClient({});
 
 export const handler = async (
-  event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string } & ScheduledEvent,
+  event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string; includeFreeTier?: boolean } & ScheduledEvent,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
   // Security check: verify admin API key matches configured secret
@@ -21,22 +22,25 @@ export const handler = async (
   }
 
   const lookbackHours = event.lookbackHours || 12;
+  const includeFreeTier = event.includeFreeTier || false;
   const workerFunctionName = process.env.USER_WORKER_FUNCTION_NAME!;
 
-  console.log(`MainLambda Dispatcher started. Lookback: ${lookbackHours}h`, new Date().toISOString());
+  console.log(`MainLambda Dispatcher started. Lookback: ${lookbackHours}h, IncludeFreeTier: ${includeFreeTier}`, new Date().toISOString());
 
   // 1. Reset expired high-usage Apify tokens & purge 7-day-old unmatched jobs
   await resetHighUsageTokens();
   await purgeOldUnmatchedJobs(7);
 
   // Fetch active users to process
-  type MinimalUser = { id: string; email: string; isActive: boolean; telegramChatId?: string | null };
+  type MinimalUser = { id: string; email: string; isActive: boolean; telegramChatId?: string | null; tier: string; subscriptionExpiresAt?: Date | null };
   let usersToProcess: MinimalUser[] = [];
   if (event.targetUserId) {
     const singleUser = await getUserById(event.targetUserId);
     if (singleUser && singleUser.isActive) usersToProcess.push(singleUser);
+  } else if (includeFreeTier) {
+    usersToProcess = await getActiveUsersMinimal(); // all active (free + premium)
   } else {
-    usersToProcess = await getActiveUsersMinimal();
+    usersToProcess = await getActiveUsersMinimal(Tier.PREMIUM); // premium only
   }
 
   if (usersToProcess.length === 0) {
@@ -54,7 +58,7 @@ export const handler = async (
         InvocationType: 'Event', // Asynchronous execution
         Payload: JSON.stringify({ userId: user.id, lookbackHours }),
       }));
-      console.log(`Dispatched UserWorkerLambda for User ID: ${user.id} (${user.email})`);
+      console.log(`Dispatched UserWorkerLambda for User ID: ${user.id} (${user.email}) [tier: ${user.tier}]`);
       return { userId: user.id, dispatched: true };
     } catch (err: unknown) {
       console.error(`Failed to dispatch UserWorkerLambda for User ID ${user.id}:`, err);
