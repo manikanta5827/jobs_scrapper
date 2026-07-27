@@ -409,7 +409,7 @@
         if (data.companyName) subtext.innerText = `Tailored for ${data.companyName} (${data.location || 'LinkedIn'})`;
 
         if (!data.optimizedResumeMd) {
-          throw new Error('No ATS-optimized resume Markdown found for this job. It may be below the score threshold.');
+          throw new Error('No ATS-optimized resume Markdown found for this job. Generation may have failed.');
         }
 
         // Render clean Markdown using Marked.js

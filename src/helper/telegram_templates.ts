@@ -1,7 +1,5 @@
 import type { EnrichedJob, JobStats } from './types';
 
-const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "80", 10);
-
 // Candidate User info structure for failure alerts sent to Admin
 export interface CandidateUserInfo {
   id?: number;
@@ -62,10 +60,8 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   }
 
   msg += `\n🚀 <a href="${j.link}"><b>APPLY ON LINKEDIN</b></a>`;
-  if ((j.ai_score ?? 0) >= MIN_MATCH_SCORE) {
-    const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://jobs-scrapper-gold.vercel.app';
-    const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.fingerprint || j.link || '')}`;
-    msg += `\n📄 <a href="${resumeUrl}"><b>VIEW & PRINT ATS RESUME</b></a>`;
-  }
+  const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://jobs-scrapper-gold.vercel.app';
+  const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.fingerprint || j.link || '')}`;
+  msg += `\n📄 <a href="${resumeUrl}"><b>VIEW & PRINT ATS RESUME</b></a>`;
   return msg;
 }
