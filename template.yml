@@ -265,6 +265,7 @@ Resources:
           DATABASE_URL: !Ref DatabaseUrl
           DEEPSEEK_API_KEY: !Ref DeepseekApiKey
           APP_ENV: !Ref AppEnv
+          MIN_MATCH_SCORE: !Ref MinMatchScore
           ADMIN_API_KEY: !Ref AdminApiKey
           MAIN_LAMBDA_FUNCTION_NAME: !Ref MainLambda
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
@@ -476,6 +477,7 @@ Resources:
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           APP_ENV: !Ref AppEnv
           DATABASE_URL: !Ref DatabaseUrl
+          MIN_MATCH_SCORE: !Ref MinMatchScore
       Events:
         PostSchedule:
           Type: ScheduleV2

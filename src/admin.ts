@@ -36,6 +36,7 @@ import {
   formatZodError 
 } from './helper/validation';
 
+const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "80", 10);
 const lambdaClient = new LambdaClient({});
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -66,8 +67,8 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
 
     let resumeMd = job.optimizedResumeMd || null;
 
-    // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet and score >= 70
-    if (!resumeMd && (job.aiScore ?? 0) >= 70 && job.userId) {
+    // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet and score >= MIN_MATCH_SCORE
+    if (!resumeMd && (job.aiScore ?? 0) >= MIN_MATCH_SCORE && job.userId) {
       const user = await getUserById(job.userId);
       if (user && user.resumeText) {
         try {

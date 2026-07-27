@@ -716,8 +716,7 @@
           <div class="filter-group">
             <label for="minScoreSelect">Match Quality:</label>
             <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
-              <option value="70" selected>&ge; 70% (All Matched)</option>
-              <option value="80">&ge; 80% (Great Matches)</option>
+              <option value="80" selected>&ge; 80% (Great Matches)</option>
               <option value="90">&ge; 90% (Top Matches)</option>
             </select>
           </div>
@@ -981,7 +980,7 @@
 
       try {
         const limit = parseInt(document.getElementById('limitSelect').value, 10) || 50;
-        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 70;
+        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 80;
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
 
@@ -1071,7 +1070,7 @@
     }
 
     function resetFilters() {
-      document.getElementById('minScoreSelect').value = '70';
+      document.getElementById('minScoreSelect').value = '80';
       document.getElementById('fromDate').value = defaultDate;
       document.getElementById('toDate').value = defaultDate;
       document.getElementById('searchInput').value = '';
@@ -1164,7 +1163,7 @@
                 <span>View</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               </a>
-              ${score >= 70 ? `
+              ${score >= 80 ? `
                 <a href="resume.html?id=${encodeURIComponent(job.fingerprint || job.id || '')}" target="_blank" rel="noopener noreferrer" class="btn btn-ats-resume" style="padding: 5px 10px; font-size: 12px; background: #8b5cf6; color: #ffffff; border: none; box-shadow: 0 2px 4px rgba(139, 92, 246, 0.25); text-decoration: none;" title="Generate / View ATS-Optimized Resume for this job">
                   <span>📄 ATS Resume</span>
                 </a>

@@ -3,6 +3,8 @@ import { jobs, keyRotation, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
 import { convertInrToUsd } from "./currency_helper";
 
+const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "80", 10);
+
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
 
 // Fetch all API tokens and current costs for key rotation dashboard
@@ -182,7 +184,7 @@ export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
             lt(jobs.createdAt, cutoff),
             or(
               isNull(jobs.aiScore),
-              lt(jobs.aiScore, 70)
+              lt(jobs.aiScore, MIN_MATCH_SCORE)
             )
           )
         )
@@ -214,8 +216,8 @@ export async function getJobsForUser(
   const limit = Math.min(100, Math.max(10, options.limit || 50));
   const offset = (page - 1) * limit;
 
-  // Clamp score range between 0 and 100 (default min 70, max 100)
-  const rawMin = options.minScore ?? 70;
+  // Clamp score range between 0 and 100 (default min from MIN_MATCH_SCORE env, max 100)
+  const rawMin = options.minScore ?? MIN_MATCH_SCORE;
   const rawMax = options.maxScore ?? 100;
   const minScore = Math.min(100, Math.max(0, rawMin));
   const maxScore = Math.min(100, Math.max(minScore, rawMax));
