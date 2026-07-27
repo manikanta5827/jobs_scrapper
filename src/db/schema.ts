@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   excludeTitleKeywords: jsonb("exclude_title_keywords").$type<string[]>().default([]).notNull(),
 
   isActive: boolean("is_active").default(true).notNull(), // User active state toggleable via Telegram /stop
+  source: text("source"), // Acquisition source: 'linkedin' | 'whatsapp' | 'other'
   totalRunsCount: integer("total_runs_count").default(0).notNull(), // Lifetime completed runs count
   lastRunAt: timestamp("last_run_at", { withTimezone: true }), // Timestamp of last run
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

@@ -195,7 +195,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           email, name, resumeText, telegramChatId, 
           linkedinCredentials, initialInr, customRunCostUsd, excludeTitleKeywords,
           experienceYears, targetLocations, employmentType,
-          primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles
+          primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles, source
         } = parseResult.data;
 
         const initialUsd = Number(((initialInr || 500) / 100).toFixed(2));
@@ -219,6 +219,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           certifications,
           keyHighlights,
           suggestedJobTitles,
+          source,
           isActive: true
         });
 

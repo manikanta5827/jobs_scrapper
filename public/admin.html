@@ -596,6 +596,7 @@
             <tr>
               <th>ID</th>
               <th>Candidate</th>
+              <th>Source</th>
               <th>Registration Link</th>
               <th>Wallet Balance</th>
               <th>Rate</th>
@@ -605,7 +606,7 @@
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -704,6 +705,15 @@
           <div class="form-group">
             <label>Candidate Full Name</label>
             <input type="text" id="userName" maxlength="100" placeholder="John Doe">
+          </div>
+          <div class="form-group">
+            <label>Source (Where did this candidate come from?)</label>
+            <select id="userSource" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-main); font-size: 14px;">
+              <option value="">— Select source —</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="other">Other</option>
+            </select>
           </div>
           <div class="form-group">
             <label>Telegram Chat ID (Optional — Auto-linked via /register ID)</label>
@@ -1086,7 +1096,7 @@
         const data = await apiRequest('/users');
         const usersList = data.users || [];
         if (usersList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-tertiary)">No candidates registered yet. Click + Add Candidate to onboard.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-tertiary)">No candidates registered yet. Click + Add Candidate to onboard.</td></tr>';
           return;
         }
 
@@ -1098,6 +1108,9 @@
             <td>
               <div style="font-weight: 600; color: var(--text-main);">${u.name || 'Unnamed Candidate'}</div>
               <div style="font-size: 12px; color: var(--text-tertiary);">${u.email}</div>
+            </td>
+            <td>
+              <span class="badge ${u.source ? 'badge-active' : 'badge-inactive'}">${u.source || 'Unknown'}</span>
             </td>
             <td>
               <button class="btn btn-sm" onclick="copyToClipboard('https://t.me/Job_Notifier_9823_bot?start=${u.id}')">
@@ -1130,7 +1143,7 @@
           `;
         }).join('');
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger)">Failed to load candidates: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger)">Failed to load candidates: ${err.message}</td></tr>`;
       }
     }
 
@@ -1218,6 +1231,7 @@
         document.getElementById('userLinkedinPersonUrn').value = u.linkedinCredentials?.personUrn || '';
         document.getElementById('userLinkedinAccessToken').value = u.linkedinCredentials?.accessToken || '';
         document.getElementById('userCustomRate').value = u.customRunCostUsd || '';
+        document.getElementById('userSource').value = u.source || '';
 
         switchModalTab('userTabBasic', document.querySelector('.modal-tab-btn'));
         openModal('userModal');
@@ -1263,6 +1277,9 @@
         employmentType: employmentType || undefined,
         customRunCostUsd: document.getElementById('userCustomRate').value ? parseFloat(document.getElementById('userCustomRate').value) : null
       };
+
+      const sourceVal = document.getElementById('userSource').value;
+      if (sourceVal) payload.source = sourceVal;
 
       const aiKnownSkills = document.getElementById('aiKnownSkills').value.split(',').map(s => s.trim()).filter(Boolean);
       const aiEducation = document.getElementById('aiEducation').value.split(/[\\n,]+/).map(s => s.trim()).filter(Boolean);

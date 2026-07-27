@@ -391,6 +391,7 @@ export async function createUser(userData: {
   certifications?: string[];
   keyHighlights?: string[];
   suggestedJobTitles?: string[];
+  source?: string;
   isActive?: boolean;
 }) {
   await initDb();
@@ -418,6 +419,7 @@ export async function updateUser(id: string, data: Partial<{
   certifications: string[];
   keyHighlights: string[];
   suggestedJobTitles: string[];
+  source?: string;
   isActive: boolean;
 }>) {
   await initDb();

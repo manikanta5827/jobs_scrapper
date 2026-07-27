@@ -63,7 +63,8 @@ export const CreateUserSchema = z.object({
   suggestedJobTitles: z.array(z.string().trim()).optional(),
   excludeTitleKeywords: z.array(
     z.string().trim().min(1).max(50)
-  ).max(100, { message: "Maximum 100 exclude keywords allowed" }).optional()
+  ).max(100, { message: "Maximum 100 exclude keywords allowed" }).optional(),
+  source: z.enum(['linkedin', 'whatsapp', 'other'], { message: "Source must be one of: linkedin, whatsapp, other" }).optional()
 });
 
 // PUT /users/{id} request body schema
@@ -98,7 +99,8 @@ export const UpdateUserSchema = z.object({
   keyHighlights: z.array(z.string().trim()).optional(),
   suggestedJobTitles: z.array(z.string().trim()).optional(),
   excludeTitleKeywords: z.array(z.string().trim().min(1).max(50)).max(100).optional(),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
+  source: z.enum(['linkedin', 'whatsapp', 'other']).optional()
 });
 
 // POST /users/{id}/topup request body schema
