@@ -196,6 +196,55 @@
       margin-bottom: 16px;
     }
 
+    /* ATS Tailoring Audit */
+    .tailor-audit {
+      margin-top: 32px;
+      border-top: 2px solid #e2e8f0;
+      padding-top: 20px;
+    }
+
+    .audit-summary {
+      font-size: 15px;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      padding: 8px 0;
+      user-select: none;
+    }
+
+    .audit-section {
+      margin-top: 12px;
+    }
+
+    .audit-section h4 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .audit-section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .audit-section li {
+      font-size: 13px;
+      color: #475569;
+      padding: 4px 0 4px 20px;
+      position: relative;
+    }
+
+    .audit-section li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #64748b;
+    }
+
     /* PRISTINE ATS PRINT-TO-PDF STYLESHEET */
     @media print {
       body {
@@ -205,7 +254,7 @@
         color: black !important;
       }
 
-      .no-print, .action-bar, .error-alert {
+      .no-print, .action-bar, .error-alert, .tailor-audit {
         display: none !important;
       }
 
@@ -271,6 +320,19 @@
         <p>Loading your ATS-optimized resume...</p>
       </div>
       <div id="resumeContent" style="display: none;"></div>
+      <div id="tailorAudit" class="tailor-audit" style="display: none;">
+        <details open>
+          <summary class="audit-summary">ATS Tailoring Audit</summary>
+          <div class="audit-section">
+            <h4>Changes Made</h4>
+            <ul id="changesMadeList"></ul>
+          </div>
+          <div class="audit-section">
+            <h4>ATS Keywords Incorporated</h4>
+            <ul id="keywordsUsedList"></ul>
+          </div>
+        </details>
+      </div>
     </main>
   </div>
 
@@ -326,12 +388,32 @@
         loadingDiv.style.display = 'none';
         contentDiv.style.display = 'block';
 
+        // Render ATS tailoring audit if available
+        const changesList = document.getElementById('changesMadeList');
+        const keywordsList = document.getElementById('keywordsUsedList');
+        const auditDiv = document.getElementById('tailorAudit');
+
+        if (data.changesMade && data.changesMade.length > 0) {
+          changesList.innerHTML = data.changesMade.map(c => `<li>${escapeHtml(c)}</li>`).join('');
+          auditDiv.style.display = 'block';
+        }
+        if (data.keywordsUsed && data.keywordsUsed.length > 0) {
+          keywordsList.innerHTML = data.keywordsUsed.map(k => `<li>${escapeHtml(k)}</li>`).join('');
+          auditDiv.style.display = 'block';
+        }
+
       } catch (err) {
         console.error('Error fetching ATS resume:', err);
         loadingDiv.style.display = 'none';
         errorDiv.style.display = 'block';
         errorDiv.innerText = `⚠️ ${err.message || err}`;
       }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
     }
 
     window.addEventListener('DOMContentLoaded', loadResume);

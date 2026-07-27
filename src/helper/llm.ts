@@ -5,7 +5,7 @@
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult, TokenUsage } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
-import { generateObject, generateText } from 'ai';
+import { generateObject } from 'ai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
@@ -464,14 +464,90 @@ ${resumeText.slice(0, 10000)}`;
   }
 }
 
-// ponytail: ATS resume generation returns clean Markdown via generateText instead of PDF binaries or JSON schema to minimize output tokens and avoid Lambda bundle bloat.
+// ATS resume structured output schema — forces LLM to produce consistent, auditable resumes
+const atsResumeSchema = z.object({
+  name: z.string().describe("Candidate's full name extracted from original resume"),
+  contact: z.object({
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    linkedin: z.string().optional(),
+    location: z.string().optional(),
+  }).describe("Contact details from original resume"),
+  summary: z.string().describe("ATS-tailored professional summary incorporating JD keywords"),
+  experience: z.array(z.object({
+    title: z.string(),
+    company: z.string(),
+    dates: z.string(),
+    bullets: z.array(z.string()),
+  })).describe("Work experience with JD-tailored bullet points"),
+  skills: z.array(z.string()).describe("Skills from resume, prioritized by JD relevance"),
+  education: z.array(z.object({
+    degree: z.string(),
+    institution: z.string(),
+    dates: z.string(),
+  })).optional(),
+  projects: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    technologies: z.array(z.string()).optional(),
+  })).optional(),
+  changes_made: z.array(z.string()).describe("Specific changes applied to tailor resume to this JD"),
+  ats_keywords_used: z.array(z.string()).describe("JD keywords successfully incorporated into resume"),
+});
+
+type AtsResume = z.infer<typeof atsResumeSchema>;
+
+function convertAtsResumeToMarkdown(resume: AtsResume): string {
+  const lines: string[] = [];
+
+  lines.push(`# ${resume.name}`);
+  const contactBits: string[] = [];
+  if (resume.contact.email) contactBits.push(resume.contact.email);
+  if (resume.contact.phone) contactBits.push(resume.contact.phone);
+  if (resume.contact.linkedin) contactBits.push(`[LinkedIn](${resume.contact.linkedin})`);
+  if (resume.contact.location) contactBits.push(resume.contact.location);
+  if (contactBits.length > 0) lines.push(contactBits.join(' | '));
+
+  lines.push(`## Summary`);
+  lines.push(resume.summary);
+
+  lines.push(`## Skills`);
+  lines.push(resume.skills.join(', '));
+
+  if (resume.experience.length > 0) {
+    lines.push(`## Work Experience`);
+    for (const exp of resume.experience) {
+      lines.push(`### ${exp.title} — ${exp.company} (${exp.dates})`);
+      for (const bullet of exp.bullets) lines.push(`- ${bullet}`);
+    }
+  }
+
+  if (resume.education && resume.education.length > 0) {
+    lines.push(`## Education`);
+    for (const edu of resume.education) {
+      lines.push(`- ${edu.degree}, ${edu.institution} (${edu.dates})`);
+    }
+  }
+
+  if (resume.projects && resume.projects.length > 0) {
+    lines.push(`## Projects`);
+    for (const proj of resume.projects) {
+      const techs = proj.technologies?.length ? ` — ${proj.technologies.join(', ')}` : '';
+      lines.push(`### ${proj.name}${techs}`);
+      lines.push(proj.description);
+    }
+  }
+
+  return lines.join('\n\n');
+}
+
 export async function generateAtsResume(
   candidateResumeText: string,
   jobTitle: string,
   companyName: string,
   jobDescription: string,
   matchedSkills: string[] = []
-): Promise<{ resumeMd: string; usage: TokenUsage }> {
+): Promise<{ resumeMd: string; usage: TokenUsage; changesMade: string[]; keywordsUsed: string[] }> {
   if (!process.env.DEEPSEEK_API_KEY) {
     throw new FatalError("Missing DEEPSEEK_API_KEY");
   }
@@ -485,30 +561,40 @@ export async function generateAtsResume(
     metadata: { jobTitle, companyName },
   });
 
-  const systemPrompt = `You are an expert ATS (Applicant Tracking System) resume optimizer.
-Your task is to tailor the candidate's existing resume for the target job role.
+  const matchedSkillsHint = matchedSkills.length > 0
+    ? `\n- Matched skills the candidate ALREADY HAS (use these as anchor points): ${matchedSkills.join(', ')}`
+    : '';
 
-### CRITICAL RULES:
-1. STRICT TRUTHFULNESS: DO NOT invent skills, employers, degrees, or metrics not present in the original resume.
-2. KEYWORD ALIGNMENT: Incorporate keywords from the job description and matched skills (${matchedSkills.join(', ')}) naturally into bullet points and summary.
-3. ATS FORMAT: Output STRICTLY in clean Markdown using standard headings (# Summary, ## Skills, ## Work Experience, ## Education, ## Projects).
-4. Do NOT use tables, columns, emojis, or decorative characters.
-5. Do NOT wrap the entire response in a markdown code block (no \`\`\`markdown ... \`\`\`). Return raw markdown directly.`;
+  const systemPrompt = `You are an expert ATS (Applicant Tracking System) resume optimizer. Your task is to TAILOR the candidate's existing resume for a specific job.
+
+### CORE MISSION
+Rewrite and reorganize the candidate's resume content to align with the target job description. You MUST produce a noticeably different, tailored resume — NEVER return the original resume verbatim.
+
+### STRICT RULES
+1. **TRUTHFULNESS**: NEVER invent companies, job titles, dates, degrees, skills, tools, or metrics that do not exist in the original resume. You may rephrase, reorder, and emphasize, but every factual claim must have a basis in the original resume.
+2. **KEYWORD ALIGNMENT**: Extract key skills, tools, and qualifications from the job description. Rewrite bullet points and the summary to naturally incorporate matching keywords that the candidate actually has.${matchedSkillsHint}
+3. **PRIORITIZE JD RELEVANCE**: Reorder experience bullets and skills so that JD-relevant items appear first. De-emphasize irrelevant experience — but do not remove it unless it adds zero value.
+4. **ATS-FRIENDLY FORMAT**: Use standard section headers, bullet points, no tables/columns/emojis/graphics.
+5. **DETECT VERBATIM**: Before outputting, verify the resume is materially different from the original. If the job description has no useful tailoring information, note this in changes_made.`;
 
   const prompt = `### CANDIDATE ORIGINAL RESUME:
 ${candidateResumeText.slice(0, 10000)}
 
-### TARGET JOB (${jobTitle} at ${companyName}):
+### TARGET JOB DESCRIPTION (${jobTitle} at ${companyName}):
 ${jobDescription.slice(0, 8000)}
 
-Return ONLY the tailored Markdown resume text.`;
+### REQUIRED OUTPUT
+Return a structured JSON object with the ATS-tailored resume. The "changes_made" field MUST list the specific modifications you made. The "ats_keywords_used" field MUST list JD keywords you incorporated.
 
-  const { text, usage: apiUsage } = await generateText({
+CRITICAL: Do NOT return the resume verbatim. Tailor it.`;
+
+  const { object: resume, usage: apiUsage } = await generateObject({
     model,
     system: systemPrompt,
     prompt: prompt,
+    schema: atsResumeSchema,
     maxRetries: 3,
-    temperature: 0.2,
+    temperature: 0.4,
   });
 
   const anyUsage = apiUsage as Record<string, any>;
@@ -516,12 +602,16 @@ Return ONLY the tailored Markdown resume text.`;
   const cachedTokens = (anyUsage.promptTokensDetails as { cachedTokens?: number } | undefined)?.cachedTokens ?? (anyUsage.cachedInputTokens as number | undefined) ?? 0;
   const outputTokens = (anyUsage.completionTokens as number | undefined) ?? apiUsage.outputTokens ?? 0;
 
+  const resumeMd = convertAtsResumeToMarkdown(resume);
+
   return {
-    resumeMd: text.trim(),
+    resumeMd,
     usage: {
       promptCacheHitTokens: cachedTokens,
       promptCacheMissTokens: inputTokens - cachedTokens,
       completionTokens: outputTokens,
-    }
+    },
+    changesMade: resume.changes_made,
+    keywordsUsed: resume.ats_keywords_used,
   };
 }

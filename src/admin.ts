@@ -66,20 +66,24 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     }
 
     let resumeMd = job.optimizedResumeMd || null;
+    let changesMade: string[] = [];
+    let keywordsUsed: string[] = [];
 
     // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet and score >= MIN_MATCH_SCORE
     if (!resumeMd && (job.aiScore ?? 0) >= MIN_MATCH_SCORE && job.userId) {
       const user = await getUserById(job.userId);
       if (user && user.resumeText) {
         try {
-          const { resumeMd: generatedMd } = await generateAtsResume(
+          const result = await generateAtsResume(
             user.resumeText,
             job.jobTitle || 'Job Role',
             job.companyName || 'Company',
-            job.aiReason || job.jobTitle || '',
+            job.descriptionText || job.aiReason || '',
             job.matchedSkills || []
           );
-          resumeMd = generatedMd;
+          resumeMd = result.resumeMd;
+          changesMade = result.changesMade;
+          keywordsUsed = result.keywordsUsed;
           await updateJobResumeMd(job.id, resumeMd);
         } catch (genErr) {
           console.error(`Failed on-demand ATS resume generation for job ${job.id}:`, genErr);
@@ -94,6 +98,8 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
       location: job.location,
       aiScore: job.aiScore,
       optimizedResumeMd: resumeMd,
+      changesMade,
+      keywordsUsed,
       createdAt: job.createdAt
     });
   }

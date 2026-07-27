@@ -221,6 +221,7 @@ async function processUserWorker(
         requiredYoe: m?.ai_yoe,
         directApply: m?.ai_direct_apply || j.applyUrl || null,
         applicantsCount: j.applicantsCount,
+        descriptionText: j.descriptionText,
       };
     }));
 

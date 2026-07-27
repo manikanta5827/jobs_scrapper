@@ -136,6 +136,7 @@ export async function trackJobs(
     directApply?: string | null;
     applicantsCount?: string | number;
     optimizedResumeMd?: string;
+    descriptionText?: string;
   }[]
 ): Promise<void> {
   if (jobsToTrack.length === 0) return;
@@ -162,6 +163,7 @@ export async function trackJobs(
           directApply: j.directApply,
           applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
           optimizedResumeMd: j.optimizedResumeMd,
+          descriptionText: j.descriptionText,
         })))
         .onConflictDoNothing();
     });
