@@ -486,6 +486,40 @@
       z-index: 200;
       border: 1px solid var(--border-color);
     }
+    .chk-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--text-main);
+      cursor: pointer;
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-surface);
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .chk-label:hover {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+    .chk-label input[type="checkbox"] {
+      accent-color: var(--primary);
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+    .chk-label:has(input:checked) {
+      border-color: var(--primary);
+      background: #eff6ff;
+      font-weight: 500;
+    }
+    .city-checkbox-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -746,8 +780,30 @@
             <span style="font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px;">Jobs requiring MORE than this experience will be automatically rejected.</span>
           </div>
           <div class="form-group">
-            <label>Target Locations (Optional — e.g. Bangalore, Hyderabad)</label>
-            <input type="text" id="userTargetLocations" maxlength="500" placeholder="e.g. Hyderabad, Bangalore, Remote (leave empty to search all major tech cities)">
+            <label>Target Locations (Optional)</label>
+            <label class="chk-label">
+              <input type="checkbox" id="chkRemoteOnly" onchange="toggleCityGrid()">
+              <span>Remote only</span>
+            </label>
+            <div id="cityGrid" style="margin-top: 8px;">
+              <div class="city-checkbox-grid">
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="bengaluru"> Bengaluru</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="hyderabad"> Hyderabad</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="mumbai"> Mumbai</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="delhi"> Delhi</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="gurugram"> Gurugram</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="noida"> Noida</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="pune"> Pune</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="chennai"> Chennai</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="kolkata"> Kolkata</label>
+                <label class="chk-label"><input type="checkbox" class="city-chk" value="india"> India (Nationwide)</label>
+              </div>
+              <div style="margin-top: 8px; display: flex; gap: 8px;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="selectAllCities()">Select All</button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="clearCities()">Clear</button>
+              </div>
+            </div>
+            <span style="font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px;">Pick specific cities or enable "Remote only". Leave all unchecked to search across all major tech cities.</span>
           </div>
           <div class="form-group">
             <label>Employment Type (Optional)</label>
@@ -1202,6 +1258,9 @@
       document.getElementById('analyzeAiStatus').innerText = '';
       document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
       currentProfileFields = null;
+      document.getElementById('chkRemoteOnly').checked = false;
+      document.querySelectorAll('.city-chk').forEach(cb => cb.checked = false);
+      toggleCityGrid();
       switchModalTab('userTabBasic', document.querySelector('.modal-tab-btn'));
       openModal('userModal');
     }
@@ -1219,7 +1278,19 @@
         document.getElementById('userTelegramChatId').value = u.telegramChatId || '';
         document.getElementById('userResumeText').value = u.resumeText || '';
         document.getElementById('userExperienceYears').value = u.experienceYears ?? 0;
-        document.getElementById('userTargetLocations').value = u.targetLocations || '';
+        const savedTargetLocations = (u.targetLocations || '').toLowerCase();
+        const chkRemote = document.getElementById('chkRemoteOnly');
+        if (savedTargetLocations === 'remote') {
+          chkRemote.checked = true;
+          document.querySelectorAll('.city-chk').forEach(cb => cb.checked = false);
+        } else {
+          chkRemote.checked = false;
+          const selected = savedTargetLocations.split(',').map(s => s.trim()).filter(Boolean);
+          document.querySelectorAll('.city-chk').forEach(cb => {
+            cb.checked = selected.includes(cb.value);
+          });
+        }
+        toggleCityGrid();
         document.getElementById('userEmploymentType').value = u.employmentType || '';
         document.getElementById('initialInrGroup').style.display = 'none';
 
@@ -1274,7 +1345,14 @@
       const accessToken = document.getElementById('userLinkedinAccessToken').value.trim();
 
       const expYears = parseFloat(document.getElementById('userExperienceYears').value || '0');
-      const targetLocations = document.getElementById('userTargetLocations').value.trim();
+      let targetLocations;
+      if (document.getElementById('chkRemoteOnly').checked) {
+        targetLocations = 'remote';
+      } else {
+        const checkedCities = [];
+        document.querySelectorAll('.city-chk:checked').forEach(cb => checkedCities.push(cb.value));
+        targetLocations = checkedCities.length > 0 ? checkedCities.join(', ') : undefined;
+      }
       const employmentType = document.getElementById('userEmploymentType').value.trim();
 
       const payload = {
@@ -1457,6 +1535,24 @@
       } catch (err) {
         alert(`Error: ${err.message}`);
       }
+    }
+    function toggleCityGrid() {
+      const remote = document.getElementById('chkRemoteOnly').checked;
+      const grid = document.getElementById('cityGrid');
+      if (remote) {
+        grid.style.display = 'none';
+        document.querySelectorAll('.city-chk').forEach(cb => cb.checked = false);
+      } else {
+        grid.style.display = '';
+      }
+    }
+
+    function selectAllCities() {
+      document.querySelectorAll('.city-chk').forEach(cb => cb.checked = true);
+    }
+
+    function clearCities() {
+      document.querySelectorAll('.city-chk').forEach(cb => cb.checked = false);
     }
   </script>
 </body>
