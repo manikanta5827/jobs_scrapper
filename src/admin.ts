@@ -77,7 +77,9 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
             job.jobTitle || 'Job Role',
             job.companyName || 'Company',
             job.descriptionText || job.aiReason || '',
-            job.matchedSkills || []
+            job.matchedSkills || [],
+            user.name || undefined,
+            user.email
           );
           resumeMd = result.resumeMd;
           changesMade = result.changesMade;

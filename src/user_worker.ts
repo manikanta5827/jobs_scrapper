@@ -26,7 +26,7 @@ import type { Job, EnrichedJob, JobStats } from './helper/types';
 
 // Minimum required wallet balance before starting execution for a user ($0.1 USD)
 const MIN_RUN_BALANCE = parseFloat(process.env.MIN_RUN_BALANCE ?? "0.1");
-const DEEPSEEK_BATCH_SIZE = 2;
+const DEEPSEEK_BATCH_SIZE = 3;
 const BATCH_DELAY_MS = 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 

@@ -464,15 +464,11 @@ ${resumeText.slice(0, 10000)}`;
   }
 }
 
-// ATS resume structured output schema — forces LLM to produce consistent, auditable resumes
+// ATS resume structured output schema — LLM only handles mutable resume content
 const atsResumeSchema = z.object({
-  name: z.string().describe("Candidate's full name extracted from original resume"),
-  contact: z.object({
-    email: z.string().optional(),
-    phone: z.string().optional(),
-    linkedin: z.string().optional(),
-    location: z.string().optional(),
-  }).describe("Contact details from original resume"),
+  contactDetails: z.record(z.string(), z.string()).describe(
+    "Key-value pairs of contact info extracted from resume (e.g. Phone, LinkedIn, Location, GitHub, Portfolio). Keys are human-readable labels. Do NOT include Name or Email — those are handled separately."
+  ),
   summary: z.string().describe("ATS-tailored professional summary incorporating JD keywords"),
   experience: z.array(z.object({
     title: z.string(),
@@ -497,16 +493,19 @@ const atsResumeSchema = z.object({
 
 type AtsResume = z.infer<typeof atsResumeSchema>;
 
-function convertAtsResumeToMarkdown(resume: AtsResume): string {
+function convertAtsResumeToMarkdown(
+  resume: AtsResume,
+  userName: string,
+  userEmail: string,
+): string {
   const lines: string[] = [];
 
-  lines.push(`# ${resume.name}`);
-  const contactBits: string[] = [];
-  if (resume.contact.email) contactBits.push(resume.contact.email);
-  if (resume.contact.phone) contactBits.push(resume.contact.phone);
-  if (resume.contact.linkedin) contactBits.push(`[LinkedIn](${resume.contact.linkedin})`);
-  if (resume.contact.location) contactBits.push(resume.contact.location);
-  if (contactBits.length > 0) lines.push(contactBits.join(' | '));
+  lines.push(`# ${userName}`);
+  const contactBits: string[] = [userEmail];
+  for (const [key, value] of Object.entries(resume.contactDetails)) {
+    contactBits.push(`${key}: ${value}`);
+  }
+  lines.push(contactBits.join(' | '));
 
   lines.push(`## Summary`);
   lines.push(resume.summary);
@@ -546,7 +545,9 @@ export async function generateAtsResume(
   jobTitle: string,
   companyName: string,
   jobDescription: string,
-  matchedSkills: string[] = []
+  matchedSkills: string[] = [],
+  userName?: string,
+  userEmail?: string,
 ): Promise<{ resumeMd: string; usage: TokenUsage; changesMade: string[]; keywordsUsed: string[] }> {
   if (!process.env.DEEPSEEK_API_KEY) {
     throw new FatalError("Missing DEEPSEEK_API_KEY");
@@ -602,7 +603,7 @@ CRITICAL: Do NOT return the resume verbatim. Tailor it.`;
   const cachedTokens = (anyUsage.promptTokensDetails as { cachedTokens?: number } | undefined)?.cachedTokens ?? (anyUsage.cachedInputTokens as number | undefined) ?? 0;
   const outputTokens = (anyUsage.completionTokens as number | undefined) ?? apiUsage.outputTokens ?? 0;
 
-  const resumeMd = convertAtsResumeToMarkdown(resume);
+  const resumeMd = convertAtsResumeToMarkdown(resume, userName || 'Candidate', userEmail || '');
 
   return {
     resumeMd,
