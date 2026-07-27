@@ -164,6 +164,16 @@ Resources:
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
+        # Midnight run at 12:00 AM IST, Tuesday through Saturday
+        MidnightRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 0 ? * TUE-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 4, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
     Metadata:
       BuildMethod: esbuild
       BuildProperties:

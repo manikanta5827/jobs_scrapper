@@ -154,8 +154,11 @@ function extractLocations(user: {
     { name: 'Hyderabad', geoId: '90009650' },
     { name: 'Mumbai', geoId: '90009639' },
     { name: 'Delhi', geoId: '106187582' },
+    { name: 'Gurugram', geoId: '115884833' },
+    { name: 'Noida', geoId: '104869687' },
     { name: 'Pune', geoId: '114806696' },
     { name: 'Chennai', geoId: '106888327' },
+    { name: 'Kolkata', geoId: '111795395' },
   ];
 }
 
