@@ -707,6 +707,14 @@
             <input type="text" id="userName" maxlength="100" placeholder="John Doe">
           </div>
           <div class="form-group">
+            <label>Phone Number (Optional)</label>
+            <input type="tel" id="userPhone" maxlength="20" placeholder="+91 9876543210">
+          </div>
+          <div class="form-group">
+            <label>LinkedIn Profile URL (Optional — for candidate tracking)</label>
+            <input type="url" id="userLinkedinProfileUrl" maxlength="500" placeholder="https://www.linkedin.com/in/johndoe/">
+          </div>
+          <div class="form-group">
             <label>Source (Where did this candidate come from?)</label>
             <select id="userSource" style="width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-main); font-size: 14px;">
               <option value="">— Select source —</option>
@@ -1206,6 +1214,8 @@
         document.getElementById('userModalTitle').innerText = 'Edit Candidate Profile';
         document.getElementById('userEmail').value = u.email;
         document.getElementById('userName').value = u.name || '';
+        document.getElementById('userPhone').value = u.phone || '';
+        document.getElementById('userLinkedinProfileUrl').value = u.linkedinProfileUrl || '';
         document.getElementById('userTelegramChatId').value = u.telegramChatId || '';
         document.getElementById('userResumeText').value = u.resumeText || '';
         document.getElementById('userExperienceYears').value = u.experienceYears ?? 0;
@@ -1270,6 +1280,8 @@
       const payload = {
         email: document.getElementById('userEmail').value.trim(),
         name: document.getElementById('userName').value.trim(),
+        phone: document.getElementById('userPhone').value.trim() || undefined,
+        linkedinProfileUrl: document.getElementById('userLinkedinProfileUrl').value.trim() || undefined,
         telegramChatId: document.getElementById('userTelegramChatId').value.trim(),
         resumeText,
         experienceYears: isNaN(expYears) ? 0 : expYears,

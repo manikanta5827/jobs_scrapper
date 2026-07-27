@@ -192,9 +192,9 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         }
 
         const { 
-          email, name, resumeText, telegramChatId, 
+          email, name, phone, resumeText, telegramChatId, 
           linkedinCredentials, initialInr, customRunCostUsd, excludeTitleKeywords,
-          experienceYears, targetLocations, employmentType,
+          experienceYears, linkedinProfileUrl, targetLocations, employmentType,
           primaryDomain, candidateSummary, knownSkills, education, projects, certifications, keyHighlights, suggestedJobTitles, source
         } = parseResult.data;
 
@@ -202,6 +202,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         const created = await createUser({
           email,
           name,
+          phone,
           resumeText,
           telegramChatId: telegramChatId || "",
           linkedinCredentials,
@@ -209,6 +210,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           customRunCostUsd: customRunCostUsd ?? undefined,
           excludeTitleKeywords: excludeTitleKeywords,
           experienceYears: experienceYears ?? 0,
+          linkedinProfileUrl,
           targetLocations: targetLocations || undefined,
           employmentType: employmentType || undefined,
           primaryDomain,

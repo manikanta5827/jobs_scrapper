@@ -5,6 +5,7 @@ export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(), // UUID primary key
   email: text("email").notNull().unique(), // Unique email identifier
   name: text("name"), // User full name
+  phone: text("phone"), // Optional phone number
   resumeText: text("resume_text").notNull(), // Full plain text content of candidate's resume
   telegramChatId: text("telegram_chat_id"), // Candidate's Telegram chat ID (linked via /register <UUID>)
   linkedinCredentials: jsonb("linkedin_credentials").$type<{
@@ -19,6 +20,7 @@ export const users = pgTable("users", {
   
   // Onboarding Candidate Preferences & Experience
   experienceYears: doublePrecision("experience_years").default(0).notNull(), // Candidate total experience in years (required)
+  linkedinProfileUrl: text("linkedin_profile_url"), // Optional LinkedIn profile URL for tracking
   targetLocations: text("target_locations"), // Optional preferred locations (e.g. "Hyderabad, Remote")
   employmentType: text("employment_type"), // Optional employment type (e.g. "Full-time")
 

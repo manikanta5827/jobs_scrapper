@@ -359,6 +359,7 @@ export async function getUserByTelegramChatId(chatId: string) {
 export async function createUser(userData: {
   email: string;
   name?: string;
+  phone?: string;
   resumeText: string;
   telegramChatId?: string;
   linkedinCredentials?: { accessToken?: string; refreshToken?: string; personUrn?: string };
@@ -366,6 +367,7 @@ export async function createUser(userData: {
   customRunCostUsd?: number;
   excludeTitleKeywords?: string[];
   experienceYears?: number;
+  linkedinProfileUrl?: string;
   targetLocations?: string;
   employmentType?: string;
   primaryDomain?: string;
@@ -387,6 +389,7 @@ export async function createUser(userData: {
 export async function updateUser(id: string, data: Partial<{
   email: string;
   name: string;
+  phone: string;
   resumeText: string;
   telegramChatId: string;
   linkedinCredentials: { accessToken?: string; refreshToken?: string; personUrn?: string };
@@ -394,6 +397,7 @@ export async function updateUser(id: string, data: Partial<{
   customRunCostUsd: number;
   excludeTitleKeywords: string[];
   experienceYears: number;
+  linkedinProfileUrl: string;
   targetLocations: string;
   employmentType: string;
   primaryDomain: string;

@@ -30,6 +30,7 @@ export const AnalyzeResumeSchema = z.object({
 export const CreateUserSchema = z.object({
   email: z.string().email({ message: "Must be a valid email address" }).max(255, { message: "Email cannot exceed 255 characters" }),
   name: z.string().trim().max(100, { message: "Name cannot exceed 100 characters" }).optional(),
+  phone: z.string().trim().max(20, { message: "Phone number cannot exceed 20 characters" }).optional(),
   resumeText: z.string()
     .min(50, { message: "Resume plain text must be at least 50 characters long" })
     .max(15000, { message: "Resume plain text cannot exceed 15,000 characters" }),
@@ -48,6 +49,7 @@ export const CreateUserSchema = z.object({
     .max(10.0, { message: "Custom rate cannot exceed $10.00 USD" })
     .nullable().optional(),
   experienceYears: z.number().min(0, { message: "Experience years must be 0 or greater" }).max(50).optional().default(0),
+  linkedinProfileUrl: z.string().trim().max(500).optional(),
   targetLocations: z.string().trim().max(500).optional(),
   employmentType: z.string().trim().max(100).optional(),
   primaryDomain: z.string().trim().max(255).optional(),
@@ -71,6 +73,7 @@ export const CreateUserSchema = z.object({
 export const UpdateUserSchema = z.object({
   email: z.string().email().max(255).optional(),
   name: z.string().trim().max(100).optional(),
+  phone: z.string().trim().max(20).optional(),
   resumeText: z.string()
     .min(50, { message: "Resume plain text must be at least 50 characters long" })
     .max(15000, { message: "Resume plain text cannot exceed 15,000 characters" })
@@ -85,6 +88,7 @@ export const UpdateUserSchema = z.object({
   balanceUsd: z.number().min(0).max(10000).optional(),
   customRunCostUsd: z.number().min(0.01).max(10.0).nullable().optional(),
   experienceYears: z.number().min(0).max(50).optional(),
+  linkedinProfileUrl: z.string().trim().max(500).optional(),
   targetLocations: z.string().trim().max(500).optional(),
   employmentType: z.string().trim().max(100).optional(),
   primaryDomain: z.string().trim().max(255).optional(),
