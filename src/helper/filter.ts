@@ -76,14 +76,15 @@ export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = 
 const YOE_PATTERNS: RegExp[] = [
   /experience\s*[:\-]?\s*(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)/gi,
   /(?:minimum|min|at\s+least)\s+(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:relevant\s+)?experience/gi,
-  /(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:relevant\s+)?experience/gi,
+  /(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:\w+\s+){0,4}?experience/gi,
   /freshers?\s*[\(:]?\s*(\d+)\s*(?:years?|yrs?)/gi,
   /(?:candidates?|professionals?|junior)\s+(?:with\s+)?(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)/gi,
 ];
 
-export function extractMinYoe(descriptionText: string): number | null {
+export function extractMinYoe(descriptionText: string): { min: number | null; fullText: string | null } {
   const text = descriptionText || '';
   let overallMin: number | null = null;
+  let bestMatchText: string | null = null;
 
   for (const pattern of YOE_PATTERNS) {
     pattern.lastIndex = 0;
@@ -91,17 +92,16 @@ export function extractMinYoe(descriptionText: string): number | null {
     while ((match = pattern.exec(text)) !== null) {
       const num1 = parseInt(match[1], 10);
       const num2 = match[2] ? parseInt(match[2], 10) : null;
-      // For ranges ("1-3 years"), take the lower bound.
-      // For "+" patterns ("5+ years", "at least 2"), the number IS the minimum.
       const effectiveMin = num2 ? Math.min(num1, num2) : num1;
 
       if (overallMin === null || effectiveMin > overallMin) {
         overallMin = effectiveMin;
+        bestMatchText = match[0];
       }
     }
   }
 
-  return overallMin;
+  return { min: overallMin, fullText: bestMatchText };
 }
 
 export function yoePreFilter(
@@ -113,7 +113,7 @@ export function yoePreFilter(
 
   for (const job of jobs) {
     const text = (job.descriptionText ?? '') + ' ' + (job.seniorityLevel ?? '');
-    const minRequired = extractMinYoe(text);
+    const { min: minRequired, fullText: yoeText } = extractMinYoe(text);
 
     if (minRequired === null) {
       passToLLM.push(job);
@@ -126,7 +126,7 @@ export function yoePreFilter(
         keyword_bin_reason: `YOE: requires ${minRequired}+ yr, candidate has ${candidateYoe} yr`,
       });
     } else {
-      passToLLM.push(job);
+      passToLLM.push({ ...job, extractedYoeText: yoeText });
     }
   }
 

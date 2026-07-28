@@ -200,6 +200,8 @@ Output: { "score": 90, "reason": "Match — Candidate's ${expYears} year(s) expe
 ## INPUT FORMAT
 You will receive a JSON array of jobs, each with a unique "id" field. Evaluate EVERY job in the array independently, applying the rules above to each one.
 
+If a job object has a non-null "extracted_yoe" field, it contains the raw YOE text pre-extracted from the job description (e.g. "2-4 years of experience", "minimum 3 years of relevant experience"). Use it as a strong hint for the "years_of_experience" output field — verify against descriptionText, and correct it only if it clearly contradicts the job description content.
+
 ## OUTPUT FORMAT
 Return ONLY valid JSON matching the schema. No markdown outside JSON.
 
@@ -421,6 +423,7 @@ function prepareJobPayload(job: Job) {
     salary: job.salary,
     descriptionText: (job.descriptionText ?? ""),
     benefits: job.benefits,
+    extracted_yoe: job.extractedYoeText ?? null,
   };
 }
 

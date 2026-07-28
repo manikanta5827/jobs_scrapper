@@ -23,6 +23,7 @@ export interface Job {
   keyword_bin_reason?: string;
   fingerprint?:      string;
   jobTitle?:         string;
+  extractedYoeText?: string | null;
   [key: string]:      unknown; // Still allow other fields but they won't be explicitly typed
 }
 
