@@ -75,7 +75,7 @@ export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = 
 
 const YOE_PATTERNS: RegExp[] = [
   /experience\s*[:\-]?\s*(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)/gi,
-  /(?:minimum|min|at\s+least)\s+(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:relevant\s+)?experience/gi,
+  /(?:minimum|min|at\s+least)\s+(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:\w+\s+){0,4}?experience/gi,
   /(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:\w+\s+){0,4}?experience/gi,
   /freshers?\s*[\(:]?\s*(\d+)\s*(?:years?|yrs?)/gi,
   /(?:candidates?|professionals?|junior)\s+(?:with\s+)?(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)/gi,
