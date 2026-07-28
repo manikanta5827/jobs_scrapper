@@ -32,7 +32,7 @@ export function getSuccessHeader(dateTimeStr: string, stats: JobStats): string {
 /**
  * Formats a SINGLE job match message for Telegram (HTML mode).
  */
-export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
+export function getMatchedJobMessage(j: EnrichedJob, index: number, userId: string): string {
   const scoreEmoji = (j.ai_score ?? 0) >= HIGH_SCORE_THRESHOLD ? '✅' : '⚠️';
   
   let msg = `<b>[ #${index} ] — ${j.title}</b>\n`;
@@ -62,7 +62,7 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
 
   msg += `\n🚀 <a href="${j.link}"><b>APPLY ON LINKEDIN</b></a>`;
   const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || APP_FALLBACK_URL;
-  const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.fingerprint || j.link || '')}`;
+  const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.fingerprint || j.link || '')}&uid=${encodeURIComponent(userId)}`;
   msg += `\n📄 <a href="${resumeUrl}"><b>VIEW & PRINT ATS RESUME</b></a>`;
   return msg;
 }

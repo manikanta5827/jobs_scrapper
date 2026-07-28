@@ -18,7 +18,7 @@ import {
   deleteApifyToken,
   getAnalyticsStats,
   getJobsForUser,
-  getJobByFingerprint,
+  getJobByUserIdAndFingerprint,
   updateJobResumeMd
 } from './helper/db_helper';
 import { analyzeResumeWithLLM, generateAtsResume } from './helper/llm';
@@ -54,13 +54,14 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   const body = event.body ? JSON.parse(event.body) : {};
   const pathParameters = event.pathParameters || {};
 
-  // 1a. Public endpoint: GET /jobs/{id}/resume — Retrieve or generate (On-Demand) candidate ATS-optimized resume Markdown for a job
+  // 1a. Public endpoint: GET /jobs/{id}/resume?uid=<userId> — Retrieve or generate (On-Demand) candidate ATS-optimized resume Markdown for a job
   if ((path === '/jobs/{id}/resume' || path.endsWith('/resume')) && method === 'GET') {
     const fingerprint = decodeURIComponent(pathParameters.id || '').trim();
-    if (!fingerprint) {
-      return response(400, { error: 'Missing Job fingerprint parameter' });
+    const userId = (event.queryStringParameters || {}).uid || '';
+    if (!fingerprint || !userId) {
+      return response(400, { error: 'Missing Job fingerprint or user ID parameter' });
     }
-    const job = await getJobByFingerprint(fingerprint);
+    const job = await getJobByUserIdAndFingerprint(userId, fingerprint);
     if (!job) {
       return response(404, { error: 'Job not found' });
     }

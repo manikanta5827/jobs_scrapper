@@ -114,7 +114,7 @@ async function processUserWorker(
 
     if (jobsAfterBlock.length === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: 0, dbDeduplicated: 0, keywordFiltered: 0, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier, user.id);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
@@ -149,7 +149,7 @@ async function processUserWorker(
 
     if (newCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: 0, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier, user.id);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
@@ -174,7 +174,7 @@ async function processUserWorker(
 
     if (toCheckCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: keywordFilteredCount, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier, user.id);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
@@ -200,7 +200,7 @@ async function processUserWorker(
 
     if (passToLlmCount === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: totalPreLlmFiltered, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier, user.id);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
         scrapedJobsCount: rawCount,
@@ -264,7 +264,7 @@ async function processUserWorker(
     // 11. Send simplified matched jobs summary to CANDIDATE Telegram chat if Chat ID exists
     if (chatId) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: totalPreLlmFiltered, aiRejected: aiRejectedCount, matched: matchedCount };
-      await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, matched, dateStr, stats, user.tier);
+      await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, matched, dateStr, stats, user.tier, user.id);
     }
 
     // 12. Queue jobs to user's LinkedIn profile ONLY if candidate has custom OAuth credentials
@@ -303,7 +303,7 @@ async function processUserWorker(
 };
 
 // Send matched jobs or zero-matches header message to candidate Telegram
-async function sendMatchedJobs(botToken: string, chatId: string, matched: EnrichedJob[], dateStr: string, stats: JobStats, tier: string) {
+async function sendMatchedJobs(botToken: string, chatId: string, matched: EnrichedJob[], dateStr: string, stats: JobStats, tier: string, userId: string) {
   if (!chatId) return;
 
   // Sort matched jobs by score descending so highest-rated appear first
@@ -326,7 +326,7 @@ async function sendMatchedJobs(botToken: string, chatId: string, matched: Enrich
 
   // Send individual job card messages
   for (let i = 0; i < matched.length; i++) {
-    await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(matched[i], i + 1));
+    await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(matched[i], i + 1, userId));
   }
 
   // Upgrade nudge for free tier users

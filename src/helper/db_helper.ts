@@ -268,12 +268,15 @@ export async function getJobsForUser(
   };
 }
 
-// ponytail: Get a single job by fingerprint for ATS resume rendering
-export async function getJobByFingerprint(fingerprint: string) {
+// ponytail: Get a single job by user ID and fingerprint for ATS resume rendering
+export async function getJobByUserIdAndFingerprint(userId: string, fingerprint: string) {
   await initDb();
   const rows = await db.select()
     .from(jobs)
-    .where(eq(jobs.fingerprint, fingerprint.trim()))
+    .where(and(
+      eq(jobs.userId, userId),
+      eq(jobs.fingerprint, fingerprint.trim())
+    ))
     .limit(1);
   return rows[0] || null;
 }
