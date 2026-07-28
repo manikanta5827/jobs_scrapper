@@ -370,34 +370,26 @@
 
     function getJobIdParam() {
       const params = new URLSearchParams(window.location.search);
-      const fromQuery = params.get('id') || params.get('jobId') || params.get('fingerprint');
-      if (fromQuery) return { fingerprint: fromQuery, userId: params.get('uid') || '' };
-
-      const pathParts = window.location.pathname.split('/').filter(Boolean);
-      if (pathParts.length >= 2 && pathParts[0] === 'resume') {
-        return { fingerprint: decodeURIComponent(pathParts[1]), userId: '' };
-      }
-      return null;
+      return params.get('id') || null;
     }
 
     async function loadResume() {
-      const jobParams = getJobIdParam();
+      const jobId = getJobIdParam();
       const errorDiv = document.getElementById('errorAlert');
       const loadingDiv = document.getElementById('loadingState');
       const contentDiv = document.getElementById('resumeContent');
       const heading = document.getElementById('jobTitleHeading');
       const subtext = document.getElementById('companySubtext');
 
-      if (!jobParams || !jobParams.fingerprint) {
+      if (!jobId) {
         loadingDiv.style.display = 'none';
         errorDiv.style.display = 'block';
-        errorDiv.innerText = '⚠️ No Job ID or fingerprint provided in URL.';
+        errorDiv.innerText = '⚠️ No Job ID provided in URL.';
         return;
       }
 
       try {
-        // Fetch ATS resume Markdown from API (with userId for multi-tenant lookup)
-        const apiUrl = `${API_BASE_URL}/jobs/${encodeURIComponent(jobParams.fingerprint)}/resume?uid=${encodeURIComponent(jobParams.userId)}`;
+        const apiUrl = `${API_BASE_URL}/jobs/${encodeURIComponent(jobId)}/resume`;
         const response = await fetch(apiUrl);
         if (!response.ok) {
           throw new Error(`Failed to load resume: ${response.statusText} (${response.status})`);

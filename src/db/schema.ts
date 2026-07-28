@@ -53,7 +53,7 @@ export const users = pgTable("users", {
 
 // Per-candidate jobs table to track previously seen job postings strictly per user
 export const jobs = pgTable("jobs", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(), // User UUID reference
   jobLink: text("job_link").notNull(), // Job URL
   fingerprint: text("fingerprint"), // Job unique fingerprint string

@@ -268,21 +268,18 @@ export async function getJobsForUser(
   };
 }
 
-// ponytail: Get a single job by user ID and fingerprint for ATS resume rendering
-export async function getJobByUserIdAndFingerprint(userId: string, fingerprint: string) {
+// ponytail: Get a single job by primary key UUID for ATS resume rendering
+export async function getJobById(id: string) {
   await initDb();
   const rows = await db.select()
     .from(jobs)
-    .where(and(
-      eq(jobs.userId, userId),
-      eq(jobs.fingerprint, fingerprint.trim())
-    ))
+    .where(eq(jobs.id, id))
     .limit(1);
   return rows[0] || null;
 }
 
 // ponytail: Cache newly generated ATS resume Markdown for a job
-export async function updateJobResumeMd(jobId: number, resumeMd: string) {
+export async function updateJobResumeMd(jobId: string, resumeMd: string) {
   await initDb();
   await db.update(jobs)
     .set({ optimizedResumeMd: resumeMd })
