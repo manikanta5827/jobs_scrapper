@@ -26,7 +26,7 @@ import {
 import type { Job, EnrichedJob, JobStats } from './helper/types';
 import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './helper/constants';
 
-const DEEPSEEK_BATCH_SIZE = 3;
+const DEEPSEEK_BATCH_SIZE = 5;
 const BATCH_DELAY_MS = 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 

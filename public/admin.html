@@ -997,6 +997,16 @@
         const analysis = res.analysis;
         currentProfileFields = analysis;
 
+        if (analysis.candidateName) {
+          document.getElementById('userName').value = analysis.candidateName;
+        }
+        if (analysis.candidateEmail) {
+          document.getElementById('userEmail').value = analysis.candidateEmail;
+        }
+        if (analysis.candidatePhone) {
+          document.getElementById('userPhone').value = analysis.candidatePhone;
+        }
+
         if (typeof analysis.experienceYears === 'number' && !isNaN(analysis.experienceYears)) {
           document.getElementById('userExperienceYears').value = analysis.experienceYears;
         }
