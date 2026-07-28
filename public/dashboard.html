@@ -463,6 +463,16 @@
       color: var(--success);
       border: 1px solid var(--success-border);
     }
+    .score-good {
+      background: #d1fae5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .score-decent {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
     .score-mid {
       background: #fef3c7;
       color: var(--warning);
@@ -1116,7 +1126,7 @@
           hour12: true
         });
 
-        const scoreClass = score >= 9 ? 'score-high' : 'score-mid';
+        const scoreClass = score >= 9 ? 'score-high' : score >= 8 ? 'score-good' : score >= 7 ? 'score-decent' : 'score-mid';
 
         let skillsHtml = '';
         if (matchedSkills.length > 0) {
