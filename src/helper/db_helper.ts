@@ -456,6 +456,9 @@ export async function recordUserRun(
     rejectedJobsCount: number;
     actualLlmCostUsd: number;
     actualApifyCostUsd: number;
+    llmInputTokens?: number;
+    llmInputCacheHitTokens?: number;
+    llmOutputTokens?: number;
     errorMessage?: string;
   }
 ) {
@@ -473,6 +476,9 @@ export async function recordUserRun(
       rejectedJobsCount: runData.rejectedJobsCount,
       actualLlmCostUsd: runData.actualLlmCostUsd,
       actualApifyCostUsd: runData.actualApifyCostUsd,
+      llmInputTokens: runData.llmInputTokens ?? 0,
+      llmInputCacheHitTokens: runData.llmInputCacheHitTokens ?? 0,
+      llmOutputTokens: runData.llmOutputTokens ?? 0,
       billedRunCostUsd: 0,
       errorMessage: runData.errorMessage
     });

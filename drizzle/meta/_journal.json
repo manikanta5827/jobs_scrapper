@@ -183,6 +183,13 @@
       "when": 1785261827933,
       "tag": "0025_dizzy_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785270482694,
+      "tag": "0026_clumsy_sumo",
+      "breakpoints": true
     }
   ]
 }

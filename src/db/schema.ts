@@ -117,6 +117,11 @@ export const userRuns = pgTable("user_runs", {
   actualLlmCostUsd: doublePrecision("actual_llm_cost_usd").default(0).notNull(), // Actual DeepSeek API cost incurred
   actualApifyCostUsd: doublePrecision("actual_apify_cost_usd").default(0).notNull(), // Actual Apify API cost incurred
   billedRunCostUsd: doublePrecision("billed_run_cost_usd").default(0).notNull(), // Deprecated: kept for historical data
+
+  // LLM token usage per run
+  llmInputTokens: integer("llm_input_tokens").default(0).notNull(), // Total LLM prompt/input tokens
+  llmInputCacheHitTokens: integer("llm_input_cache_hit_tokens").default(0).notNull(), // LLM input tokens served from cache
+  llmOutputTokens: integer("llm_output_tokens").default(0).notNull(), // LLM completion/output tokens
   
   errorMessage: text("error_message"), // Error message if run failed
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
