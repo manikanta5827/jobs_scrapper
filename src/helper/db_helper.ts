@@ -193,25 +193,10 @@ export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
 export async function getJobsForUser(
   identifier: string,
   options: {
-    page?: number;
-    limit?: number;
     fromDate?: string;
     toDate?: string;
-    minScore?: number;
-    maxScore?: number;
   } = {}
 ) {
-  // Clamp page (min 1) and limit (min 10, max 100, default 50)
-  const page = Math.max(1, options.page || 1);
-  const limit = Math.min(100, Math.max(10, options.limit || 50));
-  const offset = (page - 1) * limit;
-
-  // Clamp score range between 0 and 10 (default min from MIN_MATCH_SCORE env, max 10)
-  const rawMin = options.minScore ?? MIN_MATCH_SCORE;
-  const rawMax = options.maxScore ?? 10;
-  const minScore = Math.min(10, Math.max(0, rawMin));
-  const maxScore = Math.min(10, Math.max(minScore, rawMax));
-
   await initDb();
 
   // Resolve identifier (email or UUID) to target user ID
@@ -228,20 +213,13 @@ export async function getJobsForUser(
       return {
         jobs: [],
         total: 0,
-        page,
-        limit,
-        totalPages: 1,
-        filters: { minScore, maxScore },
         user: null
       };
     }
   }
 
-  // Filter matched jobs within [minScore, maxScore] range
   const conditions: SQL[] = [
-    eq(jobs.userId, targetUserId),
-    gte(jobs.aiScore, minScore),
-    lte(jobs.aiScore, maxScore)
+    eq(jobs.userId, targetUserId)
   ];
 
   if (options.fromDate) {
@@ -255,15 +233,13 @@ export async function getJobsForUser(
 
   const whereClause = and(...conditions);
 
-  // Fetch paginated matched jobs
+  // Fetch all matching jobs for the date, ordered by time (newest first)
   const jobsList = await db.select()
     .from(jobs)
     .where(whereClause)
-    .orderBy(desc(jobs.aiScore), desc(jobs.createdAt))
-    .limit(limit)
-    .offset(offset);
+    .orderBy(desc(jobs.createdAt));
 
-  // Fetch total count for pagination math
+  // Fetch total count
   const countResult = await db.select({ count: sql<number>`count(*)` })
     .from(jobs)
     .where(whereClause);
@@ -288,10 +264,6 @@ export async function getJobsForUser(
   return {
     jobs: jobsList,
     total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-    filters: { minScore, maxScore },
     user: userResult[0] || null
   };
 }

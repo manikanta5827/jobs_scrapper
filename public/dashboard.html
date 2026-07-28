@@ -698,65 +698,32 @@
 
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-title">Total Filtered Jobs</div>
+          <div class="stat-title">Total Jobs</div>
           <div class="stat-value" id="statTotalJobs">-</div>
         </div>
         <div class="stat-card">
-          <div class="stat-title">Page Matches</div>
+          <div class="stat-title">Showing</div>
           <div class="stat-value" id="statPageCount" style="color: #2563eb;">-</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-title">Current Page</div>
-          <div class="stat-value" id="statCurrentPage" style="font-size: 22px;">-</div>
         </div>
       </div>
 
-      <!-- Filters Bar -->
+      <!-- Controls Bar: Date Picker + Client-Side Match Quality -->
       <div class="controls-bar">
         <div class="filter-row">
-          <!-- Live Search -->
-          <div class="search-box">
-            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            <input type="text" id="searchInput" class="filter-input" placeholder="Search page results..." onkeyup="filterLocalJobs()">
+          <div class="filter-group">
+            <label for="datePicker">Date:</label>
+            <input type="date" id="datePicker" class="filter-input">
           </div>
 
-          <!-- Single Match Quality Dropdown -->
           <div class="filter-group">
             <label for="minScoreSelect">Match Quality:</label>
-            <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
+            <select id="minScoreSelect" class="select-input" onchange="applyClientFilter()">
               <option value="6" selected>&ge; 6/10 (Decent Matches)</option>
               <option value="7">&ge; 7/10 (Good Matches)</option>
               <option value="8">&ge; 8/10 (Great Matches)</option>
               <option value="9">&ge; 9/10 (Top Matches)</option>
             </select>
           </div>
-
-          <!-- Date Bounds -->
-          <div class="filter-group">
-            <label for="fromDate">From:</label>
-            <input type="date" id="fromDate" class="filter-input">
-          </div>
-
-          <div class="filter-group">
-            <label for="toDate">To:</label>
-            <input type="date" id="toDate" class="filter-input">
-          </div>
-
-          <!-- Page Size (Limit) -->
-          <div class="filter-group">
-            <label for="limitSelect">Per Page:</label>
-            <select id="limitSelect" class="select-input" onchange="applyFilters()">
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50" selected>50</option>
-              <option value="100">100</option>
-            </select>
-          </div>
-
-          <button class="btn btn-primary" id="btnFilter" onclick="applyFilters()">Filter</button>
-          <button class="btn" onclick="resetFilters()">Reset</button>
         </div>
       </div>
 
@@ -790,33 +757,26 @@
           </tbody>
         </table>
 
-        <!-- Pagination Footer -->
+        <!-- Jobs Table Footer: count only, no pagination -->
         <div id="paginationBar" class="pagination-bar" style="display: none;">
-          <span id="paginationInfo">Showing 0-0 of 0 jobs</span>
-          <div class="pagination-controls">
-            <button class="btn" id="btnPrevPage" onclick="changePage(-1)" disabled>&laquo; Prev</button>
-            <span id="pageIndicator" style="font-weight: 600; padding: 0 6px;">Page 1 of 1</span>
-            <button class="btn" id="btnNextPage" onclick="changePage(1)" disabled>Next &raquo;</button>
-          </div>
+          <span id="paginationInfo">Showing 0 jobs</span>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    let currentPage = 1;
-    let totalPages = 1;
-    let totalJobsCount = 0;
-    let currentJobs = [];
+    let allJobs = [];
+    let filteredJobs = [];
 
     const todayStr = new Date().toISOString().split('T')[0];
     const urlParams = new URLSearchParams(window.location.search);
-    const defaultDate = urlParams.get('date') || urlParams.get('fromDate') || todayStr;
+    const defaultDate = urlParams.get('date') || todayStr;
 
-    document.getElementById('fromDate').setAttribute('max', todayStr);
-    document.getElementById('toDate').setAttribute('max', todayStr);
-    document.getElementById('fromDate').value = defaultDate;
-    document.getElementById('toDate').value = urlParams.get('toDate') || defaultDate;
+    const datePicker = document.getElementById('datePicker');
+    datePicker.value = defaultDate;
+    datePicker.setAttribute('max', todayStr);
+    datePicker.onchange = () => loadUserJobs();
 
     // ── BACKEND API BASE URL ────────────────────────────────────────────────
     // Direct backend API Gateway URL
@@ -926,7 +886,7 @@
         localStorage.setItem('CANDIDATE_USER_EMAIL', inputVal);
         userId = inputVal;
         updateUIState();
-        loadUserJobs(1);
+        loadUserJobs();
       } catch (err) {
         if (errorMsg) errorMsg.innerText = err.message || 'Candidate email address not found. Please try again.';
         if (errorAlert) errorAlert.style.display = 'block';
@@ -978,7 +938,7 @@
       }
     }
 
-    async function loadUserJobs(page = 1) {
+    async function loadUserJobs() {
       if (!userId) {
         updateUIState();
         return;
@@ -991,21 +951,17 @@
       document.getElementById('paginationBar').style.display = 'none';
 
       try {
-        const limit = parseInt(document.getElementById('limitSelect').value, 10) || 50;
-        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 6;
-        const fromDate = document.getElementById('fromDate').value;
-        const toDate = document.getElementById('toDate').value;
-
-        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs?page=${page}&limit=${limit}&minScore=${minScore}&maxScore=10`;
-
-        if (fromDate) url += `&fromDate=${encodeURIComponent(fromDate)}`;
-        if (toDate) url += `&toDate=${encodeURIComponent(toDate)}`;
+        const selectedDate = document.getElementById('datePicker').value;
+        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs`;
+        if (selectedDate) {
+          url += `?fromDate=${encodeURIComponent(selectedDate)}&toDate=${encodeURIComponent(selectedDate)}`;
+        } else {
+          url += `?fromDate=${encodeURIComponent(todayStr)}&toDate=${encodeURIComponent(todayStr)}`;
+        }
 
         const response = await fetch(url, {
           method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          }
+          headers: { 'Accept': 'application/json' }
         });
 
         if (!response.ok) {
@@ -1017,34 +973,13 @@
           renderUserProfile(data.user);
         }
 
-        currentJobs = data.jobs || [];
-        currentJobs.sort((a, b) => {
-          const scoreA = Number(a.aiScore ?? a.ai_score ?? 0);
-          const scoreB = Number(b.aiScore ?? b.ai_score ?? 0);
-          if (scoreB !== scoreA) {
-            return scoreB - scoreA;
-          }
+        allJobs = (data.jobs || []).sort((a, b) => {
           const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
           const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
           return dateB - dateA;
         });
 
-        totalJobsCount = data.total || 0;
-        currentPage = data.page || page;
-        totalPages = data.totalPages || 1;
-
-        if (currentJobs.length === 0) {
-          document.getElementById('jobsTable').style.display = 'none';
-          document.getElementById('emptyState').style.display = 'block';
-          updateStats(0, 0, currentPage, totalPages);
-          return;
-        }
-
-        updateStats(totalJobsCount, currentJobs.length, currentPage, totalPages);
-        renderTable(currentJobs);
-        updatePaginationBar(limit);
-        document.getElementById('jobsTable').style.display = 'table';
-        document.getElementById('paginationBar').style.display = 'flex';
+        applyClientFilter();
       } catch (err) {
         console.error('Error fetching user jobs:', err);
         document.getElementById('jobsTable').style.display = 'none';
@@ -1053,49 +988,32 @@
       }
     }
 
-    function updateStats(total, countOnPage, page, maxPages) {
-      document.getElementById('statTotalJobs').innerText = total.toLocaleString();
-      document.getElementById('statPageCount').innerText = countOnPage.toLocaleString();
-      document.getElementById('statCurrentPage').innerText = `${page} / ${maxPages}`;
-    }
+    function applyClientFilter() {
+      const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 6;
+      filteredJobs = allJobs.filter(j => {
+        const score = Number(j.aiScore ?? j.ai_score ?? 0);
+        return score >= minScore;
+      });
 
-    function updatePaginationBar(limit) {
-      const start = totalJobsCount > 0 ? (currentPage - 1) * limit + 1 : 0;
-      const end = Math.min(currentPage * limit, totalJobsCount);
-      document.getElementById('paginationInfo').innerText = `Showing ${start}-${end} of ${totalJobsCount} matched jobs`;
-      document.getElementById('pageIndicator').innerText = `Page ${currentPage} of ${totalPages}`;
-
-      document.getElementById('btnPrevPage').disabled = currentPage <= 1;
-      document.getElementById('btnNextPage').disabled = currentPage >= totalPages;
-    }
-
-    function changePage(delta) {
-      const newPage = currentPage + delta;
-      if (newPage >= 1 && newPage <= totalPages) {
-        loadUserJobs(newPage);
+      if (filteredJobs.length === 0) {
+        document.getElementById('jobsTable').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('paginationBar').style.display = 'none';
+      } else {
+        document.getElementById('jobsTable').style.display = 'table';
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('paginationBar').style.display = 'flex';
+        document.getElementById('paginationInfo').innerText = `Showing ${filteredJobs.length} of ${allJobs.length} jobs`;
       }
-    }
 
-    function applyFilters() {
-      currentPage = 1;
-      loadUserJobs(1);
-    }
-
-    function resetFilters() {
-      document.getElementById('minScoreSelect').value = '6';
-      document.getElementById('fromDate').value = defaultDate;
-      document.getElementById('toDate').value = defaultDate;
-      document.getElementById('searchInput').value = '';
-      document.getElementById('limitSelect').value = '50';
-      currentPage = 1;
-      loadUserJobs(1);
+      document.getElementById('statTotalJobs').innerText = allJobs.length.toLocaleString();
+      document.getElementById('statPageCount').innerText = filteredJobs.length.toLocaleString();
+      renderTable(filteredJobs);
     }
 
     function renderTable(jobs) {
       const tbody = document.getElementById('jobsTbody');
       tbody.innerHTML = '';
-      const limit = parseInt(document.getElementById('limitSelect').value, 10) || 50;
-      const offsetIndex = (currentPage - 1) * limit;
 
       jobs.forEach((job, index) => {
         const tr = document.createElement('tr');
@@ -1148,7 +1066,7 @@
         }
 
         tr.innerHTML = `
-          <td class="mono-cell">${offsetIndex + index + 1}</td>
+          <td class="mono-cell">${index + 1}</td>
           <td>
             <div class="job-title">${escapeHtml(title)}</div>
             ${metaHtml ? `<div style="margin-top: 2px;">${metaHtml}</div>` : ''}
@@ -1189,23 +1107,6 @@
         `;
         tbody.appendChild(tr);
       });
-    }
-
-    function filterLocalJobs() {
-      const query = document.getElementById('searchInput').value.toLowerCase().trim();
-      if (!query) {
-        renderTable(currentJobs);
-        return;
-      }
-
-      const filtered = currentJobs.filter(job => {
-        const title = (job.jobTitle || job.job_title || '').toLowerCase();
-        const company = (job.companyName || job.company_name || '').toLowerCase();
-        const location = (job.location || '').toLowerCase();
-        return title.includes(query) || company.includes(query) || location.includes(query);
-      });
-
-      renderTable(filtered);
     }
 
     function extractTitleFromUrl(url) {
@@ -1321,7 +1222,7 @@
       }
     }
 
-    loadUserJobs(1);
+    loadUserJobs();
   </script>
 </body>
 </html>

@@ -115,14 +115,10 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     }
 
     const qp = event.queryStringParameters || {};
-    const page = qp.page ? parseInt(qp.page, 10) : 1;
-    const limit = qp.limit ? parseInt(qp.limit, 10) : 50;
     const fromDate = qp.fromDate || undefined;
     const toDate = qp.toDate || undefined;
-    const minScore = qp.minScore ? parseInt(qp.minScore, 10) : undefined;
-    const maxScore = qp.maxScore ? parseInt(qp.maxScore, 10) : undefined;
 
-    const result = await getJobsForUser(identifier, { page, limit, fromDate, toDate, minScore, maxScore });
+    const result = await getJobsForUser(identifier, { fromDate, toDate });
     return response(200, result);
   }
 
