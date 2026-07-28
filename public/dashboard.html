@@ -716,7 +716,9 @@
           <div class="filter-group">
             <label for="minScoreSelect">Match Quality:</label>
             <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
-              <option value="8" selected>&ge; 8/10 (Great Matches)</option>
+              <option value="6" selected>&ge; 6/10 (Decent Matches)</option>
+              <option value="7">&ge; 7/10 (Good Matches)</option>
+              <option value="8">&ge; 8/10 (Great Matches)</option>
               <option value="9">&ge; 9/10 (Top Matches)</option>
             </select>
           </div>
@@ -980,7 +982,7 @@
 
       try {
         const limit = parseInt(document.getElementById('limitSelect').value, 10) || 50;
-        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 8;
+        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 6;
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
 
@@ -1070,7 +1072,7 @@
     }
 
     function resetFilters() {
-      document.getElementById('minScoreSelect').value = '8';
+      document.getElementById('minScoreSelect').value = '6';
       document.getElementById('fromDate').value = defaultDate;
       document.getElementById('toDate').value = defaultDate;
       document.getElementById('searchInput').value = '';
