@@ -306,6 +306,9 @@ async function processUserWorker(
 async function sendMatchedJobs(botToken: string, chatId: string, matched: EnrichedJob[], dateStr: string, stats: JobStats, tier: string) {
   if (!chatId) return;
 
+  // Sort matched jobs by score descending so highest-rated appear first
+  matched.sort((a, b) => (Number(b.aiScore ?? 0)) - (Number(a.aiScore ?? 0)));
+
   if (matched.length === 0) {
     await sendTelegramMessage(botToken, chatId, getZeroMatchesMessage(dateStr, stats));
     if (tier === Tier.FREE) {

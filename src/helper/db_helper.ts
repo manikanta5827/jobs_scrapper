@@ -233,11 +233,11 @@ export async function getJobsForUser(
 
   const whereClause = and(...conditions);
 
-  // Fetch all matching jobs for the date, ordered by time (newest first)
+  // Fetch all matching jobs for the date, ordered by score (highest first)
   const jobsList = await db.select()
     .from(jobs)
     .where(whereClause)
-    .orderBy(desc(jobs.createdAt));
+    .orderBy(desc(jobs.aiScore));
 
   // Fetch total count
   const countResult = await db.select({ count: sql<number>`count(*)` })

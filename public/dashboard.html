@@ -974,9 +974,9 @@
         }
 
         allJobs = (data.jobs || []).sort((a, b) => {
-          const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
-          const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
-          return dateB - dateA;
+          const scoreA = Number(a.aiScore ?? a.ai_score ?? 0);
+          const scoreB = Number(b.aiScore ?? b.ai_score ?? 0);
+          return scoreB - scoreA;
         });
 
         applyClientFilter();
