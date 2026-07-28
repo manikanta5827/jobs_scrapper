@@ -90,6 +90,10 @@ export function extractMinYoe(descriptionText: string): { min: number | null; fu
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
+      // "up to X years" is an upper bound, not a minimum requirement — skip
+      const preContext = text.substring(Math.max(0, match.index - 15), match.index);
+      if (/\bup\s+to\b\s*$/.test(preContext)) continue;
+
       const num1 = parseInt(match[1], 10);
       const num2 = match[2] ? parseInt(match[2], 10) : null;
       const effectiveMin = num2 ? Math.min(num1, num2) : num1;
@@ -104,6 +108,8 @@ export function extractMinYoe(descriptionText: string): { min: number | null; fu
   return { min: overallMin, fullText: bestMatchText };
 }
 
+const FRESHER_SIGNAL = /\b(?:freshers?|fresh[ -]?graduat(?:es?|ion))\b/i;
+
 export function yoePreFilter(
   jobs: Job[],
   candidateYoe: number
@@ -115,7 +121,10 @@ export function yoePreFilter(
     const text = (job.descriptionText ?? '') + ' ' + (job.seniorityLevel ?? '');
     const { min: minRequired, fullText: yoeText } = extractMinYoe(text);
 
-    if (minRequired === null) {
+    // Fresher-friendly listings — let LLM decide, don't YOE-reject
+    const isFresherFriendly = FRESHER_SIGNAL.test(text);
+
+    if (minRequired === null || isFresherFriendly) {
       passToLLM.push(job);
       continue;
     }

@@ -1,9 +1,7 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
-import { Tier } from './constants';
-
-const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "80", 10);
+import { Tier, MIN_MATCH_SCORE } from './constants';
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
 
@@ -208,11 +206,11 @@ export async function getJobsForUser(
   const limit = Math.min(100, Math.max(10, options.limit || 50));
   const offset = (page - 1) * limit;
 
-  // Clamp score range between 0 and 100 (default min from MIN_MATCH_SCORE env, max 100)
+  // Clamp score range between 0 and 10 (default min from MIN_MATCH_SCORE env, max 10)
   const rawMin = options.minScore ?? MIN_MATCH_SCORE;
-  const rawMax = options.maxScore ?? 100;
-  const minScore = Math.min(100, Math.max(0, rawMin));
-  const maxScore = Math.min(100, Math.max(minScore, rawMax));
+  const rawMax = options.maxScore ?? 10;
+  const minScore = Math.min(10, Math.max(0, rawMin));
+  const maxScore = Math.min(10, Math.max(minScore, rawMax));
 
   await initDb();
 

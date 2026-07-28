@@ -8,7 +8,8 @@ export const TIER_CONFIG: Record<Tier, { emoji: string; label: string; alertsPer
   [Tier.PREMIUM]: { emoji: '⭐', label: 'Premium', alertsPerDay: 3 },
 };
 
-export const HIGH_SCORE_THRESHOLD = 85;
+export const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "7", 10);
+export const HIGH_SCORE_THRESHOLD = 8;
 
 export const PREMIUM_PRICE_MONTHLY_INR = 300;
 

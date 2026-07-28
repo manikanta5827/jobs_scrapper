@@ -9,6 +9,7 @@ import { generateObject } from 'ai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
+import { MIN_MATCH_SCORE } from './constants';
 
 // Disable verbose AI SDK compatibility warnings in production logs
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
@@ -19,8 +20,6 @@ export class FatalError extends Error {
     this.name = "FatalError";
   }
 }
-
-const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "60", 10);
 
 // "deepseek-chat" pricing per 1M tokens (USD)
 const PRICE_PER_M_CACHE_HIT_TOKENS = 0.0028;
@@ -160,11 +159,13 @@ ${preferencesSection ? `## CANDIDATE TARGET PREFERENCES\n${preferencesSection}\n
 ### 1. EXPERIENCE LEVEL & SENIORITY GATE
 ${expRule}
 
-### 2. SKILL ALIGNMENT & GROUNDING
+### 2. SKILL ALIGNMENT & GROUNDING (EVALUATE FIRST — SCORE DERIVES FROM THIS)
+- MANDATORY: List matched_skills and missing_skills COMPLETELY before assigning score.
 - HARD REJECT: Job explicitly requires mandatory skills/certifications that the candidate clearly lacks.
-- SOFT MISS: Nice-to-have or preferred skills the candidate lacks → deduct points only.
+- SOFT MISS: Nice-to-have or preferred skills the candidate lacks → minor score impact only.
 - NATURAL ALIGNMENT: Count directly equivalent tools, frameworks, methodologies, or adjacent skill sets as matches.
 - STRICT GROUNDING: "matched_skills" MUST ONLY list skills that are explicitly mentioned or required in the job description AND present in the candidate's known skills or resume. NEVER list candidate skills under "matched_skills" if they are absent from the job description text.
+- NEVER return matched_skills=[] AND missing_skills=[] for scores > 0. If you give a positive score, you MUST identify at least one skill that matched.
 
 ### 3. DOMAIN & ROLE RELEVANCE
 - Evaluate whether the job's functional domain matches the candidate's background.
@@ -172,13 +173,16 @@ ${expRule}
 
 ---
 
-## SCORING GUIDE
-| Situation | Score Range |
-|---|---|
-| Excellent match (Core stack + Seniority <= ${expYears} yr + Domain align cleanly) | 85–100 |
-| Good match (Solid alignment, 1–2 minor non-critical skill gaps, Seniority <= ${expYears} yr) | 65–84 |
-| Decent match (Fair alignment, minor domain pivot, Seniority <= ${expYears} yr) | 45–64 |
-| Disqualified (Seniority requirement > ${expYears} yr, missing mandatory core stack, or unrelated domain) | 0 |
+## SCORING GUIDE (0–10 scale)
+Derive score from the matched/missing skill ratio after listing skills:
+
+| Score | Meaning | Rule |
+|-------|---------|------|
+| 0 | DISQUALIFIED | Seniority > ${expYears} yr, missing mandatory core stack, or unrelated domain |
+| 1–3 | Weak match | Core skill gap (candidate lacks 3+ required skills or 1+ mandatory skill) |
+| 4–6 | Decent match | Partial alignment: some matching skills but notable gaps (1–3 missing) |
+| 7–8 | Good match | Most skills align, only 0–2 minor/non-mandatory gaps |
+| 9–10 | Excellent match | Near-perfect alignment: all required skills present, domain matches |
 
 Evaluate all jobs strictly and impartially based solely on skill, experience level, and domain fit. Do NOT apply any score boosts for direct apply links or application methods; simply extract application instructions into "direct_apply" if present.
 
@@ -193,7 +197,7 @@ Output: { "score": 0, "reason": "Disqualified: Required ${nextExp}–${nextExpPl
 
 **Example 2 — MATCH (Skill & Seniority Alignment: Required <= ${expYears} year(s))**
 Input: { "title": "Software Engineer (Backend)", "descriptionText": "Required: 0-${expYears} years experience, TypeScript, Node.js, AWS. Direct apply: send CV to jobs@company.com" }
-Output: { "score": 90, "reason": "Match — Candidate's ${expYears} year(s) experience and Node.js/AWS/TypeScript stack align cleanly with job requirements.", "matched_skills": ["TypeScript", "Node.js", "AWS"], "missing_skills": [], "job_location": null, "years_of_experience": "0-${expYears} years", "direct_apply": "Send CV to jobs@company.com" }
+  Output: { "score": 9, "reason": "Match — Candidate's ${expYears} year(s) experience and Node.js/AWS/TypeScript stack align cleanly with job requirements.", "matched_skills": ["TypeScript", "Node.js", "AWS"], "missing_skills": [], "job_location": null, "years_of_experience": "0-${expYears} years", "direct_apply": "Send CV to jobs@company.com" }
 
 ---
 
@@ -220,7 +224,7 @@ For DISQUALIFIED jobs (Score = 0):
 
 For NON-DISQUALIFIED jobs (Score > 0):
 - "id": number
-- "score": number (1-100, per scoring guide)
+- "score": number (0-10, per scoring guide)
 - "reason": string (explanation of score)
 - "matched_skills": array of strings (skills candidate has that job requires; return [] if none)
 - "missing_skills": array of strings (skills job requires that candidate lacks; return [] if none)

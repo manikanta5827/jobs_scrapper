@@ -716,8 +716,8 @@
           <div class="filter-group">
             <label for="minScoreSelect">Match Quality:</label>
             <select id="minScoreSelect" class="select-input" onchange="applyFilters()">
-              <option value="80" selected>&ge; 80% (Great Matches)</option>
-              <option value="90">&ge; 90% (Top Matches)</option>
+              <option value="8" selected>&ge; 8/10 (Great Matches)</option>
+              <option value="9">&ge; 9/10 (Top Matches)</option>
             </select>
           </div>
 
@@ -980,11 +980,11 @@
 
       try {
         const limit = parseInt(document.getElementById('limitSelect').value, 10) || 50;
-        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 80;
+        const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 8;
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
 
-        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs?page=${page}&limit=${limit}&minScore=${minScore}&maxScore=100`;
+        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs?page=${page}&limit=${limit}&minScore=${minScore}&maxScore=10`;
 
         if (fromDate) url += `&fromDate=${encodeURIComponent(fromDate)}`;
         if (toDate) url += `&toDate=${encodeURIComponent(toDate)}`;
@@ -1070,7 +1070,7 @@
     }
 
     function resetFilters() {
-      document.getElementById('minScoreSelect').value = '80';
+      document.getElementById('minScoreSelect').value = '8';
       document.getElementById('fromDate').value = defaultDate;
       document.getElementById('toDate').value = defaultDate;
       document.getElementById('searchInput').value = '';
@@ -1114,7 +1114,7 @@
           hour12: true
         });
 
-        const scoreClass = score >= 85 ? 'score-high' : 'score-mid';
+        const scoreClass = score >= 9 ? 'score-high' : 'score-mid';
 
         let skillsHtml = '';
         if (matchedSkills.length > 0) {
@@ -1149,7 +1149,7 @@
           <td>
             <span class="score-badge ${scoreClass}">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              ${score}%
+              ${score}/10
             </span>
             ${reason ? `<div style="font-size: 11px; color: var(--text-tertiary); margin-top: 4px; max-width: 220px; line-height: 1.3;" title="${escapeHtml(reason)}">${escapeHtml(reason)}</div>` : ''}
           </td>

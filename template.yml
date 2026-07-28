@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Multi-Tenant Job Scrapper template (Fan-Out Dispatcher + Per-User Worker Architecture)
+Description: Multi-Tenant Job Scrapper template (Fan-Out Dispatcher + Per-User Worker Architecture )
 
 # PARAMETERS
 Parameters:
