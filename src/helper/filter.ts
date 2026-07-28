@@ -74,15 +74,15 @@ export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = 
 }
 
 const YOE_PATTERNS: RegExp[] = [
-  /experience\s*[:\-]?\s*(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)/gi,
-  /(?:minimum|min|at\s+least)\s+(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:[\w-]+\s+){0,4}?experience/gi,
-  /(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:[\w-]+\s+){0,4}?experience/gi,
-  /freshers?\s*[\(:]?\s*(\d+)\s*(?:years?|yrs?)/gi,
-  /(?:candidates?|professionals?|junior)\s+(?:with\s+)?(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*(?:years?|yrs?)/gi,
+  // Universal: any <number> year(s) pattern — catches ranges (2-4), X+, and simple mentions.
+  // Normalized possessive forms handled before matching (year's → year).
+  /(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*years?\b/gi,
 ];
 
 export function extractMinYoe(descriptionText: string): { min: number | null; fullText: string | null } {
-  const text = descriptionText || '';
+  // Normalize possessive: "year's", "years'" → "year" so year boundary works
+  const text = (descriptionText || '').replace(/\byear'?s\b/gi, 'year');
+
   let overallMin: number | null = null;
   let bestMatchText: string | null = null;
 
