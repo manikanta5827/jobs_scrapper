@@ -14,7 +14,7 @@ import {
   downgradeUserToFree
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
-import { keywordFilter, companyBlockFilter } from './helper/filter';
+import { keywordFilter, companyBlockFilter, yoePreFilter } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
 import { shutdownTelemetry } from './helper/telemetry';
@@ -189,10 +189,36 @@ async function processUserWorker(
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
+    // 6b. Conservative YOE Pre-Filter (regex-based, skip LLM for clearly overqualified requirements)
+    const candidateYoe = Math.ceil(user.experienceYears ?? 0);
+    const { passToLLM, yoeRejected } = yoePreFilter(toCheck, candidateYoe);
+    const yoeFilteredCount = yoeRejected.length;
+    const passToLlmCount = passToLLM.length;
+    const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount;
+
+    console.log(`User ${user.id}: YOE Filtered ${yoeFilteredCount} jobs (candidate has ${candidateYoe} yr), sending ${passToLlmCount} to LLM`)
+
+    if (passToLlmCount === 0) {
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: totalPreLlmFiltered, aiRejected: 0, matched: 0 };
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
+        status: 'SUCCESS',
+        scrapedJobsCount: rawCount,
+        batchDedupCount: batchDedupCount,
+        dbDedupCount: dbDedupCount,
+        keywordFilteredCount: keywordFilteredCount,
+        matchedJobsCount: 0,
+        rejectedJobsCount: 0,
+        actualLlmCostUsd: 0,
+        actualApifyCostUsd: 0
+      });
+      return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
+    }
+
     // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
-    const { matched, usage } = await checkRelevanceBatch(toCheck, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, usage } = await checkRelevanceBatch(passToLLM, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
-    const aiRejectedCount = toCheckCount - matchedCount;
+    const aiRejectedCount = passToLlmCount - matchedCount;
 
     console.log(`User ${user.id}: AI Rejected ${aiRejectedCount} irrelevant jobs, final jobs count ${matchedCount}`)
 
@@ -237,7 +263,7 @@ async function processUserWorker(
 
     // 11. Send simplified matched jobs summary to CANDIDATE Telegram chat if Chat ID exists
     if (chatId) {
-      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: keywordFilteredCount, aiRejected: aiRejectedCount, matched: matchedCount };
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: totalPreLlmFiltered, aiRejected: aiRejectedCount, matched: matchedCount };
       await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, matched, dateStr, stats, user.tier);
     }
 

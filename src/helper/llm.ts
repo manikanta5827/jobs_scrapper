@@ -139,7 +139,7 @@ export function buildSystemPrompt(context: UserPromptContext | string): string {
     preferencesSection += `- Candidate Preferred Employment Type: ${user.employmentType}\n`;
   }
 
-  const expYears = user.experienceYears ?? 0;
+  const expYears = Math.ceil(user.experienceYears ?? 0);
   const nextExp = expYears + 1;
   const nextExpPlus = expYears + 2;
 
@@ -204,12 +204,24 @@ You will receive a JSON array of jobs, each with a unique "id" field. Evaluate E
 Return ONLY valid JSON matching the schema. No markdown outside JSON.
 
 "results" must contain exactly one object per input job, tagged with the matching "id".
-Every item in "results" MUST include:
+Every item in "results" MUST include ALL fields listed below:
+
+For DISQUALIFIED jobs (Score = 0):
 - "id": number
-- "score": number (0-100)
+- "score": 0
+- "reason": string — explain WHY rejected (seniority gate / missing mandatory skill / unrelated domain)
+- "years_of_experience": string — extract from JD if present, "Not specified" otherwise
+- "matched_skills": [] (empty — no need to enumerate for rejected jobs)
+- "missing_skills": [] (empty — no need to enumerate for rejected jobs)
+- "job_location": null
+- "direct_apply": null
+
+For NON-DISQUALIFIED jobs (Score > 0):
+- "id": number
+- "score": number (1-100, per scoring guide)
 - "reason": string (explanation of score)
-- "matched_skills": array of strings (skills candidate has that job requires; return [] if none, DO NOT omit)
-- "missing_skills": array of strings (skills job requires that candidate lacks; return [] if none, DO NOT omit)
+- "matched_skills": array of strings (skills candidate has that job requires; return [] if none)
+- "missing_skills": array of strings (skills job requires that candidate lacks; return [] if none)
 - "job_location": string or null
 - "years_of_experience": string (e.g. "2-4 years" or "Not specified")
 - "direct_apply": string or null (email or direct URL if present)
