@@ -878,7 +878,7 @@
           </div>
           <div class="form-group">
             <label>Subscription Amount (₹ per month, 0 for free/trial)</label>
-            <input type="number" id="userSubscriptionAmount" min="0" max="10000" value="0" placeholder="e.g. 300">
+            <input type="number" id="userSubscriptionAmount" min="0" max="10000" value="0" placeholder="e.g. 500">
           </div>
           <div class="form-group">
             <label>Subscription Expires At</label>
@@ -1497,7 +1497,7 @@
       document.getElementById('subscriptionUserLabel').value = email + ' (' + id.substring(0, 8) + ')';
       document.getElementById('subscriptionCurrentTier').value = currentTier === 'premium' ? 'Premium' : 'Free';
       document.getElementById('subscriptionTier').value = currentTier === 'premium' ? 'premium' : 'free';
-      document.getElementById('subscriptionAmount').value = 300;
+      document.getElementById('subscriptionAmount').value = 500;
       const now = new Date();
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       const local = new Date(in30Days.getTime() - in30Days.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
