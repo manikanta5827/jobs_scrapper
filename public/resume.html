@@ -210,6 +210,82 @@
       color: var(--text-muted);
     }
 
+    .loader-spinner {
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e2e8f0;
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 28px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .progress-bar-track {
+      width: 100%;
+      max-width: 400px;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      margin: 0 auto 24px auto;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #7c3aed);
+      border-radius: 3px;
+      transition: width 0.6s ease;
+      width: 0%;
+    }
+
+    .progress-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748b;
+      margin-bottom: 20px;
+    }
+
+    .stage-list {
+      text-align: left;
+      max-width: 360px;
+      margin: 0 auto;
+      list-style: none;
+    }
+
+    .stage-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 14px;
+      color: #94a3b8;
+      transition: color 0.3s ease;
+    }
+
+    .stage-item.active {
+      color: #1e293b;
+      font-weight: 500;
+    }
+
+    .stage-item.done {
+      color: #16a34a;
+    }
+
+    .stage-dot {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+
     /* Error alert */
     .error-alert {
       display: none;
@@ -346,7 +422,29 @@
     <!-- Main Resume Page -->
     <main class="resume-card">
       <div id="loadingState" class="loading-state">
-        <p>Loading your ATS-optimized resume...</p>
+        <div class="loader-spinner"></div>
+        <div class="progress-label" id="progressLabel">Initializing...</div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+        <ul class="stage-list" id="stageList">
+          <li class="stage-item" data-stage="0">
+            <span class="stage-dot">○</span>
+            <span>Loading started</span>
+          </li>
+          <li class="stage-item" data-stage="1">
+            <span class="stage-dot">○</span>
+            <span>Processing job description</span>
+          </li>
+          <li class="stage-item" data-stage="2">
+            <span class="stage-dot">○</span>
+            <span>Creating ATS-optimized resume</span>
+          </li>
+          <li class="stage-item" data-stage="3">
+            <span class="stage-dot">○</span>
+            <span>Adding ATS keywords</span>
+          </li>
+        </ul>
       </div>
       <div id="resumeContent" style="display: none;"></div>
       <div id="tailorAudit" class="tailor-audit" style="display: none;">
@@ -373,6 +471,28 @@
       return params.get('id') || null;
     }
 
+    const progressLabels = ['Initializing...', 'Processing job description...', 'Creating ATS resume...', 'Adding ATS keywords...', 'Finalizing...'];
+    const progressPercents = [0, 15, 35, 60, 85];
+
+    function updateProgressStage(stageIndex) {
+      const items = document.querySelectorAll('#stageList .stage-item');
+      const bar = document.getElementById('progressBarFill');
+      const label = document.getElementById('progressLabel');
+
+      bar.style.width = progressPercents[stageIndex] + '%';
+      label.textContent = progressLabels[stageIndex];
+
+      items.forEach((item, i) => {
+        if (i < stageIndex) {
+          item.className = 'stage-item done';
+          item.querySelector('.stage-dot').textContent = '✓';
+        } else if (i === stageIndex) {
+          item.className = 'stage-item active';
+          item.querySelector('.stage-dot').textContent = '●';
+        }
+      });
+    }
+
     async function loadResume() {
       const jobId = getJobIdParam();
       const errorDiv = document.getElementById('errorAlert');
@@ -388,9 +508,24 @@
         return;
       }
 
+      let progressIdx = 0;
+      const progressTimer = setInterval(() => {
+        if (progressIdx < 4) {
+          progressIdx++;
+          updateProgressStage(progressIdx);
+        }
+      }, 2000);
+      updateProgressStage(0);
+
       try {
         const apiUrl = `${API_BASE_URL}/jobs/${encodeURIComponent(jobId)}/resume`;
         const response = await fetch(apiUrl);
+
+        clearInterval(progressTimer);
+        updateProgressStage(4);
+        document.getElementById('progressBarFill').style.width = '100%';
+        document.getElementById('progressLabel').textContent = 'Done!';
+
         if (!response.ok) {
           throw new Error(`Failed to load resume: ${response.statusText} (${response.status})`);
         }
@@ -404,7 +539,9 @@
           throw new Error('No ATS-optimized resume Markdown found for this job. Generation may have failed.');
         }
 
-        // Render clean Markdown using Marked.js
+        // Brief delay so user sees "Done!" before content appears
+        await new Promise(r => setTimeout(r, 600));
+
         contentDiv.innerHTML = marked.parse(data.optimizedResumeMd);
         loadingDiv.style.display = 'none';
         contentDiv.style.display = 'block';
@@ -424,6 +561,7 @@
         }
 
       } catch (err) {
+        clearInterval(progressTimer);
         console.error('Error fetching ATS resume:', err);
         loadingDiv.style.display = 'none';
         errorDiv.style.display = 'block';
