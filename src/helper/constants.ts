@@ -5,7 +5,7 @@ export enum Tier {
 
 export const TIER_CONFIG: Record<Tier, { emoji: string; label: string; alertsPerDay: number }> = {
   [Tier.FREE]:    { emoji: '🔹', label: 'Free',   alertsPerDay: 1 },
-  [Tier.PREMIUM]: { emoji: '⭐', label: 'Premium', alertsPerDay: 4 },
+  [Tier.PREMIUM]: { emoji: '⭐', label: 'Premium', alertsPerDay: 3 },
 };
 
 export const HIGH_SCORE_THRESHOLD = 85;
