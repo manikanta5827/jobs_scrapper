@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkRelevanceBatch, calculateCostUsd, executellmCall } from '../src/helper/llm';
 import { yoePreFilter, extractMinYoe } from '../src/helper/filter';
-import type { UserPromptContext } from '../src/helper/llm';
+import type { UserPromptContext } from '../src/helper/types';
 import type { Job, EnrichedJob, TokenUsage } from '../src/helper/types';
 import { z } from 'zod';
 
@@ -421,6 +421,7 @@ function formatJobResult(job: Job, index: number): string {
   const missing = ((job as any).ai_missing_skills ?? []).join(', ') || '—';
   const yoe = (job as any).ai_yoe ?? 'N/A';
   const apply = (job as any).ai_direct_apply ?? 'N/A';
+  const facts = (job as any).ai_facts as Record<string, any> | undefined;
 
   const scoreNum = typeof score === 'number' ? score : 0;
   const categoryLabel = category ? CATEGORY_MAP[category]?.label ?? category : `${score}/10`;
@@ -428,7 +429,7 @@ function formatJobResult(job: Job, index: number): string {
     ? (scoreNum >= 5 ? '🟢' : scoreNum >= 4 ? '🟡' : scoreNum >= 2 ? '🟠' : '🔴')
     : (scoreNum >= 9 ? '🟢' : scoreNum >= 7 ? '🟡' : scoreNum >= 4 ? '🟠' : '🔴');
 
-  return [
+  const lines = [
     `${String(index + 1).padStart(2)}. ${emoji} [${categoryLabel}] ${title} @ ${company}`,
     `    Reason: ${reason}`,
     `    Matched: ${matched}`,
@@ -436,8 +437,24 @@ function formatJobResult(job: Job, index: number): string {
     `    YOE:     ${yoe}`,
     `    Apply:   ${apply}`,
     `    Loc:     ${job.location ?? 'N/A'}`,
-    '',
-  ].join('\n');
+  ];
+
+  if (facts) {
+    const required = (facts.required_skills ?? []).join(', ') || '—';
+    const preferred = (facts.preferred_skills ?? []).join(', ') || '—';
+    const minYoe = facts.min_required_yoe ?? '—';
+    const maxYoe = facts.max_required_yoe ?? '—';
+    const domain = facts.job_domain ?? '—';
+    const domainMatch = facts.domain_matches_candidate ? 'yes' : 'no';
+    const noSkills = facts.job_has_no_explicit_skills ? 'yes' : 'no';
+    lines.push(`    Facts:   domain=${domain} | domain_match=${domainMatch} | no_explicit_skills=${noSkills}`);
+    lines.push(`    Required: ${required}`);
+    lines.push(`    Preferred: ${preferred}`);
+    lines.push(`    YOE range: ${minYoe}-${maxYoe}`);
+  }
+
+  lines.push('');
+  return lines.join('\n');
 }
 
 function printUsageSummary(usage: TokenUsage, preFilterTotal: number, yoeRejectedCount: number): void {

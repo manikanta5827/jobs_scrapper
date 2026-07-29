@@ -11,7 +11,7 @@ Dispatcher Orchestrator (`src/lambda.ts`) → Per-Candidate Workers (`src/user_w
 3. **Scrape** — `src/helper/apify.ts` uses a rotated pool of Apify API keys (`key_rotation` table) to scrape candidate-configured search URLs.
 4. **Per-Candidate Dedup** — `getExistingJobsData(userId)` checks job link and fingerprint against `jobs` table strictly per candidate (`(user_id, job_link)` unique index).
 5. **Keyword Filter** — `keywordFilter(jobs, user.excludeTitleKeywords)` filters title keywords dynamically configured per candidate in their `users` DB row (no hardcoded static arrays).
-6. **DeepSeek AI Match** — `checkRelevanceBatch` evaluates candidate resume against job descriptions using a stateless, minimized system prompt and returns categorical labels (`strong_match`, `minor_gaps`, `experience_mismatch`, `skills_mismatch`, `no_match`). `strong_match` and `minor_gaps` pass; the rest are rejected.
+6. **DeepSeek AI Match** — `checkRelevanceBatch` extracts structured job facts (`required_skills`, `min/max_yoe`, `domain`, etc.) from each job description using a stateless, minimized system prompt. `fit_evaluator.ts` then applies deterministic business rules to produce categorical labels (`strong_match`, `minor_gaps`, `experience_mismatch`, `skills_mismatch`, `no_match`). `strong_match` and `minor_gaps` pass; the rest are rejected. Extracted facts are stored in `jobs.ai_facts` as JSONB.
 7. **Telegram Onboarding & Delivery**:
    - Admin creates candidate via Admin Dashboard (`AdminLambda` / `GET /admin.html`).
    - Candidate links their Telegram account by sending `/register <ID>` (e.g. `/register 12`) to the Telegram bot (`src/telegram_webhook.ts`).

@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, serial, doublePrecision, date, integer, boolean, jsonb, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { Tier } from '../helper/constants';
+import type { JobFitFacts } from '../helper/types';
 
 // Multi-tenant users table storing profile settings, credentials, and tier subscriptions
 export const users = pgTable("users", {
@@ -68,6 +69,7 @@ export const jobs = pgTable("jobs", {
   aiReason: text("ai_reason"),
   matchedSkills: jsonb("matched_skills").$type<string[]>(),
   missingSkills: jsonb("missing_skills").$type<string[]>(),
+  aiFacts: jsonb("ai_facts").$type<JobFitFacts>(),
   requiredYoe: text("required_yoe"),
   directApply: text("direct_apply"),
   applicantsCount: text("applicants_count"),

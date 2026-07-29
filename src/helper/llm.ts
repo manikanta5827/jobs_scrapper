@@ -4,13 +4,14 @@
  * Migrated to Vercel AI SDK for robust JSON parsing.
  * Uses OpenRouter with DeepInfra provider for deepseek/deepseek-v4-flash.
  */
-import type { Job, EnrichedJob, RelevanceResult, BatchResult, TokenUsage } from "./types";
+import type { Job, EnrichedJob, JobFitFacts, BatchResult, TokenUsage, UserPromptContext } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
-import { MATCHED_CATEGORY_SET, CATEGORY_SCORES } from './constants';
+import { MATCHED_CATEGORY_SET } from './constants';
+import { evaluateJobFit } from './fit_evaluator';
 
 // Disable verbose AI SDK compatibility warnings in production logs
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
@@ -86,52 +87,40 @@ export async function executellmCall<T>(
   };
 }
 
-export interface UserPromptContext {
-  experienceYears?: number | null;
-  targetLocations?: string | null;
-  employmentType?: string | null;
-  resumeText?: string | null;
-  primaryDomain?: string | null;
-  candidateSummary?: string | null;
-  knownSkills?: string[] | null;
-  education?: string[] | null;
-  projects?: Array<{ project_title: string; project_description: string }> | null;
-  certifications?: string[] | null;
-  keyHighlights?: string[] | null;
-  suggestedJobTitles?: string[] | null;
+function normalizeCandidateContext(context: UserPromptContext | string): UserPromptContext {
+  if (typeof context === 'string') {
+    return { resumeText: context };
+  }
+  return context;
 }
 
-export function buildSystemPrompt(context: UserPromptContext | string): string {
-  let user: UserPromptContext;
-  if (typeof context === 'string') {
-    user = { experienceYears: 0, resumeText: context };
-  } else {
-    user = context;
-  }
+export function buildSystemPrompt(context: UserPromptContext): string {
+  const expYears = Math.ceil(context.experienceYears ?? 0);
+  const skills = context.knownSkills?.length ? context.knownSkills.join(', ') : 'See resume';
+  const profileSummary = context.candidateSummary?.trim()
+    ? context.candidateSummary.trim()
+    : (context.resumeText ?? '').slice(0, 2000);
 
-  const expYears = Math.ceil(user.experienceYears ?? 0);
-  const skills = user.knownSkills?.length ? user.knownSkills.join(', ') : 'See resume';
-  const profileSummary = user.candidateSummary?.trim()
-    ? user.candidateSummary.trim()
-    : (user.resumeText ?? '').slice(0, 2000);
-
-  return `You are a job-fit classifier. Compare each job description against the candidate profile and return exactly one category.
+  return `You are a structured-fact extractor for job-fit evaluation. For each job listing, extract only facts. Do NOT decide matched / rejected.
 
 ## CANDIDATE PROFILE
 - Total experience: ${expYears} year(s)
-- Primary domain: ${user.primaryDomain ?? 'Not specified'}
+- Primary domain: ${context.primaryDomain ?? 'Not specified'}
 - Known skills: ${skills}
 - Profile summary: ${profileSummary}
-${user.targetLocations ? `- Preferred locations: ${user.targetLocations}\n` : ''}${user.employmentType ? `- Preferred employment: ${user.employmentType}\n` : ''}
-## CATEGORIES
-Return exactly one of: strong_match, minor_gaps, experience_mismatch, skills_mismatch, no_match.
+${context.targetLocations ? `- Preferred locations: ${context.targetLocations}\n` : ''}${context.employmentType ? `- Preferred employment: ${context.employmentType}\n` : ''}
 
-## RULES
-1. Experience: reject only if the job's explicitly required minimum YOE is greater than ${expYears}. Do not reject seniors for junior roles.
-2. Skills: matched_skills must list candidate skills that are explicitly required in the job description. missing_skills must list job-required skills the candidate lacks. Never infer skills from the job title. Never hallucinate skills.
-3. Vague JDs: if the description does not list specific required skills but the domain fits, use minor_gaps.
-4. Domain: use no_match only when the role's functional domain is unrelated to the candidate's background.
-5. Reason: one concise sentence (max 15 words). Limit matched_skills and missing_skills to 5 items each.
+## EXTRACTION RULES
+1. job_domain: functional domain of the role (e.g. "Backend Engineering", "Frontend Development", "DevOps", "QA", "Data Engineering", "Embedded Systems", "Mobile", "Product Management").
+2. min_required_yoe / max_required_yoe: extract only explicitly stated years of experience. Use numbers. If a range is given, return both; if only one endpoint, return the other as null.
+3. required_skills: list only technical skills, tools, languages, frameworks that are explicitly required to do the job. Do NOT infer skills from the title. Do NOT include preferred/nice-to-have skills here.
+4. preferred_skills: list explicitly stated nice-to-have skills. These are informational only.
+5. candidate_matched_skills: subset of required_skills that the candidate demonstrably has (based on the profile above).
+6. candidate_missing_skills: required_skills that are NOT in candidate_matched_skills.
+7. job_has_no_explicit_skills: true if the JD does not list any specific technical skills/tools.
+8. domain_matches_candidate: true if the job_domain is aligned with the candidate's primary domain and background.
+9. job_location: the location string. Return null if "remote", "anywhere", or not specified.
+10. direct_apply: the direct apply URL if visible in the job data; otherwise null.
 
 ## OUTPUT FORMAT
 Return ONLY valid JSON. No markdown outside JSON.
@@ -140,11 +129,15 @@ Return ONLY valid JSON. No markdown outside JSON.
   "results": [
     {
       "id": number,
-      "category": "strong_match" | "minor_gaps" | "experience_mismatch" | "skills_mismatch" | "no_match",
-      "reason": string,
-      "matched_skills": string[],
-      "missing_skills": string[],
-      "years_of_experience": string,
+      "job_domain": string | null,
+      "min_required_yoe": number | null,
+      "max_required_yoe": number | null,
+      "required_skills": string[],
+      "preferred_skills": string[],
+      "candidate_matched_skills": string[],
+      "candidate_missing_skills": string[],
+      "job_has_no_explicit_skills": boolean,
+      "domain_matches_candidate": boolean,
       "job_location": string | null,
       "direct_apply": string | null
     }
@@ -152,43 +145,38 @@ Return ONLY valid JSON. No markdown outside JSON.
 }`;
 }
 
-// Hardened schema forcing LLM to always emit category, matched_skills, missing_skills, reason, and YOE
-const categorySchema = z.enum([
-  'strong_match',
-  'minor_gaps',
-  'experience_mismatch',
-  'skills_mismatch',
-  'no_match',
-]);
-
-const relevanceResultSchema = z.object({
+const jobFitFactsSchema = z.object({
   id: z.coerce.number(),
-  category: categorySchema,
-  reason: z.string().catch("No reason provided"),
-  matched_skills: z.array(z.string()).catch([]),
-  missing_skills: z.array(z.string()).catch([]),
+  job_domain: z.string().nullable().catch(null),
+  min_required_yoe: z.number().nullable().catch(null),
+  max_required_yoe: z.number().nullable().catch(null),
+  required_skills: z.array(z.string()).catch([]),
+  preferred_skills: z.array(z.string()).catch([]),
+  candidate_matched_skills: z.array(z.string()).catch([]),
+  candidate_missing_skills: z.array(z.string()).catch([]),
+  job_has_no_explicit_skills: z.boolean().catch(false),
+  domain_matches_candidate: z.boolean().catch(false),
   job_location: z.string().nullable().catch(null),
-  years_of_experience: z.string().catch("Not specified"),
   direct_apply: z.string().nullable().catch(null),
 });
 
-const batchResponseSchema = z.object({
-  results: z.array(relevanceResultSchema),
+const batchFactsResponseSchema = z.object({
+  results: z.array(jobFitFactsSchema),
 });
 
-// ponytail: process batches in parallel chunks of 3 to avoid exceeding Lambda 15min execution limit; upgrade path is worker pool queue if RPM exceeds provider limits.
-export async function checkRelevanceBatch(
+// Extract structured job facts for every job via the LLM, without evaluating fit.
+export async function extractJobFitFactsBatch(
   jobs: Job[],
   candidateContext: UserPromptContext | string,
   batchSize: number = 2,  // How many jobs per single LLM API call (e.g. 2 jobs in 1 prompt)
   delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
   concurrency: number = 3,  // How many batches (LLM API calls) to execute simultaneously in parallel
   modelId?: string,
-): Promise<BatchResult> {
-  const matched: EnrichedJob[] = [];
-  const rejected: EnrichedJob[] = [];
+): Promise<{ facts: JobFitFacts[]; usage: TokenUsage }> {
+  const candidateCtx = normalizeCandidateContext(candidateContext);
   const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0, actualCostUsd: 0 };
-  const systemPrompt = buildSystemPrompt(candidateContext);
+  const systemPrompt = buildSystemPrompt(candidateCtx);
+  const allFacts: JobFitFacts[] = new Array(jobs.length);
 
   // STEP 1: Split total jobs into smaller batches (e.g., 149 jobs -> 15 batches of 10 jobs each)
   const batches: Job[][] = [];
@@ -210,9 +198,9 @@ export async function checkRelevanceBatch(
       chunk.map(async (batch, indexWithinChunk) => {
         // Calculate 1-based index for logging (e.g. Batch 1, Batch 2...)
         const batchNum = i + indexWithinChunk + 1;
-        console.log(`OpenRouter batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
+        console.log(`OpenRouter extraction batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
-        let results = new Map<number, RelevanceResult>();
+        let results = new Map<number, JobFitFacts>();
         let attempt = 0;
         const MAX_BATCH_RETRIES = 3;
         let lastError: unknown = null;
@@ -222,16 +210,15 @@ export async function checkRelevanceBatch(
           try {
             // Prepare lightweight payload for each job in this batch, attaching a temporary numeric ID (0..4)
             const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
-            const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
+            const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nExtract structured facts per the system rules. Do not decide matched / rejected.`;
 
-            // Call LLM for this batch
             const res = await executellmCall(
-              batchResponseSchema,
+              batchFactsResponseSchema,
               userMessage,
               systemPrompt,
               undefined,
               {
-                functionId: 'job-relevance-batch',
+                functionId: 'job-fit-extraction-batch',
                 metadata: { batch_number: String(batchNum), batch_size: String(batch.length) }
               },
               modelId,
@@ -245,7 +232,7 @@ export async function checkRelevanceBatch(
 
             // Store AI evaluation results keyed by job ID (0..4)
             for (const item of res.object.results) {
-              results.set(item.id, item as RelevanceResult);
+              results.set(item.id, item as JobFitFacts);
             }
             lastError = null;
             break; // Success! Exit retry loop
@@ -266,14 +253,14 @@ export async function checkRelevanceBatch(
             if (!results.has(j)) {
               try {
                 const singlePayload = [{ id: j, ...prepareJobPayload(batch[j]) }];
-                const singleMsg = `Job Listings (JSON array, 1 job):\n-------------------\n${JSON.stringify(singlePayload, null, 2)}\n\nEvaluate each job per the system rules.`;
+                const singleMsg = `Job Listings (JSON array, 1 job):\n-------------------\n${JSON.stringify(singlePayload, null, 2)}\n\nExtract structured facts per the system rules. Do not decide matched / rejected.`;
                 const singleRes = await executellmCall(
-                  batchResponseSchema,
+                  batchFactsResponseSchema,
                   singleMsg,
                   systemPrompt,
                   undefined,
                   {
-                    functionId: 'job-relevance-fallback',
+                    functionId: 'job-fit-extraction-fallback',
                     metadata: { job_title: batch[j].title ?? '' }
                   },
                   modelId,
@@ -283,19 +270,23 @@ export async function checkRelevanceBatch(
                 usage.completionTokens += singleRes.usage.completionTokens;
                 usage.actualCostUsd = (usage.actualCostUsd ?? 0) + (singleRes.usage.actualCostUsd ?? 0);
                 if (singleRes.object.results && singleRes.object.results.length > 0) {
-                  results.set(j, singleRes.object.results[0] as RelevanceResult);
-                  console.log(`  ✓ Fallback individual check succeeded for "${batch[j].title}"`);
+                  results.set(j, singleRes.object.results[0] as JobFitFacts);
+                  console.log(`  ✓ Fallback individual extraction succeeded for "${batch[j].title}"`);
                 }
               } catch (singleErr: unknown) {
                 const singleErrMsg = singleErr instanceof Error ? singleErr.message : String(singleErr);
-                console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErrMsg}`);
+                console.error(`  ✗ Fallback individual extraction failed for "${batch[j].title}": ${singleErrMsg}`);
                 results.set(j, {
-                  category: 'no_match',
-                  reason: `LLM check failed: ${singleErrMsg}`,
-                  matched_skills: [],
-                  missing_skills: [],
+                  job_domain: null,
+                  min_required_yoe: null,
+                  max_required_yoe: null,
+                  required_skills: [],
+                  preferred_skills: [],
+                  candidate_matched_skills: [],
+                  candidate_missing_skills: [],
+                  job_has_no_explicit_skills: false,
+                  domain_matches_candidate: false,
                   job_location: null,
-                  years_of_experience: "Not specified",
                   direct_apply: null,
                 });
               }
@@ -305,37 +296,25 @@ export async function checkRelevanceBatch(
 
         // STEP 3: Map AI evaluations back to original job objects and classify as matched vs rejected
         for (let j = 0; j < batch.length; j++) {
-          const job = batch[j];
-          const parsed = results.get(j);
-
-          if (parsed) {
-            const category = parsed.category;
-            const isGoodMatch = MATCHED_CATEGORY_SET.has(category);
-            const enriched: EnrichedJob = {
-              ...job,
-              status: isGoodMatch ? "matched" : "rejected",
-              ai_category: category,
-              ai_score: CATEGORY_SCORES[category] ?? 0,
-              ai_reason: parsed.reason,
-              ai_matched_skills: parsed.matched_skills,
-              ai_missing_skills: parsed.missing_skills,
-              ai_job_location: parsed.job_location || null,
-              ai_yoe: parsed.years_of_experience,
-              ai_direct_apply: parsed.direct_apply || null,
-            };
-            isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
+          const globalIndex = (i + indexWithinChunk) * batchSize + j;
+          const facts = results.get(j);
+          if (facts) {
+            allFacts[globalIndex] = facts;
           } else {
-            console.error(`Job missing from LLM response: "${job.title}"`);
-            rejected.push({
-              ...job,
-              status: "rejected",
-              ai_category: 'no_match',
-              ai_score: 0,
-              ai_reason: "LLM check failed",
-              ai_matched_skills: [],
-              ai_missing_skills: [],
-              ai_direct_apply: null,
-            });
+            console.error(`Job missing from LLM response: "${batch[j].title}"`);
+            allFacts[globalIndex] = {
+              job_domain: null,
+              min_required_yoe: null,
+              max_required_yoe: null,
+              required_skills: [],
+              preferred_skills: [],
+              candidate_matched_skills: [],
+              candidate_missing_skills: [],
+              job_has_no_explicit_skills: false,
+              domain_matches_candidate: false,
+              job_location: null,
+              direct_apply: null,
+            };
           }
         }
       })
@@ -345,6 +324,46 @@ export async function checkRelevanceBatch(
     if (i + concurrency < batches.length && delayMs > 0) {
       await sleep(delayMs);
     }
+  }
+
+  return { facts: allFacts, usage };
+}
+
+// Full pipeline: extract facts, then run deterministic fit evaluation.
+export async function checkRelevanceBatch(
+  jobs: Job[],
+  candidateContext: UserPromptContext | string,
+  batchSize: number = 5,
+  delayMs: number = 1000,
+  concurrency: number = 3,
+  modelId?: string,
+): Promise<BatchResult> {
+  const candidateCtx = normalizeCandidateContext(candidateContext);
+  const { facts, usage } = await extractJobFitFactsBatch(jobs, candidateCtx, batchSize, delayMs, concurrency, modelId);
+
+  const matched: EnrichedJob[] = [];
+  const rejected: EnrichedJob[] = [];
+
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i];
+    const fact = facts[i];
+    const evalResult = evaluateJobFit(fact, candidateCtx);
+    const category = evalResult.category;
+    const isGoodMatch = MATCHED_CATEGORY_SET.has(category);
+    const enriched: EnrichedJob = {
+      ...job,
+      status: isGoodMatch ? "matched" : "rejected",
+      ai_category: category,
+      ai_score: evalResult.score,
+      ai_reason: evalResult.reason,
+      ai_matched_skills: evalResult.matched_skills,
+      ai_missing_skills: evalResult.missing_skills,
+      ai_job_location: evalResult.job_location,
+      ai_yoe: evalResult.years_of_experience,
+      ai_direct_apply: evalResult.direct_apply,
+      ai_facts: fact,
+    };
+    isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
   }
 
   return { matched, rejected, usage };

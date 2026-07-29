@@ -79,33 +79,62 @@ const YOE_PATTERNS: RegExp[] = [
   /(\d+)(?:\s*\+|\s*[\–\-]\s*(\d+))?\s*years?\b/gi,
 ];
 
-export function extractMinYoe(descriptionText: string): { min: number | null; fullText: string | null } {
+export interface YoeRange {
+  min: number | null;
+  max: number | null;
+  fullText: string | null;
+}
+
+export function extractYoeRange(descriptionText: string): YoeRange {
   // Normalize possessive: "year's", "years'" → "year" so year boundary works
   const text = (descriptionText || '').replace(/\byear'?s\b/gi, 'year');
 
   let overallMin: number | null = null;
+  let overallMax: number | null = null;
   let bestMatchText: string | null = null;
 
   for (const pattern of YOE_PATTERNS) {
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
-      // "up to X years" is an upper bound, not a minimum requirement — skip
+      // "up to X years" is an upper bound only, not a range — skip min side
       const preContext = text.substring(Math.max(0, match.index - 15), match.index);
-      if (/\bup\s+to\b\s*$/.test(preContext)) continue;
+      if (/\bup\s+to\b\s*$/.test(preContext)) {
+        // Only capture the upper bound
+        const num = parseInt(match[1], 10);
+        if (overallMax === null || num > overallMax) {
+          overallMax = num;
+          bestMatchText = match[0];
+        }
+        continue;
+      }
 
       const num1 = parseInt(match[1], 10);
       const num2 = match[2] ? parseInt(match[2], 10) : null;
-      const effectiveMin = num2 ? Math.min(num1, num2) : num1;
+      const hasPlus = match[0].replace(/\s/g, '').includes(`${num1}+`);
 
-      if (overallMin === null || effectiveMin > overallMin) {
-        overallMin = effectiveMin;
-        bestMatchText = match[0];
+      const min = num2 ? Math.min(num1, num2) : num1;
+      const max = num2 ? Math.max(num1, num2) : (hasPlus ? null : null);
+      // For a plain "X years" treat it as a minimum (exact requirement) unless context says otherwise.
+      // We do not infer a max from plain mentions.
+
+      if (overallMin === null || min > overallMin) {
+        overallMin = min;
       }
+      if (max !== null && (overallMax === null || max > overallMax)) {
+        overallMax = max;
+      }
+      bestMatchText = match[0];
     }
   }
 
-  return { min: overallMin, fullText: bestMatchText };
+  return { min: overallMin, max: overallMax, fullText: bestMatchText };
+}
+
+/** @deprecated Use extractYoeRange instead */
+export function extractMinYoe(descriptionText: string): { min: number | null; fullText: string | null } {
+  const { min, fullText } = extractYoeRange(descriptionText);
+  return { min, fullText };
 }
 
 const FRESHER_SIGNAL = /\b(?:freshers?|fresh[ -]?graduat(?:es?|ion))\b/i;
@@ -119,24 +148,34 @@ export function yoePreFilter(
 
   for (const job of jobs) {
     const text = (job.descriptionText ?? '') + ' ' + (job.seniorityLevel ?? '');
-    const { min: minRequired, fullText: yoeText } = extractMinYoe(text);
+    const { min: minRequired, max: maxRequired, fullText: yoeText } = extractYoeRange(text);
 
     // Fresher-friendly listings — let LLM decide, don't YOE-reject
     const isFresherFriendly = FRESHER_SIGNAL.test(text);
 
-    if (minRequired === null || isFresherFriendly) {
+    if (minRequired === null && maxRequired === null) {
       passToLLM.push(job);
       continue;
     }
 
-    if (minRequired > candidateYoe) {
+    if (minRequired !== null && minRequired > candidateYoe) {
       yoeRejected.push({
         ...job,
         keyword_bin_reason: `YOE: requires ${minRequired}+ yr, candidate has ${candidateYoe} yr`,
       });
-    } else {
-      passToLLM.push({ ...job, extractedYoeText: yoeText });
+      continue;
     }
+
+    // Overqualified: job's max YOE is below candidate's YOE
+    if (maxRequired !== null && maxRequired < candidateYoe && !isFresherFriendly) {
+      yoeRejected.push({
+        ...job,
+        keyword_bin_reason: `YOE: requires ${maxRequired}- yr max, candidate has ${candidateYoe} yr`,
+      });
+      continue;
+    }
+
+    passToLLM.push({ ...job, extractedYoeText: yoeText });
   }
 
   return { passToLLM, yoeRejected };

@@ -27,15 +27,19 @@ export interface Job {
   [key: string]:      unknown; // Still allow other fields but they won't be explicitly typed
 }
 
-// DeepSeek relevance check result
-export interface RelevanceResult {
-  category:            string;
-  reason:              string;
-  matched_skills:      string[];
-  missing_skills:      string[];
-  job_location:        string | null;
-  years_of_experience: string;
-  direct_apply:        string | null;
+// Structured facts extracted from a job description by the LLM
+export interface JobFitFacts {
+  job_domain:              string | null;
+  min_required_yoe:        number | null;
+  max_required_yoe:        number | null;
+  required_skills:         string[];
+  preferred_skills:        string[];
+  candidate_matched_skills: string[];
+  candidate_missing_skills: string[];
+  job_has_no_explicit_skills: boolean;
+  domain_matches_candidate: boolean;
+  job_location:            string | null;
+  direct_apply:            string | null;
 }
 
 // Job after DeepSeek enrichment
@@ -46,9 +50,10 @@ export interface EnrichedJob extends Job {
   ai_reason?:         string;
   ai_matched_skills?: string[];
   ai_missing_skills?: string[];
-  ai_job_location?:       string | null;
+  ai_job_location?:   string | null;
   ai_yoe?:            string;
   ai_direct_apply?:   string | null;
+  ai_facts?:          JobFitFacts | null;
 }
 
 // LLM token usage, accumulated across all batch calls

@@ -11,6 +11,10 @@ export const TIER_CONFIG: Record<Tier, { emoji: string; label: string; alertsPer
 export const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "7", 10);
 export const HIGH_SCORE_THRESHOLD = 8;
 
+// Deterministic skill-coverage thresholds used by fit_evaluator.ts
+export const STRONG_MATCH_THRESHOLD = 1.0;
+export const MINOR_GAPS_THRESHOLD = 0.6;
+
 export const MATCHED_CATEGORIES = ['strong_match', 'minor_gaps'] as const;
 export const MATCHED_CATEGORY_SET = new Set<string>(MATCHED_CATEGORIES);
 export type MatchCategory = typeof MATCHED_CATEGORIES[number] | 'experience_mismatch' | 'skills_mismatch' | 'no_match';

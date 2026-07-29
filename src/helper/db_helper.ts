@@ -2,6 +2,7 @@ import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
 import { Tier, MIN_MATCH_SCORE } from './constants';
+import type { JobFitFacts } from './types';
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export async function trackJobs(
     aiReason?: string;
     matchedSkills?: string[];
     missingSkills?: string[];
+    aiFacts?: JobFitFacts | null;
     requiredYoe?: string;
     directApply?: string | null;
     applicantsCount?: string | number;
@@ -147,6 +149,7 @@ export async function trackJobs(
           aiReason: j.aiReason,
           matchedSkills: j.matchedSkills || [],
           missingSkills: j.missingSkills || [],
+          aiFacts: j.aiFacts,
           requiredYoe: j.requiredYoe,
           directApply: j.directApply,
           applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
