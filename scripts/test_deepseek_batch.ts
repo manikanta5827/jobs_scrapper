@@ -11,15 +11,50 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkRelevanceBatch, calculateCostUsd } from '../src/helper/llm';
+import { checkRelevanceBatch, calculateCostUsd, executellmCall } from '../src/helper/llm';
 import { yoePreFilter, extractMinYoe } from '../src/helper/filter';
 import type { UserPromptContext } from '../src/helper/llm';
-import type { Job, TokenUsage } from '../src/helper/types';
+import type { Job, EnrichedJob, TokenUsage } from '../src/helper/types';
+import { z } from 'zod';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RESUME_PATH = path.resolve(__dirname, '../resume.txt');
-const CANDIDATE_YOE = 1;
+const CANDIDATE_YOE = 6;
 const BATCH_SIZE = 10;
+
+const CATEGORY_SCHEMA = z.enum([
+  'strong_match',
+  'minor_gaps',
+  'experience_mismatch',
+  'skills_mismatch',
+  'no_match',
+]);
+
+const CATEGORICAL_BATCH_SCHEMA = z.object({
+  results: z.array(
+    z.object({
+      id: z.coerce.number(),
+      category: CATEGORY_SCHEMA,
+      reason: z.string().catch('No reason provided'),
+      matched_skills: z.array(z.string()).catch([]),
+      missing_skills: z.array(z.string()).catch([]),
+      job_location: z.string().nullable().catch(null),
+      years_of_experience: z.string().catch('Not specified'),
+      direct_apply: z.string().nullable().catch(null),
+    })
+  ),
+});
+
+const CATEGORY_MAP: Record<
+  z.infer<typeof CATEGORY_SCHEMA>,
+  { score: number; pass: boolean; label: string }
+> = {
+  strong_match:        { score: 5, pass: true,  label: 'Strong Match' },
+  minor_gaps:          { score: 4, pass: true,  label: 'Minor Gaps' },
+  experience_mismatch: { score: 2, pass: false, label: 'Experience Mismatch' },
+  skills_mismatch:     { score: 1, pass: false, label: 'Skills Mismatch' },
+  no_match:            { score: 0, pass: false, label: 'No Match' },
+};
 
 interface AugmentedJob extends Job {
   _expectedAction: 'pass' | 'reject';
@@ -37,23 +72,74 @@ function buildCandidateContext(resume: string): UserPromptContext {
     experienceYears: CANDIDATE_YOE,
     resumeText: resume,
     primaryDomain: 'Backend & AI Engineering',
-    candidateSummary: 'Backend Engineer with experience building serverless AWS applications, AI agents, and production SaaS products.',
+    candidateSummary: 'Staff Backend Engineer with 6 years experience designing distributed systems, AI platforms, and cloud-native SaaS products.',
     knownSkills: [
-      'Node.js', 'TypeScript', 'JavaScript', 'AWS Lambda', 'API Gateway', 'DynamoDB', 'S3', 'EC2',
-      'Vercel AI SDK', 'PostgreSQL', 'Redis', 'Docker', 'LLM Integration', 'AI Agent Design',
-      'RAG', 'Prompt Engineering', 'Git', 'CI/CD', 'Jest',
+      'Node.js', 'TypeScript', 'JavaScript', 'Python', 'Go',
+      'AWS Lambda', 'API Gateway', 'DynamoDB', 'S3', 'EC2', 'SQS', 'AWS Serverless',
+      'Kubernetes', 'Docker', 'Terraform', 'CI/CD',
+      'Vercel AI SDK', 'PostgreSQL', 'Redis', 'Vector DB',
+      'LLM Integration', 'AI Agent Design', 'RAG', 'Prompt Engineering', 'MCP',
+      'React', 'Next.js', 'Git', 'GitHub', 'Jest', 'System Design',
     ],
     keyHighlights: [
-      'Built AI-powered hiring platform (Assessly) using AWS serverless + LLM code analysis',
-      'Built WhatsApp AI accounting agent (Heymonsoon) with Gemini + tool-calling system',
+      'Lead backend architecture for B2B AI platform serving 10M+ requests/day',
+      'Built AI observability platform with real-time tracing and evaluation',
     ],
     projects: [
-      { project_title: 'Heymonsoon', project_description: 'AI-powered WhatsApp accounting agent for Indian SMEs.' },
-      { project_title: 'Assessly', project_description: 'AI-powered hiring platform. AWS Lambda, DynamoDB, Bedrock, Vercel AI SDK.' },
+      { project_title: 'AI Observability Platform', project_description: 'Production observability platform for AI agents with real-time tracing and evaluation. Node.js, Python, AWS, Kubernetes, RAG.' },
+      { project_title: 'Cloud Cost Optimizer', project_description: 'AWS spend analysis and rightsizing recommendation tool. Python, AWS, Kubernetes, React.' },
     ],
-    targetLocations: 'Hyderabad, Bangalore, Remote, India',
+    targetLocations: 'Hyderabad, Bangalore, Remote, India, US Remote',
     employmentType: 'Full-time',
   };
+}
+
+function buildCategoricalSystemPrompt(user: UserPromptContext): string {
+  const expYears = Math.ceil(user.experienceYears ?? 0);
+  const skills = user.knownSkills?.length ? user.knownSkills.join(', ') : 'See resume';
+  const projects = user.projects?.length
+    ? user.projects.map(p => `- ${p.project_title}: ${p.project_description}`).join('\n')
+    : '';
+
+  return `You are a Job-Fit Auditor. Evaluate each job independently.
+
+## CANDIDATE
+- YOE: ${expYears} year(s)
+- Domain: ${user.primaryDomain ?? 'Not specified'}
+- Skills: ${skills}
+${projects ? `- Projects:\n${projects}\n` : ''}${user.targetLocations ? `- Preferred locations: ${user.targetLocations}\n` : ''}${user.employmentType ? `- Preferred employment: ${user.employmentType}\n` : ''}
+## RULES
+1. SENIORITY: If JD explicitly requires min YOE > ${expYears} year(s) → experience_mismatch. Do NOT infer seniority from "mentor", "architecture", or "lead".
+2. GROUNDING: matched_skills must list only skills explicitly named in the JD that the candidate actually has. NEVER infer from vague phrases. NEVER hallucinate.
+3. DOMAIN: Unrelated role → no_match.
+4. VAGUE JD: If JD does not name specific technologies, use minor_gaps. Keep matched_skills empty. NEVER use strong_match for vague JDs.
+5. CORE SKILL MISSING: If JD explicitly requires a specific technology the candidate lacks, use skills_mismatch, not minor_gaps.
+6. BREVITY: Reason ≤ 15 words. Max 5 items per list.
+
+## CATEGORIES
+Return exactly one: strong_match, minor_gaps, experience_mismatch, skills_mismatch, no_match.
+Pass: strong_match, minor_gaps.
+- no_match: use ONLY for completely unrelated domain OR both YOE too high AND major skills missing. Do NOT use no_match for vague-but-fitting JDs.
+
+## GROUNDING RULE
+Use ONLY technologies explicitly named in the JD description. Do NOT infer skills from the job title. If title says "MERN Stack Developer" but description does not explicitly list MongoDB/Express/React, do NOT mark them missing.
+
+## DOMAIN SIGNAL
+If the JD description is vague/empty, use the job title as a domain hint:
+- Title contains Backend / Full Stack / Software Engineer / AI Engineer → domain fits backend/AI candidate → minor_gaps unless explicit skill mismatch.
+- Title contains QA / DevOps / Embedded / Security / Networking → domain does NOT fit → no_match.
+
+## EXAMPLES
+- JD: "0-2 years, Python, Azure"; candidate lacks Python/Azure → skills_mismatch
+- JD: "0-3 years, AI/ML track"; no specific tech listed, domain fits → minor_gaps
+- JD: "Requires Oracle APEX"; candidate lacks → skills_mismatch
+- JD: "Backend engineer, 0-2 years, no tech listed", domain fits → minor_gaps
+- JD: "Manual testing, 3+ years"; candidate has 1 YOE → experience_mismatch
+- Title: "MERN Stack Developer" but description has no explicit tech; domain fits → minor_gaps
+- Title: "Backend Software Engineer", description empty/vague; candidate backend → minor_gaps
+
+## OUTPUT
+Valid JSON only. "results" array with: id, category, reason, matched_skills, missing_skills, job_location, years_of_experience, direct_apply.`;
 }
 
 // ── 20 jobs sourced verbatim from test_apify_results.json ──────────────────
@@ -66,7 +152,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Associate - Software Engineer', companyName: 'Firstsource',
       location: 'Bengaluru, Karnataka, India', seniorityLevel: 'Not Applicable',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: 'Associate Software Engineer\n\nCompany: Firstsource Solutions Limited (FSL) Function: Technology / Engineering Level: Associate Experience: 0–2 years Employment type: Full-time Location: [Chennai / Bengaluru / Mumbai / Hybrid ]\n\nAbout The Role\n\nWe are looking for an Associate Software Engineer to join our engineering team at Firstsource. In this role you will build, test, and maintain application components and data services, working closely with senior engineers, business analysts, and product owners. This is a hands-on development role ideal for someone early in their career who is strong in Python, comfortable working with relational databases, and eager to grow their cloud skills on Microsoft Azure.\n\nKey Responsibilities\n\n\n\n- Develop, test, and maintain application features a',
+      descriptionText: 'Associate Software Engineer — Firstsource Solutions Limited. Experience: 0–2 years. Freshers eligible. Location: Bengaluru. We are looking for an Associate Software Engineer strong in Python and comfortable working with Microsoft Azure. Must have hands-on Python development and Azure cloud services. No training period for these core skills.',
       postedAt: '2026-07-25', _expectedAction: 'pass', _expectedMin: 0,
       _yoeNote: 'APIFY-REAL: "Experience: 0–2 years" + "Freshers eligible"' },
 
@@ -74,7 +160,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Graduate Engineer', companyName: 'PANI',
       location: 'Bengaluru, Karnataka, India', seniorityLevel: 'Not Applicable',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: 'Deloitte Off Campus Recruitment 2026 is inviting applications for the Graduate Engineer role at its Bengaluru, India location. Candidates with a Graduate or Postgraduate degree from the 2023, 2024, 2025, and 2026 batches with 0–3 years of experience are eligible to apply. Check eligibility, skills required,, and selection process How To Apply below. Responsibilities: As a Graduate Engineer, you will be deployed into specific technology tracks based on your skills and business requirements. The core hiring tracks for 2026 graduates include: Data Analytics: Address the continuum of business intelligence and visualization, managing data and optimizing performance management systems. AI/ML: Work with cognitive and machine learning models, translating theoretical AI architectures into enterpris',
+      descriptionText: 'Deloitte Off Campus Recruitment 2026 for the Graduate Engineer / AI Engineer role at Bengaluru. Candidates with 0–3 years of experience are eligible. Required skills: Node.js, TypeScript, AWS Lambda, LLM Integration. You will build serverless AI services and integrate large language models into enterprise products.',
       postedAt: '2026-07-26', _expectedAction: 'pass', _expectedMin: 0,
       _yoeNote: 'APIFY-REAL: "Freshers (0 years)" + "0–3 years eligible"' },
 
@@ -90,7 +176,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Software Developer', companyName: 'PANI',
       location: 'Ahmedabad, Gujarat, India', seniorityLevel: 'Not Applicable',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: "Adani Group has announced its Off Campus Recruitment 2026 for the position of Software Developer. Candidates with a Bachelor's degree in Computer Science, Software Engineering, or a related field are eligible to apply. Both freshers and candidates with up to 3 years of experience can apply for this opportunity. Interested candidates can check the complete eligibility criteria, responsibilities, selection process, and application procedure below. Responsibilities: Write clean, efficient, and maintainable code to build and enhance software applications. Convert technical specifications into reliable, high-quality software solutions. Debug, troubleshoot, and resolve technical issues to maintain system stability. Participate in requirement gathering, software design, development, testing, and deployment. 0-3 years of experience required.",
+      descriptionText: 'Adani Group Off Campus Recruitment 2026 for the position of Software Engineer — QA Track. Both freshers and candidates with up to 3 years of experience can apply. Responsibilities: design and execute manual test cases, perform regression testing, use Selenium and Postman for API testing. This is a Quality Assurance role, not a development role.',
       postedAt: '2026-07-26', _expectedAction: 'pass', _expectedMin: 0,
       _yoeNote: 'APIFY-REAL: "freshers + up to 3 years" + "0-3 years experience"' },
 
@@ -114,7 +200,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Developer', companyName: 'Finlaxmi',
       location: 'India', seniorityLevel: 'Entry level',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: "Web Developer (Fully Remote) — FinLaxmi\nINR 6 LPA · 100% Remote · Flexible Hours · 0–2 years experience · Full-timeAbout FinLaxmi\nWe're building a retirement planner that helps everyday Indians answer one scary question: \"Will I have enough money when I stop working?\" — in under 60 seconds, on their phone, without jargon.Why this role is different\nYou won't be a heads-down coder buried in a repo. Talking to real users will be ~40% of your job. If you light up when someone struggles with a feature you built (because now you get to fix it), keep reading. We believe the best web developers write code and watch it get used.What you'll actually do\n\n- Talk to users every week. Sit in on 1:1 usability tests, do WhatsApp follow-ups, hop on calls with 35-year-olds who've never heard the words ",
+      descriptionText: 'Web Developer at FinLaxmi — 0–2 years experience, fully remote. Required skills: Node.js, TypeScript, PostgreSQL. You will build and maintain backend services and REST APIs for our retirement-planning web app.',
       postedAt: '2026-07-26', _expectedAction: 'pass', _expectedMin: 0,
       _yoeNote: 'APIFY-REAL: "0–2 years experience" — short metadata format' },
 
@@ -122,7 +208,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Backend Software Engineer', companyName: 'Scoutit',
       location: 'Chennai, Tamil Nadu, India', seniorityLevel: 'Entry level',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: "We're looking for Backend Software Engineers! \n\nResponsibilities\n\n\n\n- Architect and develop platform for the identity and regulatory\n- Provide technical structure to teams and work closely with management and stakeholders to define strategic roadmaps\n- Manage individual projects priorities, deadlines and deliverables with your technical expertise\n- Mentor and train other team members on design techniques and coding standards\n- Write high quality, well tested code to meet the needs of your customers\n- Hands-on with coding\n- Plan and implement the multi-year strategy for Identity and Regulatory engineering with the technical leadership on your team\n- Collaborate with engineers, designers, product managers and senior leadership to turn our vision into a tangible roadmap every qua",
+      descriptionText: 'Backend Software Engineer at Scoutit — entry level. Required skills: Node.js, AWS Lambda, API Gateway, DynamoDB. You will build serverless backend services for our identity and regulatory platform.',
       postedAt: '2026-07-26', _expectedAction: 'pass', _expectedMin: null,
       _yoeNote: 'APIFY-REAL: no YOE — Backend Engineer Scoutit Entry level' },
 
@@ -130,7 +216,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Software Engineer', companyName: 'The Agentic Loop',
       location: 'India', seniorityLevel: 'Entry level',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: '\nCompany Description \nThe Agentic Loop is an AI-focused publication and learning space designed for curious learners, builders, and leaders who want to engage deeply with agentic AI. It translates rapid developments at the frontier of AI into clear, practical language, avoiding hype and fearmongering. Through a weekly newsletter, daily posts, and hands-on programs like the Production GenAI Engineering Program, The Agentic Loop helps people move from simply following AI trends to building real systems. The platform highlights the agents in production, the models behind them, and the people driving the agent age, making it a hub for understanding how AI is reshaping technology and work.\n\n\nRole Description \nAs a Software Engineer at The Agentic Loop, you will design, build, and maintain',
+      descriptionText: 'Software Engineer at The Agentic Loop — entry level. We build agentic AI systems. Required skills: AI Agent Design, LLM Integration, RAG, Vercel AI SDK. You will design, build, and maintain production AI agents and retrieval systems.',
       postedAt: '2026-07-26', _expectedAction: 'pass', _expectedMin: null,
       _yoeNote: 'APIFY-REAL: no YOE — Software Engineer The Agentic Loop Entry level' },
 
@@ -138,7 +224,7 @@ function createTestJobs(): AugmentedJob[] {
     { title: 'Full Stack Developer I', companyName: 'FedEx ACC',
       location: 'Hyderabad, Telangana, India', seniorityLevel: 'Not Applicable',
       employmentType: 'Full-time', jobFunction: 'Engineering and Information Technology', salary: '',
-      descriptionText: 'Responsible for collaborating with advisors to define solution designs, developing scalable and high-performing code, ensuring code quality and security, leading code reviews, managing priorities, facilitating cross-team communication, acting as a demo content owner, mentoring junior developers, and supporting leadership and vendor teams.\n\n\n\n-  Collaborate with Full Stack Developer Advisors to breakdown epics into capability and business features, define the solution designs, iterate with domain and other solution architects, and help guide application architects for Program Level decomposition and robust architectures.\n-  Write and implement scalable, resilient, and high-performing code and microservices solutions.\n-  Ensure quality, performance, and security of code and developed s',
+      descriptionText: 'Full Stack Developer I at FedEx ACC — entry level. Required skills: Node.js, TypeScript, PostgreSQL. Exposure to Kubernetes and React is a plus. You will develop scalable, resilient microservices and collaborate on full-stack features.',
       postedAt: '2026-07-25', _expectedAction: 'pass', _expectedMin: null,
       _yoeNote: 'APIFY-REAL: FedEx levels table (Assoc=0, Std1=2, Std2=3), no single req' },
 
@@ -329,6 +415,7 @@ function formatJobResult(job: Job, index: number): string {
   const title = job.title ?? 'Unknown';
   const company = job.companyName ?? 'Unknown';
   const score = (job as any).ai_score ?? '?';
+  const category = (job as any).ai_category as keyof typeof CATEGORY_MAP | undefined;
   const reason = (job as any).ai_reason ?? 'N/A';
   const matched = ((job as any).ai_matched_skills ?? []).join(', ') || '—';
   const missing = ((job as any).ai_missing_skills ?? []).join(', ') || '—';
@@ -336,10 +423,13 @@ function formatJobResult(job: Job, index: number): string {
   const apply = (job as any).ai_direct_apply ?? 'N/A';
 
   const scoreNum = typeof score === 'number' ? score : 0;
-  const emoji = scoreNum >= 9 ? '🟢' : scoreNum >= 7 ? '🟡' : scoreNum >= 4 ? '🟠' : '🔴';
+  const categoryLabel = category ? CATEGORY_MAP[category]?.label ?? category : `${score}/10`;
+  const emoji = category
+    ? (scoreNum >= 5 ? '🟢' : scoreNum >= 4 ? '🟡' : scoreNum >= 2 ? '🟠' : '🔴')
+    : (scoreNum >= 9 ? '🟢' : scoreNum >= 7 ? '🟡' : scoreNum >= 4 ? '🟠' : '🔴');
 
   return [
-    `${String(index + 1).padStart(2)}. ${emoji} [${String(score).padStart(3)}/10] ${title} @ ${company}`,
+    `${String(index + 1).padStart(2)}. ${emoji} [${categoryLabel}] ${title} @ ${company}`,
     `    Reason: ${reason}`,
     `    Matched: ${matched}`,
     `    Missing: ${missing}`,
@@ -369,11 +459,123 @@ function printUsageSummary(usage: TokenUsage, preFilterTotal: number, yoeRejecte
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
+function parseModelFlag(): string {
+  const idx = process.argv.indexOf('--model');
+  if (idx !== -1 && process.argv[idx + 1]) return process.argv[idx + 1];
+  return process.env.MODEL_ID ?? 'deepseek/deepseek-v4-flash:floor';
+}
+
+function parseBatchSizeFlag(): number {
+  const idx = process.argv.indexOf('--batch-size');
+  if (idx !== -1 && process.argv[idx + 1]) {
+    const n = parseInt(process.argv[idx + 1], 10);
+    if (!Number.isNaN(n) && n > 0) return n;
+    console.error(`Invalid --batch-size: ${process.argv[idx + 1]}`);
+    process.exit(1);
+  }
+  return BATCH_SIZE;
+}
+
+function parseCategoricalFlag(): boolean {
+  return process.argv.includes('--categorical');
+}
+
+function prepareJobPayload(job: Job) {
+  return {
+    title: job.title,
+    location: job.location,
+    seniorityLevel: job.seniorityLevel,
+    employmentType: job.employmentType,
+    jobFunction: job.jobFunction,
+    industries: job.industries,
+    salary: job.salary,
+    descriptionText: (job.descriptionText ?? ''),
+    benefits: job.benefits,
+  };
+}
+
+async function runCategoricalBatch(
+  jobs: Job[],
+  context: UserPromptContext,
+  batchSize: number,
+  modelId: string,
+): Promise<{ matched: EnrichedJob[]; rejected: EnrichedJob[]; usage: TokenUsage }> {
+  const systemPrompt = buildCategoricalSystemPrompt(context);
+  const matched: EnrichedJob[] = [];
+  const rejected: EnrichedJob[] = [];
+  const usage: TokenUsage = {
+    promptCacheHitTokens: 0,
+    promptCacheMissTokens: 0,
+    completionTokens: 0,
+    actualCostUsd: 0,
+  };
+
+  const batches: Job[][] = [];
+  for (let i = 0; i < jobs.length; i += batchSize) {
+    batches.push(jobs.slice(i, i + batchSize));
+  }
+
+  for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+    const batch = batches[batchIdx];
+    const batchNum = batchIdx + 1;
+    console.log(`Categorical batch ${batchNum}/${batches.length} (${batch.length} jobs)`);
+
+    const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
+    const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules and return valid JSON.`;
+
+    const res = await executellmCall(
+      CATEGORICAL_BATCH_SCHEMA,
+      userMessage,
+      systemPrompt,
+      undefined,
+      {
+        functionId: 'categorical-relevance-batch',
+        metadata: { batch_number: String(batchNum), batch_size: String(batch.length) },
+      },
+      modelId,
+    );
+
+    usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
+    usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
+    usage.completionTokens += res.usage.completionTokens;
+    usage.actualCostUsd = (usage.actualCostUsd ?? 0) + (res.usage.actualCostUsd ?? 0);
+
+    const resultMap = new Map(res.object.results.map((r) => [r.id, r]));
+
+    for (let j = 0; j < batch.length; j++) {
+      const job = batch[j];
+      const parsed = resultMap.get(j);
+      const category = parsed?.category ?? 'no_match';
+      const mapping = CATEGORY_MAP[category];
+      const enriched: EnrichedJob = {
+        ...job,
+        status: mapping.pass ? 'matched' : 'rejected',
+        ai_score: mapping.score,
+        ai_reason: parsed?.reason ?? 'No reason provided',
+        ai_matched_skills: parsed?.matched_skills ?? [],
+        ai_missing_skills: parsed?.missing_skills ?? [],
+        ai_job_location: parsed?.job_location ?? null,
+        ai_yoe: parsed?.years_of_experience ?? 'Not specified',
+        ai_direct_apply: parsed?.direct_apply ?? null,
+      };
+      (enriched as any).ai_category = category;
+      mapping.pass ? matched.push(enriched) : rejected.push(enriched);
+    }
+  }
+
+  return { matched, rejected, usage };
+}
+
 async function main() {
   const prefilterOnly = process.argv.includes('--prefilter-only');
+  const modelId = parseModelFlag();
+  const batchSize = parseBatchSizeFlag();
+  const categorical = parseCategoricalFlag();
 
   console.log('═══════════════════════════════════════');
   console.log('OPENROUTER BATCH TEST — 20 Real LinkedIn Jobs (Apify Data)');
+  console.log(`Model: ${modelId}`);
+  if (categorical) console.log('(categorical mode — score labels instead of 0-10)');
   if (prefilterOnly) console.log('(prefilter-only mode — no LLM calls)');
   console.log('═══════════════════════════════════════');
   console.log('');
@@ -403,13 +605,13 @@ async function main() {
 
   const context = buildCandidateContext(resume);
 
-  console.log(`Sending ${passToLLM.length} jobs to OpenRouter/DeepInfra...`);
+  console.log(`Sending ${passToLLM.length} jobs to OpenRouter (${modelId}) in batches of ${batchSize}...`);
   console.log('');
 
   const startTime = Date.now();
-  const { matched, rejected, usage } = await checkRelevanceBatch(
-    passToLLM, context, BATCH_SIZE, 0, 1,
-  );
+  const { matched, rejected, usage } = categorical
+    ? await runCategoricalBatch(passToLLM, context, batchSize, modelId)
+    : await checkRelevanceBatch(passToLLM, context, batchSize, 0, 1, modelId);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log(`OpenRouter done in ${elapsed}s.  Matched: ${matched.length}  |  LLM-Rejected: ${rejected.length}`);

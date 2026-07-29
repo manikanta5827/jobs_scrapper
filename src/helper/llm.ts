@@ -10,7 +10,7 @@ import { generateObject } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
-import { MIN_MATCH_SCORE } from './constants';
+import { MATCHED_CATEGORY_SET, CATEGORY_SCORES } from './constants';
 
 // Disable verbose AI SDK compatibility warnings in production logs
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
@@ -34,7 +34,8 @@ export async function executellmCall<T>(
   prompt: string,
   systemPrompt?: string,
   temperature?: number,
-  telemetryOptions?: { functionId?: string; metadata?: Record<string, string> }
+  telemetryOptions?: { functionId?: string; metadata?: Record<string, string> },
+  modelId?: string,
 ): Promise<{ object: T; usage: TokenUsage }> {
   if (!process.env.LLM_API_KEY) {
     throw new FatalError("Missing LLM_API_KEY");
@@ -45,7 +46,7 @@ export async function executellmCall<T>(
   });
 
   const model = wrapModelWithTelemetry(
-    openrouter('deepseek/deepseek-v4-flash:floor'),
+    openrouter(modelId ?? 'deepseek/deepseek-v4-flash:floor'),
     {
       functionId: telemetryOptions?.functionId ?? 'llm-call',
       metadata: telemetryOptions?.metadata ?? {},
@@ -102,142 +103,61 @@ export function buildSystemPrompt(context: UserPromptContext | string): string {
     user = context;
   }
 
-  let candidateSection = "";
-
-  if (user.candidateSummary || (user.knownSkills && user.knownSkills.length > 0)) {
-    candidateSection += `## CANDIDATE PROFILE SUMMARY\n`;
-    if (user.primaryDomain) candidateSection += `- Primary Domain: ${user.primaryDomain}\n`;
-    if (user.candidateSummary) candidateSection += `- Core Capability Summary: ${user.candidateSummary}\n`;
-    if (user.knownSkills && user.knownSkills.length > 0) {
-      candidateSection += `- Known Skills & Tech Stack: ${user.knownSkills.join(', ')}\n`;
-    }
-    if (user.keyHighlights && user.keyHighlights.length > 0) {
-      candidateSection += `- Key Highlights: ${user.keyHighlights.join(' | ')}\n`;
-    }
-    if (user.projects && user.projects.length > 0) {
-      candidateSection += `- Projects:\n`;
-      user.projects.forEach(p => {
-        candidateSection += `  * ${p.project_title}: ${p.project_description}\n`;
-      });
-    }
-    if (user.education && user.education.length > 0) {
-      candidateSection += `- Education: ${user.education.join('; ')}\n`;
-    }
-    if (user.certifications && user.certifications.length > 0) {
-      candidateSection += `- Certifications: ${user.certifications.join('; ')}\n`;
-    }
-  } else {
-    candidateSection += `## CANDIDATE RESUME\n${user.resumeText || ''}\n`;
-  }
-
-  let preferencesSection = "";
-  if (user.targetLocations) {
-    preferencesSection += `- Candidate Preferred Locations: ${user.targetLocations}\n`;
-  }
-  if (user.employmentType) {
-    preferencesSection += `- Candidate Preferred Employment Type: ${user.employmentType}\n`;
-  }
-
   const expYears = Math.ceil(user.experienceYears ?? 0);
-  const nextExp = expYears + 1;
-  const nextExpPlus = expYears + 2;
+  const skills = user.knownSkills?.length ? user.knownSkills.join(', ') : 'See resume';
+  const profileSummary = user.candidateSummary?.trim()
+    ? user.candidateSummary.trim()
+    : (user.resumeText ?? '').slice(0, 2000);
 
-  const expRule = `- CANDIDATE TOTAL EXPERIENCE: ${expYears} Year(s).
-- STRICT MANDATORY SENIORITY GATE (ZERO TOLERANCE): Compare the job's minimum required experience against candidate's experience of ${expYears} year(s).
-  * DISQUALIFY IMMEDIATELY (Score = 0): If the job description requires a MINIMUM experience greater than ${expYears} year(s) (e.g. for this candidate: requirements like "${nextExp}+ years", "${nextExp}–${nextExpPlus} years", "${nextExp}-${nextExpPlus + 1} years", "minimum ${nextExp} years", "${nextExpPlus}+ years" MUST BE INSTANTLY REJECTED WITH SCORE = 0).
-  * NO STRETCH ROLES, NO FLEXIBILITY: If minimum required experience > ${expYears} year(s) → INSTANT DISQUALIFICATION (Score = 0).
-  * ALLOWED SENIORITY: Only jobs where minimum requirement is <= ${expYears} year(s) (e.g. "Fresher", "0-1 years", "${expYears} year(s)", "${expYears}+ year(s)", or unstated).`;
+  return `You are a job-fit classifier. Compare each job description against the candidate profile and return exactly one category.
 
-  return `You are an objective, impartial Job-Fit Auditor. Your sole purpose is to evaluate how effectively a candidate's background aligns with a specific job description.
+## CANDIDATE PROFILE
+- Total experience: ${expYears} year(s)
+- Primary domain: ${user.primaryDomain ?? 'Not specified'}
+- Known skills: ${skills}
+- Profile summary: ${profileSummary}
+${user.targetLocations ? `- Preferred locations: ${user.targetLocations}\n` : ''}${user.employmentType ? `- Preferred employment: ${user.employmentType}\n` : ''}
+## CATEGORIES
+Return exactly one of: strong_match, minor_gaps, experience_mismatch, skills_mismatch, no_match.
 
-${candidateSection}
-${preferencesSection ? `## CANDIDATE TARGET PREFERENCES\n${preferencesSection}\n` : ''}
----
-
-## EVALUATION CRITERIA
-
-### 1. EXPERIENCE LEVEL & SENIORITY GATE
-${expRule}
-
-### 2. SKILL ALIGNMENT & GROUNDING (EVALUATE FIRST — SCORE DERIVES FROM THIS)
-- MANDATORY: List matched_skills and missing_skills COMPLETELY before assigning score.
-- HARD REJECT: Job explicitly requires mandatory skills/certifications that the candidate clearly lacks.
-- SOFT MISS: Nice-to-have or preferred skills the candidate lacks → minor score impact only.
-- NATURAL ALIGNMENT: Count directly equivalent tools, frameworks, methodologies, or adjacent skill sets as matches.
-- STRICT GROUNDING: "matched_skills" MUST ONLY list skills that are explicitly mentioned or required in the job description AND present in the candidate's known skills or resume. NEVER list candidate skills under "matched_skills" if they are absent from the job description text.
-- NEVER return matched_skills=[] AND missing_skills=[] for scores > 0. If you give a positive score, you MUST identify at least one skill that matched.
-
-### 3. DOMAIN & ROLE RELEVANCE
-- Evaluate whether the job's functional domain matches the candidate's background.
-- REJECT: Completely unrelated roles that have zero functional overlap with the candidate's experience.
-
----
-
-## SCORING GUIDE (0–10 scale)
-Derive score from the matched/missing skill ratio after listing skills:
-
-| Score | Meaning | Rule |
-|-------|---------|------|
-| 0 | DISQUALIFIED | Seniority > ${expYears} yr, missing mandatory core stack, or unrelated domain |
-| 1–3 | Weak match | Core skill gap (candidate lacks 3+ required skills or 1+ mandatory skill) |
-| 4–6 | Decent match | Partial alignment: some matching skills but notable gaps (1–3 missing) |
-| 7–8 | Good match | Most skills align, only 0–2 minor/non-mandatory gaps |
-| 9–10 | Excellent match | Near-perfect alignment: all required skills present, domain matches |
-
-Evaluate all jobs strictly and impartially based solely on skill, experience level, and domain fit. Do NOT apply any score boosts for direct apply links or application methods; simply extract application instructions into "direct_apply" if present.
-
----
-
-## FEW-SHOT EXAMPLES
-Each example shows the per-job evaluation logic. In your actual response, wrap each job's result as one item of "results" with its "id" added.
-
-**Example 1 — REJECT (Seniority Disqualification: Required ${nextExp}–${nextExpPlus} years > Candidate ${expYears} year(s))**
-Input: { "title": "AI Agent Developer", "descriptionText": "Who We're Looking For: ${nextExp}–${nextExpPlus} years of experience in AI, automation, or backend development. Python, LLMs, LangChain." }
-Output: { "score": 0, "reason": "Disqualified: Required ${nextExp}–${nextExpPlus} years of experience exceeds candidate's total experience of ${expYears} year(s).", "matched_skills": ["Python", "LLMs"], "missing_skills": [], "job_location": null, "years_of_experience": "${nextExp}–${nextExpPlus} years", "direct_apply": null }
-
-**Example 2 — MATCH (Skill & Seniority Alignment: Required <= ${expYears} year(s))**
-Input: { "title": "Software Engineer (Backend)", "descriptionText": "Required: 0-${expYears} years experience, TypeScript, Node.js, AWS. Direct apply: send CV to jobs@company.com" }
-  Output: { "score": 9, "reason": "Match — Candidate's ${expYears} year(s) experience and Node.js/AWS/TypeScript stack align cleanly with job requirements.", "matched_skills": ["TypeScript", "Node.js", "AWS"], "missing_skills": [], "job_location": null, "years_of_experience": "0-${expYears} years", "direct_apply": "Send CV to jobs@company.com" }
-
----
-
-## INPUT FORMAT
-You will receive a JSON array of jobs, each with a unique "id" field. Evaluate EVERY job in the array independently, applying the rules above to each one.
-
-If a job object has a non-null "extracted_yoe" field, it contains the raw YOE text pre-extracted from the job description (e.g. "2-4 years of experience", "minimum 3 years of relevant experience"). Use it as a strong hint for the "years_of_experience" output field — verify against descriptionText, and correct it only if it clearly contradicts the job description content.
+## RULES
+1. Experience: reject only if the job's explicitly required minimum YOE is greater than ${expYears}. Do not reject seniors for junior roles.
+2. Skills: matched_skills must list candidate skills that are explicitly required in the job description. missing_skills must list job-required skills the candidate lacks. Never infer skills from the job title. Never hallucinate skills.
+3. Vague JDs: if the description does not list specific required skills but the domain fits, use minor_gaps.
+4. Domain: use no_match only when the role's functional domain is unrelated to the candidate's background.
+5. Reason: one concise sentence (max 15 words). Limit matched_skills and missing_skills to 5 items each.
 
 ## OUTPUT FORMAT
-Return ONLY valid JSON matching the schema. No markdown outside JSON.
+Return ONLY valid JSON. No markdown outside JSON.
 
-"results" must contain exactly one object per input job, tagged with the matching "id".
-Every item in "results" MUST include ALL fields listed below:
-
-For DISQUALIFIED jobs (Score = 0):
-- "id": number
-- "score": 0
-- "reason": string — explain WHY rejected (seniority gate / missing mandatory skill / unrelated domain)
-- "years_of_experience": string — extract from JD if present, "Not specified" otherwise
-- "matched_skills": [] (empty — no need to enumerate for rejected jobs)
-- "missing_skills": [] (empty — no need to enumerate for rejected jobs)
-- "job_location": null
-- "direct_apply": null
-
-For NON-DISQUALIFIED jobs (Score > 0):
-- "id": number
-- "score": number (0-10, per scoring guide)
-- "reason": string (explanation of score)
-- "matched_skills": array of strings (skills candidate has that job requires; return [] if none)
-- "missing_skills": array of strings (skills job requires that candidate lacks; return [] if none)
-- "job_location": string or null
-- "years_of_experience": string (e.g. "2-4 years" or "Not specified")
-- "direct_apply": string or null (email or direct URL if present)
-`;
+{
+  "results": [
+    {
+      "id": number,
+      "category": "strong_match" | "minor_gaps" | "experience_mismatch" | "skills_mismatch" | "no_match",
+      "reason": string,
+      "matched_skills": string[],
+      "missing_skills": string[],
+      "years_of_experience": string,
+      "job_location": string | null,
+      "direct_apply": string | null
+    }
+  ]
+}`;
 }
 
-// Hardened schema forcing LLM to always emit matched_skills, missing_skills, reason, and YOE
+// Hardened schema forcing LLM to always emit category, matched_skills, missing_skills, reason, and YOE
+const categorySchema = z.enum([
+  'strong_match',
+  'minor_gaps',
+  'experience_mismatch',
+  'skills_mismatch',
+  'no_match',
+]);
+
 const relevanceResultSchema = z.object({
   id: z.coerce.number(),
-  score: z.coerce.number().catch(0),
+  category: categorySchema,
   reason: z.string().catch("No reason provided"),
   matched_skills: z.array(z.string()).catch([]),
   missing_skills: z.array(z.string()).catch([]),
@@ -257,6 +177,7 @@ export async function checkRelevanceBatch(
   batchSize: number = 2,  // How many jobs per single LLM API call (e.g. 2 jobs in 1 prompt)
   delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
   concurrency: number = 3,  // How many batches (LLM API calls) to execute simultaneously in parallel
+  modelId?: string,
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
@@ -306,7 +227,8 @@ export async function checkRelevanceBatch(
               {
                 functionId: 'job-relevance-batch',
                 metadata: { batch_number: String(batchNum), batch_size: String(batch.length) }
-              }
+              },
+              modelId,
             );
 
             // Track cumulative token usage and actual cost across all parallel calls
@@ -347,7 +269,8 @@ export async function checkRelevanceBatch(
                   {
                     functionId: 'job-relevance-fallback',
                     metadata: { job_title: batch[j].title ?? '' }
-                  }
+                  },
+                  modelId,
                 );
                 usage.promptCacheHitTokens += singleRes.usage.promptCacheHitTokens;
                 usage.promptCacheMissTokens += singleRes.usage.promptCacheMissTokens;
@@ -361,7 +284,7 @@ export async function checkRelevanceBatch(
                 const singleErrMsg = singleErr instanceof Error ? singleErr.message : String(singleErr);
                 console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErrMsg}`);
                 results.set(j, {
-                  score: 0,
+                  category: 'no_match',
                   reason: `LLM check failed: ${singleErrMsg}`,
                   matched_skills: [],
                   missing_skills: [],
@@ -380,11 +303,13 @@ export async function checkRelevanceBatch(
           const parsed = results.get(j);
 
           if (parsed) {
-            const isGoodMatch = parsed.score >= MIN_MATCH_SCORE;
+            const category = parsed.category;
+            const isGoodMatch = MATCHED_CATEGORY_SET.has(category);
             const enriched: EnrichedJob = {
               ...job,
               status: isGoodMatch ? "matched" : "rejected",
-              ai_score: parsed.score,
+              ai_category: category,
+              ai_score: CATEGORY_SCORES[category] ?? 0,
               ai_reason: parsed.reason,
               ai_matched_skills: parsed.matched_skills,
               ai_missing_skills: parsed.missing_skills,
@@ -398,6 +323,7 @@ export async function checkRelevanceBatch(
             rejected.push({
               ...job,
               status: "rejected",
+              ai_category: 'no_match',
               ai_score: 0,
               ai_reason: "LLM check failed",
               ai_matched_skills: [],

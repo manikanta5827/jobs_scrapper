@@ -29,7 +29,7 @@ export interface Job {
 
 // DeepSeek relevance check result
 export interface RelevanceResult {
-  score:               number;
+  category:            string;
   reason:              string;
   matched_skills:      string[];
   missing_skills:      string[];
@@ -41,6 +41,7 @@ export interface RelevanceResult {
 // Job after DeepSeek enrichment
 export interface EnrichedJob extends Job {
   status:             'matched' | 'rejected' | 'binned';
+  ai_category?:       string;
   ai_score?:          number;
   ai_reason?:         string;
   ai_matched_skills?: string[];
