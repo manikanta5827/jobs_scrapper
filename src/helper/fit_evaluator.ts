@@ -291,10 +291,92 @@ function buildEvaluation(
   }
 }
 
+function jaroWinkler(a: string, b: string): number {
+  if (a === b) return 1;
+  if (a.length === 0 || b.length === 0) return 0;
+
+  const matchDistance = Math.floor(Math.max(a.length, b.length) / 2) - 1;
+  const aMatches: boolean[] = new Array(a.length).fill(false);
+  const bMatches: boolean[] = new Array(b.length).fill(false);
+
+  let matches = 0;
+  for (let i = 0; i < a.length; i++) {
+    const start = Math.max(0, i - matchDistance);
+    const end = Math.min(i + matchDistance + 1, b.length);
+    for (let j = start; j < end; j++) {
+      if (!bMatches[j] && a[i] === b[j]) {
+        aMatches[i] = true;
+        bMatches[j] = true;
+        matches++;
+        break;
+      }
+    }
+  }
+
+  if (matches === 0) return 0;
+
+  let transpositions = 0;
+  let k = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (!aMatches[i]) continue;
+    while (!bMatches[k]) k++;
+    if (a[i] !== b[k]) transpositions++;
+    k++;
+  }
+  transpositions = Math.floor(transpositions / 2);
+
+  const jaro =
+    (matches / a.length + matches / b.length + (matches - transpositions) / matches) / 3;
+
+  let prefix = 0;
+  for (let i = 0; i < Math.min(4, a.length, b.length); i++) {
+    if (a[i] === b[i]) prefix++;
+    else break;
+  }
+
+  return jaro + prefix * 0.1 * (1 - jaro);
+}
+
+const FUZZY_THRESHOLD = 0.85;
+
+// Dangerous false-positive pairs that happen to score above the threshold.
+// "java" ↔ "javascript" scores 0.88 but Java ≠ JavaScript.
+const FUZZY_BLACKLIST = new Set(["java:javascript", "javascript:java"]);
+
+function isFuzzyBlacklisted(a: string, b: string): boolean {
+  return FUZZY_BLACKLIST.has(`${a}:${b}`);
+}
+
 function filterToTarget(raw: string[], target: string[]): string[] {
-  return raw.filter((m) =>
-    target.some((t) => normalizeSkill(t) === normalizeSkill(m)),
-  );
+  const result: string[] = [];
+  for (const m of raw) {
+    // Primary: exact match after normalization — use the target name
+    const exactTarget = target.find((t) => normalizeSkill(t) === normalizeSkill(m));
+    if (exactTarget) {
+      result.push(exactTarget);
+      continue;
+    }
+
+    // Fallback: Jaro-Winkler similarity for minor string differences
+    const mNorm = normalizeSkill(m);
+    const best = target.reduce(
+      (best, t) => {
+        const tNorm = normalizeSkill(t);
+        if (isFuzzyBlacklisted(mNorm, tNorm)) return best;
+        const sim = jaroWinkler(mNorm, tNorm);
+        return sim > best.sim ? { skill: t, sim } : best;
+      },
+      { skill: null as string | null, sim: 0 },
+    );
+
+    if (best.sim > FUZZY_THRESHOLD) {
+      console.warn(
+        `[fuzzy-match] "${m}" → "${best.skill}" (sim=${best.sim.toFixed(3)})`,
+      );
+      result.push(best.skill!);
+    }
+  }
+  return result;
 }
 
 function missingFromTarget(target: string[], matched: string[]): string[] {

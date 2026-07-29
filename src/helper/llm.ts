@@ -123,6 +123,15 @@ ${context.targetLocations ? `- Preferred locations: ${context.targetLocations}\n
 10. job_location: the location string. Return null if "remote", "anywhere", or not specified.
 11. direct_apply: the direct apply URL if visible in the job data; otherwise null.
 
+## SKILL MATCHING RULES
+When populating candidate_matched_required_skills and candidate_matched_preferred_skills, apply these lineage rules:
+- Frameworks and runtimes imply the underlying language. A candidate with a framework/runtime possesses the language it's built on.
+  Examples: Node.js/Express/Fastify ⇒ JavaScript; Spring Boot ⇒ Java; FastAPI/Django/Flask ⇒ Python; React/Next.js/Angular ⇒ JavaScript/TypeScript; TypeScript ⇒ JavaScript; SvelteKit ⇒ TypeScript/JavaScript
+- When adding a matched skill, use the EXACT name from the required_skills or preferred_skills list, NOT the candidate's variant.
+  Example: required_skills has "JavaScript", candidate has Node.js → add "JavaScript", not "Node.js".
+- A skill counts as "demonstrably has" if the candidate lists it directly, a framework/runtime built on it, or a direct superset (e.g. TypeScript covers JavaScript).
+- If unsure whether a skill maps, leave it unmatched rather than guessing.
+
 ## OUTPUT FORMAT
 Return ONLY valid JSON. No markdown outside JSON.
 
