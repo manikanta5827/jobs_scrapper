@@ -7,7 +7,7 @@ s3_prefix = "job-scrapper"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
-parameter_overrides = 'ApifyApiKey="/job-scraper/APIFY_API_KEY" DeepseekApiKey="/job-scraper/DEEPSEEK_API_KEY" DatabaseUrl="/job-scraper/DATABASE_URL" MinMatchScore="/job-scraper/MIN_MATCH_SCORE" TelegramMatchedJobsBotToken="/job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN" PosthogProjectToken="/job-scraper/POSTHOG_PROJECT_TOKEN" CloudflareImageWorkerUrl="/job-scraper/CLOUDFLARE_IMAGE_WORKER_URL" AdminApiKey="/job-scraper/ADMIN_API_KEY"'
+parameter_overrides = 'ApifyApiKey="/job-scraper/APIFY_API_KEY" LlmApiKey="/job-scraper/LLM_API_KEY" DatabaseUrl="/job-scraper/DATABASE_URL" MinMatchScore="/job-scraper/MIN_MATCH_SCORE" TelegramMatchedJobsBotToken="/job-scraper/TELEGRAM_MATCHED_JOBS_BOT_TOKEN" PosthogProjectToken="/job-scraper/POSTHOG_PROJECT_TOKEN" CloudflareImageWorkerUrl="/job-scraper/CLOUDFLARE_IMAGE_WORKER_URL" AdminApiKey="/job-scraper/ADMIN_API_KEY"'
 
 [default.global.parameters]
 region = "ap-south-1"

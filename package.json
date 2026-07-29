@@ -15,11 +15,11 @@
         "lambda": "sam local invoke MainLambda --env-vars env.json -e event.json --container-host-interface 0.0.0.0"
     },
     "dependencies": {
-        "@ai-sdk/deepseek": "^3.0.13",
         "@aws-sdk/client-lambda": "^3.999.0",
         "@aws-sdk/client-sqs": "^3.999.0",
         "@aws-sdk/client-ssm": "^3.999.0",
         "@neondatabase/serverless": "^0.10.4",
+        "@openrouter/ai-sdk-provider": "^3.0.0",
         "@opentelemetry/resources": "^2.10.0",
         "@opentelemetry/sdk-node": "^0.221.0",
         "@posthog/ai": "^8.4.0",

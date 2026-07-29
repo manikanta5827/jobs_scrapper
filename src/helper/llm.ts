@@ -1,12 +1,13 @@
 /**
- * deepseek.ts
- * DeepSeek AI helper functions for relevance checking and keyword generation.
+ * llm.ts
+ * LLM helper functions for relevance checking and keyword generation.
  * Migrated to Vercel AI SDK for robust JSON parsing.
+ * Uses OpenRouter with DeepInfra provider for deepseek/deepseek-v4-flash.
  */
 import type { Job, EnrichedJob, RelevanceResult, BatchResult, TokenUsage } from "./types";
 import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
-import { createDeepSeek } from '@ai-sdk/deepseek';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
 import { MIN_MATCH_SCORE } from './constants';
@@ -21,20 +22,13 @@ export class FatalError extends Error {
   }
 }
 
-// "deepseek-chat" pricing per 1M tokens (USD)
-const PRICE_PER_M_CACHE_HIT_TOKENS = 0.0028;
-const PRICE_PER_M_CACHE_MISS_TOKENS = 0.14;
-const PRICE_PER_M_OUTPUT_TOKENS = 0.28;
-
+// OpenRouter returns the exact provider-reported cost in providerMetadata.openrouter.usage.cost.
+// We surface it on TokenUsage.actualCostUsd; no hardcoded pricing table is needed.
 export function calculateCostUsd(usage: TokenUsage): number {
-  return (
-    (usage.promptCacheHitTokens / 1_000_000) * PRICE_PER_M_CACHE_HIT_TOKENS +
-    (usage.promptCacheMissTokens / 1_000_000) * PRICE_PER_M_CACHE_MISS_TOKENS +
-    (usage.completionTokens / 1_000_000) * PRICE_PER_M_OUTPUT_TOKENS
-  );
+  return usage.actualCostUsd ?? 0;
 }
 
-// Core helper to execute DeepSeek via Vercel AI SDK and parse token usage reliably
+// Core helper to execute the LLM via Vercel AI SDK + OpenRouter and parse token usage reliably
 export async function executellmCall<T>(
   schema: z.ZodType<T>,
   prompt: string,
@@ -42,20 +36,23 @@ export async function executellmCall<T>(
   temperature?: number,
   telemetryOptions?: { functionId?: string; metadata?: Record<string, string> }
 ): Promise<{ object: T; usage: TokenUsage }> {
-  if (!process.env.DEEPSEEK_API_KEY) {
-    throw new FatalError("Missing DEEPSEEK_API_KEY");
+  if (!process.env.LLM_API_KEY) {
+    throw new FatalError("Missing LLM_API_KEY");
   }
 
-  const deepseek = createDeepSeek({
-    apiKey: process.env.DEEPSEEK_API_KEY,
+  const openrouter = createOpenRouter({
+    apiKey: process.env.LLM_API_KEY,
   });
 
-  const model = wrapModelWithTelemetry(deepseek('deepseek-v4-flash'), {
-    functionId: telemetryOptions?.functionId ?? 'llm-call',
-    metadata: telemetryOptions?.metadata ?? {},
-  });
+  const model = wrapModelWithTelemetry(
+    openrouter('deepseek/deepseek-v4-flash:floor'),
+    {
+      functionId: telemetryOptions?.functionId ?? 'llm-call',
+      metadata: telemetryOptions?.metadata ?? {},
+    }
+  );
 
-  const { object, usage: apiUsage } = await generateObject({
+  const { object, usage: apiUsage, providerMetadata } = await generateObject({
     model,
     system: systemPrompt,
     prompt: prompt,
@@ -65,16 +62,19 @@ export async function executellmCall<T>(
   });
 
   const anyUsage = apiUsage as Record<string, any>;
-  const inputTokens = (anyUsage.promptTokens as number | undefined) ?? apiUsage.inputTokens ?? 0;
-  const cachedTokens = (anyUsage.promptTokensDetails as { cachedTokens?: number } | undefined)?.cachedTokens ?? (anyUsage.cachedInputTokens as number | undefined) ?? 0;
-  const outputTokens = (anyUsage.completionTokens as number | undefined) ?? apiUsage.outputTokens ?? 0;
-  
+  const inputTokens = anyUsage.inputTokens ?? 0;
+  const inputTokenDetails = anyUsage.inputTokenDetails ?? {};
+  const cachedTokens = inputTokenDetails.cacheReadTokens ?? 0;
+  const outputTokens = anyUsage.outputTokens ?? 0;
+  const openrouterCost = (providerMetadata as Record<string, any> | undefined)?.openrouter?.usage?.cost;
+
   return {
     object,
     usage: {
       promptCacheHitTokens: cachedTokens,
       promptCacheMissTokens: inputTokens - cachedTokens,
       completionTokens: outputTokens,
+      actualCostUsd: typeof openrouterCost === 'number' ? openrouterCost : undefined,
     }
   };
 }
@@ -260,7 +260,7 @@ export async function checkRelevanceBatch(
 ): Promise<BatchResult> {
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
-  const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0 };
+  const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0, actualCostUsd: 0 };
   const systemPrompt = buildSystemPrompt(candidateContext);
 
   // STEP 1: Split total jobs into smaller batches (e.g., 149 jobs -> 15 batches of 10 jobs each)
@@ -283,7 +283,7 @@ export async function checkRelevanceBatch(
       chunk.map(async (batch, indexWithinChunk) => {
         // Calculate 1-based index for logging (e.g. Batch 1, Batch 2...)
         const batchNum = i + indexWithinChunk + 1;
-        console.log(`DeepSeek batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
+        console.log(`OpenRouter batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
         let results = new Map<number, RelevanceResult>();
         let attempt = 0;
@@ -297,7 +297,7 @@ export async function checkRelevanceBatch(
             const payload = batch.map((job, id) => ({ id, ...prepareJobPayload(job) }));
             const userMessage = `Job Listings (JSON array, ${batch.length} jobs):\n-------------------\n${JSON.stringify(payload, null, 2)}\n\nEvaluate each job per the system rules.`;
 
-            // Call DeepSeek LLM for this batch
+            // Call LLM for this batch
             const res = await executellmCall(
               batchResponseSchema,
               userMessage,
@@ -309,10 +309,11 @@ export async function checkRelevanceBatch(
               }
             );
 
-            // Track cumulative token usage across all parallel calls
+            // Track cumulative token usage and actual cost across all parallel calls
             usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
             usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
             usage.completionTokens += res.usage.completionTokens;
+            usage.actualCostUsd = (usage.actualCostUsd ?? 0) + (res.usage.actualCostUsd ?? 0);
 
             // Store AI evaluation results keyed by job ID (0..4)
             for (const item of res.object.results) {
@@ -351,6 +352,7 @@ export async function checkRelevanceBatch(
                 usage.promptCacheHitTokens += singleRes.usage.promptCacheHitTokens;
                 usage.promptCacheMissTokens += singleRes.usage.promptCacheMissTokens;
                 usage.completionTokens += singleRes.usage.completionTokens;
+                usage.actualCostUsd = (usage.actualCostUsd ?? 0) + (singleRes.usage.actualCostUsd ?? 0);
                 if (singleRes.object.results && singleRes.object.results.length > 0) {
                   results.set(j, singleRes.object.results[0] as RelevanceResult);
                   console.log(`  ✓ Fallback individual check succeeded for "${batch[j].title}"`);
@@ -360,7 +362,7 @@ export async function checkRelevanceBatch(
                 console.error(`  ✗ Fallback individual check failed for "${batch[j].title}": ${singleErrMsg}`);
                 results.set(j, {
                   score: 0,
-                  reason: `DeepSeek check failed: ${singleErrMsg}`,
+                  reason: `LLM check failed: ${singleErrMsg}`,
                   matched_skills: [],
                   missing_skills: [],
                   job_location: null,
@@ -392,12 +394,12 @@ export async function checkRelevanceBatch(
             };
             isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
           } else {
-            console.error(`Job missing from DeepSeek response: "${job.title}"`);
+            console.error(`Job missing from LLM response: "${job.title}"`);
             rejected.push({
               ...job,
               status: "rejected",
               ai_score: 0,
-              ai_reason: "DeepSeek check failed",
+              ai_reason: "LLM check failed",
               ai_matched_skills: [],
               ai_missing_skills: [],
               ai_direct_apply: null,
@@ -574,19 +576,6 @@ export async function generateAtsResume(
   userName?: string,
   userEmail?: string,
 ): Promise<{ resumeMd: string; usage: TokenUsage; changesMade: string[]; keywordsUsed: string[] }> {
-  if (!process.env.DEEPSEEK_API_KEY) {
-    throw new FatalError("Missing DEEPSEEK_API_KEY");
-  }
-
-  const deepseek = createDeepSeek({
-    apiKey: process.env.DEEPSEEK_API_KEY,
-  });
-
-  const model = wrapModelWithTelemetry(deepseek('deepseek-v4-flash'), {
-    functionId: 'generate-ats-resume',
-    metadata: { jobTitle, companyName },
-  });
-
   const matchedSkillsHint = matchedSkills.length > 0
     ? `\n- Matched skills the candidate ALREADY HAS (use these as anchor points): ${matchedSkills.join(', ')}`
     : '';
@@ -614,29 +603,19 @@ Return a structured JSON object with the ATS-tailored resume. The "changes_made"
 
 CRITICAL: Do NOT return the resume verbatim. Tailor it.`;
 
-  const { object: resume, usage: apiUsage } = await generateObject({
-    model,
-    system: systemPrompt,
-    prompt: prompt,
-    schema: atsResumeSchema,
-    maxRetries: 3,
-    temperature: 0.4,
-  });
-
-  const anyUsage = apiUsage as Record<string, any>;
-  const inputTokens = (anyUsage.promptTokens as number | undefined) ?? apiUsage.inputTokens ?? 0;
-  const cachedTokens = (anyUsage.promptTokensDetails as { cachedTokens?: number } | undefined)?.cachedTokens ?? (anyUsage.cachedInputTokens as number | undefined) ?? 0;
-  const outputTokens = (anyUsage.completionTokens as number | undefined) ?? apiUsage.outputTokens ?? 0;
+  const { object: resume, usage } = await executellmCall(
+    atsResumeSchema,
+    prompt,
+    systemPrompt,
+    0.4,
+    { functionId: 'generate-ats-resume', metadata: { jobTitle, companyName } },
+  );
 
   const resumeMd = convertAtsResumeToMarkdown(resume, userName || 'Candidate', userEmail || '');
 
   return {
     resumeMd,
-    usage: {
-      promptCacheHitTokens: cachedTokens,
-      promptCacheMissTokens: inputTokens - cachedTokens,
-      completionTokens: outputTokens,
-    },
+    usage,
     changesMade: resume.changes_made,
     keywordsUsed: resume.ats_keywords_used,
   };

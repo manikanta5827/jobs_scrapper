@@ -50,11 +50,13 @@ export interface EnrichedJob extends Job {
   ai_direct_apply?:   string | null;
 }
 
-// DeepSeek token usage, accumulated across all batch calls
+// LLM token usage, accumulated across all batch calls
 export interface TokenUsage {
   promptCacheHitTokens:  number;
   promptCacheMissTokens: number;
   completionTokens:      number;
+  /** Actual USD cost reported by the provider (e.g. OpenRouter), if available. */
+  actualCostUsd?:        number;
 }
 
 // Result from checkRelevanceBatch

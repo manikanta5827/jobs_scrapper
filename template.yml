@@ -20,10 +20,10 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: API Key for Apify service to fetch job listings
     Default: /job-scraper/APIFY_API_KEY
-  DeepseekApiKey:
+  LlmApiKey:
     Type: "AWS::SSM::Parameter::Value<String>"
-    Description: API Key for DeepSeek service to evaluate job relevance
-    Default: /job-scraper/DEEPSEEK_API_KEY
+    Description: API Key for LLM service (OpenRouter) to evaluate job relevance
+    Default: /job-scraper/LLM_API_KEY
   DatabaseUrl:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: Database connection URL (Postgres/Drizzle)
@@ -211,7 +211,7 @@ Resources:
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
-          DEEPSEEK_API_KEY: !Ref DeepseekApiKey
+          LLM_API_KEY: !Ref LlmApiKey
           DATABASE_URL: !Ref DatabaseUrl
           MIN_MATCH_SCORE: !Ref MinMatchScore
           APP_ENV: !Ref AppEnv
@@ -221,24 +221,24 @@ Resources:
           LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
-    EventInvokeConfig:
-      MaximumRetryAttempts: 1
-      MaximumEventAgeInSeconds: 3600
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Target: es2022
-        Format: esm
-        OutExtension:
-          - .js=.mjs
-        Sourcemap: true
-        Banner:
-          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
-        External:
-          - "@aws-sdk/*"
-          - "aws-lambda"
-        EntryPoints:
-          - user_worker.ts
+      EventInvokeConfig:
+        MaximumRetryAttempts: 1
+        MaximumEventAgeInSeconds: 3600
+      Metadata:
+        BuildMethod: esbuild
+        BuildProperties:
+          Target: es2022
+          Format: esm
+          OutExtension:
+            - .js=.mjs
+          Sourcemap: true
+          Banner:
+            - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+          External:
+            - "@aws-sdk/*"
+            - "aws-lambda"
+          EntryPoints:
+            - user_worker.ts
 
   # Admin Lambda Endpoint for manual triggers and RESTful user CRUD API
   AdminLambda:
@@ -262,7 +262,7 @@ Resources:
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
-          DEEPSEEK_API_KEY: !Ref DeepseekApiKey
+          LLM_API_KEY: !Ref LlmApiKey
           APP_ENV: !Ref AppEnv
           MIN_MATCH_SCORE: !Ref MinMatchScore
           ADMIN_API_KEY: !Ref AdminApiKey

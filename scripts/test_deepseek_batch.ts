@@ -5,7 +5,7 @@
  *
  * Usage:
  *   npx tsx scripts/test_deepseek_batch.ts --prefilter-only    (no API key needed)
- *   DEEPSEEK_API_KEY="sk-xxx" npx tsx scripts/test_deepseek_batch.ts
+ *   LLM_API_KEY="sk-xxx" npx tsx scripts/test_deepseek_batch.ts
  */
 
 import * as fs from 'node:fs';
@@ -373,7 +373,7 @@ async function main() {
   const prefilterOnly = process.argv.includes('--prefilter-only');
 
   console.log('═══════════════════════════════════════');
-  console.log('DEEPSEEK BATCH TEST — 20 Real LinkedIn Jobs (Apify Data)');
+  console.log('OPENROUTER BATCH TEST — 20 Real LinkedIn Jobs (Apify Data)');
   if (prefilterOnly) console.log('(prefilter-only mode — no LLM calls)');
   console.log('═══════════════════════════════════════');
   console.log('');
@@ -393,9 +393,9 @@ async function main() {
     return;
   }
 
-  if (!process.env.DEEPSEEK_API_KEY) {
-    console.error('Missing DEEPSEEK_API_KEY. Set it via:');
-    console.error('  export DEEPSEEK_API_KEY="sk-xxx"');
+  if (!process.env.LLM_API_KEY) {
+    console.error('Missing LLM_API_KEY. Set it via:');
+    console.error('  export LLM_API_KEY="sk-xxx"');
     console.error('Or run prefilter-only:');
     console.error('  npx tsx scripts/test_deepseek_batch.ts --prefilter-only');
     process.exit(1);
@@ -403,7 +403,7 @@ async function main() {
 
   const context = buildCandidateContext(resume);
 
-  console.log(`Sending ${passToLLM.length} jobs to DeepSeek...`);
+  console.log(`Sending ${passToLLM.length} jobs to OpenRouter/DeepInfra...`);
   console.log('');
 
   const startTime = Date.now();
@@ -412,7 +412,7 @@ async function main() {
   );
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-  console.log(`DeepSeek done in ${elapsed}s.  Matched: ${matched.length}  |  LLM-Rejected: ${rejected.length}`);
+  console.log(`OpenRouter done in ${elapsed}s.  Matched: ${matched.length}  |  LLM-Rejected: ${rejected.length}`);
   console.log('');
 
   const allLLMResults = [...matched, ...rejected];
