@@ -228,19 +228,20 @@ async function processUserWorker(
     }
 
     // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
-    const { matched, usage } = await checkRelevanceBatch(passToLLM, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, rejected, usage } = await checkRelevanceBatch(passToLLM, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
-    const aiRejectedCount = passToLlmCount - matchedCount;
+    const aiRejectedCount = rejected.length;
 
     console.log(`User ${user.id}: AI Rejected ${aiRejectedCount} irrelevant jobs, final jobs count ${matchedCount}`)
 
     // 8. Calculate actual DeepSeek LLM cost
     const actualLlmCostUsd = calculateCostUsd(usage);
 
-    // 9. Persist newly discovered jobs into candidate's personal seen jobs ledger
-    const matchedMap = new Map(matched.map(m => [m.link, m]));
+    // 9. Persist all LLM-evaluated jobs into candidate's personal seen jobs ledger
+    //    Both matched and rejected jobs are stored with full AI data for dedup and analytics.
+    const evaluatedMap = new Map([...matched, ...rejected].map(j => [j.link, j]));
     await trackJobs(user.id, newJobs.map(j => {
-      const m = matchedMap.get(j.link);
+      const m = evaluatedMap.get(j.link);
       return {
         link: j.link!,
         fingerprint: j.fingerprint!,
