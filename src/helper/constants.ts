@@ -14,6 +14,7 @@ export const HIGH_SCORE_THRESHOLD = 8;
 // Deterministic skill-coverage thresholds used by fit_evaluator.ts
 export const STRONG_MATCH_THRESHOLD = 1.0;
 export const MINOR_GAPS_THRESHOLD = 0.6;
+export const PREFERRED_BONUS_THRESHOLD = 0.8;
 
 export const MATCHED_CATEGORIES = ['strong_match', 'minor_gaps'] as const;
 export const MATCHED_CATEGORY_SET = new Set<string>(MATCHED_CATEGORIES);

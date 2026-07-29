@@ -1,32 +1,42 @@
---ABOUT--
-Staff Backend Engineer with 6 years of experience designing and building distributed systems, AI platforms, and production SaaS products. Expert in Node.js, TypeScript, Python, AWS, Kubernetes, React, and system design. Former tech lead at high-growth startups.
---EXPERIENCE--
-Staff Backend Engineer — AI Platform Jan 2022 – Present
-San Francisco, CA
-– Lead backend architecture for a B2B AI platform serving 10M+ requests/day.
-– Designed event-driven microservices using AWS Lambda, DynamoDB, SQS, API Gateway, and Kubernetes.
-– Built LLM-powered agents with RAG, Vercel AI SDK, and OpenAI APIs.
-– Mentored senior engineers and owned system design for core services.
+Backend Engineer with experience building serverless AWS applications, AI agents, and production SaaS
+products. Founder of Assessly (CodeVerdict.io), an AI-powered code assessment platform for hiring teams.
+Skilled in Node.js, TypeScript, AWS Lambda, DynamoDB, Amazon Bedrock, and event-driven architectures.
+Experience
+Founder & AI Engineer — Assessly (CodeVerdict.io) Mar 2026 – Present
+Independent Hyderabad, India
+– Built an AI-powered hiring platform that evaluates candidate GitHub repositories and generates detailed
+engineering review reports in under one minute.
+– Designed a repository ingestion pipeline using GitHub APIs, S3, AWS Lambda, and LLM-based code analysis
+workflows.
+– Implemented a scoring framework covering code quality, architecture, security, maintainability, and technical
+decision-making.
+– Developed production infrastructure using AWS serverless services (Lambda, DynamoDB, S3, Bedrock) and Vercel
+AI SDK.
+Founding AI Engineer Apr 2026 – June 2026
+OnEasy Hyderabad, India
+– Contributed as a founding engineer to an early-stage AI product, designing and building core backend systems and
+AI workflows.
+Backend Developer Intern Nov 2025 – Jan 2026
+AntStack Remote
+– Built and maintained serverless backend services on AWS, working with Lambda, DynamoDB, and API Gateway.
+– Collaborated with senior engineers on event-driven architecture and cloud-native API development.
+Backend Developer Intern Mar 2025 – Aug 2025
+Persist Ventures Remote
+– Developed backend features and REST APIs using Node.js and TypeScript for early-stage startup products.
+– Worked on database schema design and server-side business logic for web applications.
 
-Senior Backend Engineer — Fintech Platform Jun 2019 – Dec 2021
-New York, NY
-– Built payments and ledger systems using Node.js, TypeScript, PostgreSQL, Redis, and Docker.
-– Led migration to AWS serverless, reducing infrastructure cost by 40%.
---PROJECTS--
-AI Observability Platform | Node.js, TypeScript, Python, AWS, Kubernetes, LLMs, RAG
-– Designed a production observability platform for AI agents with real-time tracing and evaluation.
-
-Cloud Cost Optimizer | Python, AWS, Kubernetes, React
-– Built a tool that analyzes multi-account AWS spend and recommends infrastructure rightsizing.
-
-Job Search Automation Engine | Node.js, Web Scraping, AI Agents, AWS
+Heymonsoon | SvelteKit, TypeScript, Google Gemini, Vercel AI SDK, LibSQL, WhatsApp API May 2026 - Present
+– Built an AI-powered WhatsApp accounting agent for Indian SME owners — handles invoicing, GST compliance,
+and receivables tracking via natural language conversations.
+– Designed an agentic tool-calling system (Gemini 2.0 Flash + Vercel AI SDK) with tools for customer CRM,
+GST-compliant PDF generation, payment reconciliation, and automated overdue reminders.
+Job Search Automation Engine | Node.js, Web Scraping, AI Agents, AWS Feb 2026 - Mar 2026
 – Engineered an automated pipeline that scrapes job listings, matches them against a candidate profile using
 LLM-based analysis, and surfaces the most relevant roles daily.
-
+– Reduced manual job search effort from hours to minutes by automating discovery and filtering.
 Technical Skills
-Languages: Node.js, TypeScript, JavaScript, Python, Go
-Cloud & Infrastructure: AWS Lambda, AWS Serverless, Kubernetes, Docker, Terraform, CI/CD, API Gateway, S3, EC2
+Languages: Node.js, TypeScript, JavaScript
+Cloud & Infrastructure: AWS Lambda, AWS Serverless, API Gateway, S3, EC2, Cloudwatch , Cloudflare Serverless
 AI & ML: LLM Integration, Vercel AI SDK, Prompt Engineering, AI Agent Design, RAG, Sub Agents, MCP
 Databases & Caching: PostgreSQL, DynamoDB, Redis, Vector DB, Supabase
-Frontend: React, Next.js
 DevOps & Tooling: Docker, Git, GitHub, CI/CD, Jest

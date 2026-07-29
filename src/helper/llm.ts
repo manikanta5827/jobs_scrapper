@@ -113,14 +113,15 @@ ${context.targetLocations ? `- Preferred locations: ${context.targetLocations}\n
 ## EXTRACTION RULES
 1. job_domain: functional domain of the role (e.g. "Backend Engineering", "Frontend Development", "DevOps", "QA", "Data Engineering", "Embedded Systems", "Mobile", "Product Management").
 2. min_required_yoe / max_required_yoe: extract only explicitly stated years of experience. Use numbers. If a range is given, return both; if only one endpoint, return the other as null.
-3. required_skills: list only technical skills, tools, languages, frameworks that are explicitly required to do the job. Do NOT infer skills from the title. Do NOT include preferred/nice-to-have skills here.
-4. preferred_skills: list explicitly stated nice-to-have skills. These are informational only.
-5. candidate_matched_skills: subset of required_skills that the candidate demonstrably has (based on the profile above).
-6. candidate_missing_skills: required_skills that are NOT in candidate_matched_skills.
-7. job_has_no_explicit_skills: true if the JD does not list any specific technical skills/tools.
-8. domain_matches_candidate: true if the job_domain is aligned with the candidate's primary domain and background.
-9. job_location: the location string. Return null if "remote", "anywhere", or not specified.
-10. direct_apply: the direct apply URL if visible in the job data; otherwise null.
+3. required_skills: list technical skills, tools, languages, frameworks that are explicitly required to do the job. If a JD lists skills without explicitly labeling them as required or preferred, treat them as required. Do NOT infer skills from the title.
+4. preferred_skills: list only explicitly stated nice-to-have skills. Skills that are unlabeled or ambiguous belong in required_skills, not here.
+5. candidate_matched_required_skills: subset of required_skills that the candidate demonstrably has. Empty if required_skills is empty.
+6. candidate_matched_preferred_skills: subset of preferred_skills that the candidate demonstrably has. Must be computed even when required_skills is empty.
+7. candidate_missing_required_skills: required_skills that are NOT in candidate_matched_required_skills. Empty if required_skills is empty.
+8. candidate_missing_preferred_skills: preferred_skills that are NOT in candidate_matched_preferred_skills. Must be computed even when required_skills is empty.
+9. domain_matches_candidate: true if the job_domain is aligned with the candidate's primary domain and background.
+10. job_location: the location string. Return null if "remote", "anywhere", or not specified.
+11. direct_apply: the direct apply URL if visible in the job data; otherwise null.
 
 ## OUTPUT FORMAT
 Return ONLY valid JSON. No markdown outside JSON.
@@ -134,9 +135,10 @@ Return ONLY valid JSON. No markdown outside JSON.
       "max_required_yoe": number | null,
       "required_skills": string[],
       "preferred_skills": string[],
-      "candidate_matched_skills": string[],
-      "candidate_missing_skills": string[],
-      "job_has_no_explicit_skills": boolean,
+      "candidate_matched_required_skills": string[],
+      "candidate_matched_preferred_skills": string[],
+      "candidate_missing_required_skills": string[],
+      "candidate_missing_preferred_skills": string[],
       "domain_matches_candidate": boolean,
       "job_location": string | null,
       "direct_apply": string | null
@@ -152,9 +154,10 @@ const jobFitFactsSchema = z.object({
   max_required_yoe: z.number().nullable().catch(null),
   required_skills: z.array(z.string()).catch([]),
   preferred_skills: z.array(z.string()).catch([]),
-  candidate_matched_skills: z.array(z.string()).catch([]),
-  candidate_missing_skills: z.array(z.string()).catch([]),
-  job_has_no_explicit_skills: z.boolean().catch(false),
+  candidate_matched_required_skills: z.array(z.string()).catch([]),
+  candidate_matched_preferred_skills: z.array(z.string()).catch([]),
+  candidate_missing_required_skills: z.array(z.string()).catch([]),
+  candidate_missing_preferred_skills: z.array(z.string()).catch([]),
   domain_matches_candidate: z.boolean().catch(false),
   job_location: z.string().nullable().catch(null),
   direct_apply: z.string().nullable().catch(null),
@@ -282,9 +285,10 @@ export async function extractJobFitFactsBatch(
                   max_required_yoe: null,
                   required_skills: [],
                   preferred_skills: [],
-                  candidate_matched_skills: [],
-                  candidate_missing_skills: [],
-                  job_has_no_explicit_skills: false,
+                  candidate_matched_required_skills: [],
+                  candidate_matched_preferred_skills: [],
+                  candidate_missing_required_skills: [],
+                  candidate_missing_preferred_skills: [],
                   domain_matches_candidate: false,
                   job_location: null,
                   direct_apply: null,
@@ -308,9 +312,10 @@ export async function extractJobFitFactsBatch(
               max_required_yoe: null,
               required_skills: [],
               preferred_skills: [],
-              candidate_matched_skills: [],
-              candidate_missing_skills: [],
-              job_has_no_explicit_skills: false,
+              candidate_matched_required_skills: [],
+              candidate_matched_preferred_skills: [],
+              candidate_missing_required_skills: [],
+              candidate_missing_preferred_skills: [],
               domain_matches_candidate: false,
               job_location: null,
               direct_apply: null,

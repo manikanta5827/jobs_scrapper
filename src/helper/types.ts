@@ -34,9 +34,10 @@ export interface JobFitFacts {
   max_required_yoe:        number | null;
   required_skills:         string[];
   preferred_skills:        string[];
-  candidate_matched_skills: string[];
-  candidate_missing_skills: string[];
-  job_has_no_explicit_skills: boolean;
+  candidate_matched_required_skills: string[];
+  candidate_matched_preferred_skills: string[];
+  candidate_missing_required_skills: string[];
+  candidate_missing_preferred_skills: string[];
   domain_matches_candidate: boolean;
   job_location:            string | null;
   direct_apply:            string | null;
