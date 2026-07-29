@@ -221,24 +221,24 @@ Resources:
           LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
-      EventInvokeConfig:
-        MaximumRetryAttempts: 1
-        MaximumEventAgeInSeconds: 3600
-      Metadata:
-        BuildMethod: esbuild
-        BuildProperties:
-          Target: es2022
-          Format: esm
-          OutExtension:
-            - .js=.mjs
-          Sourcemap: true
-          Banner:
-            - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
-          External:
-            - "@aws-sdk/*"
-            - "aws-lambda"
-          EntryPoints:
-            - user_worker.ts
+    EventInvokeConfig:
+      MaximumRetryAttempts: 1
+      MaximumEventAgeInSeconds: 3600
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - user_worker.ts
 
   # Admin Lambda Endpoint for manual triggers and RESTful user CRUD API
   AdminLambda:
