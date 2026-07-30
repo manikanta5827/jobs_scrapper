@@ -21,6 +21,8 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-so
 
 const LAMBDA_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
 const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
+const NO_OF_JOBS_TO_FETCH = 50;
+
 
 /** Single search query sent to the scraper engine */
 export interface SearchQuery {
@@ -35,13 +37,8 @@ const CITY_GEO_IDS: Record<string, string> = {
   'bangalore': '90009633',
   'hyderabad': '90009650',
   'mumbai': '90009639',
-  'delhi': '106187582',
-  'gurugram': '115884833',
-  'gurgaon': '115884833',
-  'noida': '104869687',
   'pune': '114806696',
   'chennai': '106888327',
-  'kolkata': '111795395',
   'india': '102713980',
 };
 
@@ -189,7 +186,7 @@ async function fetchViaLambdaScraper(
         experienceLevel,
         jobType,
         sortBy: 'recent',
-        limit: 25,
+        limit: NO_OF_JOBS_TO_FETCH,
       }))
     );
 
