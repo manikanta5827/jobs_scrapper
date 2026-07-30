@@ -180,3 +180,133 @@ export function yoePreFilter(
 
   return { passToLLM, yoeRejected };
 }
+
+// ─── TITLE RELEVANCE PRE-FILTER ────────────────────────────────────────────
+
+/**
+ * Scores jobs by title similarity to target job titles using Jaro-Winkler.
+ * Keeps only the top percentage, discarding clearly irrelevant titles
+ * before they hit the LLM pipeline. Reduces LLM cost and improves match rate.
+ */
+export function titleRelevanceFilter(
+  jobs: Job[],
+  targetTitles: string[],
+  keepPercentage: number = 0.60,
+): Job[] {
+  if (targetTitles.length === 0 || jobs.length === 0) return jobs;
+
+  const keepCount = Math.max(1, Math.ceil(jobs.length * keepPercentage));
+  if (jobs.length <= keepCount) return jobs;
+
+  const scored = jobs.map(job => {
+    const title = (job.title ?? '').toLowerCase().trim();
+    const bestScore = targetTitles.reduce((best, t) => {
+      const sim = jaroWinklerSimilarity(title, t.toLowerCase().trim());
+      return Math.max(best, sim);
+    }, 0);
+    return { job, score: bestScore };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const kept = scored.slice(0, keepCount);
+  const removed = scored.slice(keepCount);
+
+  if (removed.length > 0) {
+    console.log(
+      `[titleRelevanceFilter] Kept ${kept.length}/${jobs.length} (${keepPercentage * 100}%), removed:\n` +
+      removed.map(s => `  ✗ "${s.job.title}" (score=${s.score.toFixed(3)})`).join('\n')
+    );
+  }
+
+  return kept.map(s => s.job);
+}
+
+function jaroWinklerSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  if (a.length === 0 || b.length === 0) return 0;
+
+  const matchDistance = Math.floor(Math.max(a.length, b.length) / 2) - 1;
+  const aMatches: boolean[] = new Array(a.length).fill(false);
+  const bMatches: boolean[] = new Array(b.length).fill(false);
+
+  let matches = 0;
+  for (let i = 0; i < a.length; i++) {
+    const start = Math.max(0, i - matchDistance);
+    const end = Math.min(i + matchDistance + 1, b.length);
+    for (let j = start; j < end; j++) {
+      if (!bMatches[j] && a[i] === b[j]) {
+        aMatches[i] = true;
+        bMatches[j] = true;
+        matches++;
+        break;
+      }
+    }
+  }
+
+  if (matches === 0) return 0;
+
+  let transpositions = 0;
+  let k = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (!aMatches[i]) continue;
+    while (!bMatches[k]) k++;
+    if (a[i] !== b[k]) transpositions++;
+    k++;
+  }
+  transpositions = Math.floor(transpositions / 2);
+
+  const jaro =
+    (matches / a.length + matches / b.length + (matches - transpositions) / matches) / 3;
+
+  let prefix = 0;
+  for (let i = 0; i < Math.min(4, a.length, b.length); i++) {
+    if (a[i] === b[i]) prefix++;
+    else break;
+  }
+
+  return jaro + prefix * 0.1 * (1 - jaro);
+}
+
+// ─── AUTO-DERIVED SENIORITY KEYWORD FILTER ─────────────────────────────────
+
+const SENIOR_TITLE_KEYWORDS = [
+  'director', 'vp ', 'vice president', 'principal engineer', 'staff engineer',
+  'architect', 'head of', 'lead', 'manager', 'chief', 'cto',
+  'sde4', 'sde 4', 'sde iv',
+  'senior manager', 'senior director', 'senior lead',
+  'staff software engineer', 'distinguished engineer',
+  'engineering manager', 'tech lead',
+];
+
+/**
+ * Auto-filters jobs whose titles imply seniority beyond the candidate's level.
+ * - Candidates with ≤3 YOE: exclude senior/lead/manager/director roles
+ * - Candidates with ≤5 YOE: exclude director/VP/architect/staff roles only
+ * - Candidates with >5 YOE: no auto-filtering (they can self-select)
+ */
+export function seniorityKeywordFilter(
+  jobs: Job[],
+  candidateYoe: number,
+): { relevant: Job[]; filtered: Job[] } {
+  const relevant: Job[] = [];
+  const filtered: Job[] = [];
+
+  if (candidateYoe > 5) return { relevant: jobs, filtered };
+
+  for (const job of jobs) {
+    const title = (job.title ?? '').toLowerCase();
+    const matched = SENIOR_TITLE_KEYWORDS.find(kw => title.includes(kw));
+
+    if (matched) {
+      filtered.push({
+        ...job,
+        keyword_bin_reason: `Seniority: "${matched}" in title, candidate has ${candidateYoe} YOE`,
+      });
+    } else {
+      relevant.push(job);
+    }
+  }
+
+  return { relevant, filtered };
+}

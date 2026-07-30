@@ -463,6 +463,7 @@ export async function recordUserRun(
     llmInputCacheHitTokens?: number;
     llmOutputTokens?: number;
     errorMessage?: string;
+    exitStage?: string;
   }
 ) {
   await initDb();
@@ -483,7 +484,8 @@ export async function recordUserRun(
       llmInputCacheHitTokens: runData.llmInputCacheHitTokens ?? 0,
       llmOutputTokens: runData.llmOutputTokens ?? 0,
       billedRunCostUsd: 0,
-      errorMessage: runData.errorMessage
+      errorMessage: runData.errorMessage,
+      exitStage: runData.exitStage
     });
 
     if (runData.status === 'SUCCESS') {

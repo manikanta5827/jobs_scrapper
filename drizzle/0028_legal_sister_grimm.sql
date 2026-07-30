@@ -1,0 +1,1 @@
+ALTER TABLE "user_runs" ADD COLUMN "exit_stage" text;

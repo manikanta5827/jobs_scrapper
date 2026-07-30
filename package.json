@@ -6,7 +6,7 @@
     "main": ".eslintrc.js",
     "scripts": {
         "sam:build": "sam validate --lint && sam build --parallel",
-        "sam:deploy": "sam deploy --no-confirm-changeset",
+        "sam:deploy": "npm run sam:build && sam deploy --no-confirm-changeset",
         "sam:delete": "aws cloudformation delete-stack --stack-name ",
         "sam:sync": "sam sync --watch --config-env prod --stack-name job-scrapper",
         "typecheck": "tsc --noEmit",

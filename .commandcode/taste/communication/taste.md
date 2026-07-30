@@ -1,0 +1,1 @@
+- Prefers precise, technically accurate explanations of changes — especially distinguishing what was already working from what was actually broken, rather than fuzzy or loosely illustrative examples. Also wants boundary-condition semantics (e.g., `<` vs `<=`, off-by-one edge cases) explicitly verified rather than hand-waved. Confidence: 0.75

@@ -126,6 +126,7 @@ export const userRuns = pgTable("user_runs", {
   llmOutputTokens: integer("llm_output_tokens").default(0).notNull(), // LLM completion/output tokens
   
   errorMessage: text("error_message"), // Error message if run failed
+  exitStage: text("exit_stage"), // Which filter stage the run ended at (e.g. "yoe_filter", "ai_evaluation")
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [

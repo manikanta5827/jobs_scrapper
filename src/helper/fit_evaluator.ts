@@ -57,14 +57,16 @@ export function evaluateJobFit(
   const missingRequired = missingFromTarget(required, matchedRequired);
   const missingPreferred = missingFromTarget(preferred, matchedPreferred);
 
-  // 1. Experience gate
-  if (facts.min_required_yoe != null && candidateYoe < facts.min_required_yoe) {
+  const YOE_TOLERANCE = 1;
+
+  // 1. Experience gate with ±1 year tolerance
+  if (facts.min_required_yoe != null && candidateYoe + YOE_TOLERANCE < facts.min_required_yoe) {
     return buildEvaluation("experience_mismatch", facts, yoeReason, candidateYoe, {
       matched: matchedRequired,
       missing: missingRequired,
     });
   }
-  if (facts.max_required_yoe != null && candidateYoe > facts.max_required_yoe) {
+  if (facts.max_required_yoe != null && candidateYoe - YOE_TOLERANCE > facts.max_required_yoe) {
     return buildEvaluation("experience_mismatch", facts, yoeReason, candidateYoe, {
       matched: matchedRequired,
       missing: missingRequired,

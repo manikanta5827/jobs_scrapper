@@ -134,31 +134,41 @@ Resources:
           APP_ENV: !Ref AppEnv
 
       Events:
-        # Morning run at 11:30 AM IST, Monday through Saturday
-        MorningRun:
+        # Run 1: 8 AM IST, Mon-Sun — catches overnight jobs from previous evening
+        Run8am:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(30 11 ? * MON-SAT *)
+            ScheduleExpression: cron(0 8 ? * * *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
             Input: !Sub '{"lookbackHours": 14, "adminApiKey": "${AdminApiKey}", "includeFreeTier": true}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
-        # Afternoon run at 4:30 PM IST, Monday through Saturday
-        AfternoonRun:
+        # Run 2: 12 PM IST, Mon-Sun — catches morning postings
+        Run12pm:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(30 16 ? * MON-SAT *)
+            ScheduleExpression: cron(0 12 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 6, "adminApiKey": "${AdminApiKey}"}'
+            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
-        # Evening run at 8:30 PM IST, Monday through Saturday
-        EveningRun:
+        # Run 3: 4 PM IST, Mon-Sun — catches afternoon postings
+        Run4pm:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(30 20 ? * MON-SAT *)
+            ScheduleExpression: cron(0 16 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        # Run 4: 8 PM IST, Mon-Sun — catches evening postings
+        Run8pm:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 20 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
             Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
             RetryPolicy:
@@ -208,6 +218,10 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:linkedin-jobs-scraper-prod'
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:naukri-jobs-scraper-prod'
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
@@ -219,6 +233,7 @@ Resources:
           ADMIN_API_KEY: !Ref AdminApiKey
           POST_QUEUE_URL: !Ref PostQueue
           LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
+          NAUKRI_SCRAPER_FUNCTION_NAME: naukri-jobs-scraper-prod
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
     EventInvokeConfig:

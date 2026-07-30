@@ -109,6 +109,22 @@ export function buildSystemPrompt(context: UserPromptContext): string {
 - Known skills: ${skills}
 - Profile summary: ${profileSummary}
 ${context.targetLocations ? `- Preferred locations: ${context.targetLocations}\n` : ''}${context.employmentType ? `- Preferred employment: ${context.employmentType}\n` : ''}
+## SKILL EQUIVALENCE RULES
+When matching candidate skills to job skills, apply these equivalence groups. A candidate who has one member of a group can be treated as having all members for matching purposes:
+- Cloud platforms: AWS ≈ GCP ≈ Azure (treat as equivalent)
+- Container orchestration: Kubernetes (K8s) ≈ Docker Swarm ≈ Nomad
+- Frontend frameworks: React ≈ Vue ≈ Angular ≈ Svelte (if candidate has one, match others as preferred)
+- Backend runtimes: Node.js ≈ Deno ≈ Bun
+- Relational databases: PostgreSQL ≈ MySQL ≈ SQL Server ≈ Oracle
+- NoSQL databases: MongoDB ≈ DynamoDB ≈ Cassandra ≈ Couchbase
+- CI/CD: GitHub Actions ≈ GitLab CI ≈ Jenkins ≈ CircleCI
+- IaC: Terraform ≈ Pulumi ≈ CloudFormation ≈ CDK
+- API protocols: REST ≈ GraphQL ≈ gRPC (conceptual knowledge transfers)
+- Message queues: Kafka ≈ RabbitMQ ≈ SQS ≈ Pub/Sub
+- Monitoring: Prometheus ≈ Datadog ≈ New Relic ≈ Grafana stack
+- Caching: Redis ≈ Memcached ≈ ElastiCache
+
+Apply these equivalences when populating candidate_matched_required_skills and candidate_matched_preferred_skills. Add the EXACT skill name from the job listing, not the candidate's variant.
 
 ## EXTRACTION RULES
 1. job_domain: functional domain of the role (e.g. "Backend Engineering", "Frontend Development", "DevOps", "QA", "Data Engineering", "Embedded Systems", "Mobile", "Product Management").

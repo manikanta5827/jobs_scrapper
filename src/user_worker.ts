@@ -14,7 +14,7 @@ import {
   downgradeUserToFree
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
-import { keywordFilter, companyBlockFilter, yoePreFilter } from './helper/filter';
+import { keywordFilter, companyBlockFilter, yoePreFilter, titleRelevanceFilter, seniorityKeywordFilter } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
 import { shutdownTelemetry } from './helper/telemetry';
@@ -28,7 +28,19 @@ import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './helper/constants
 
 const DEEPSEEK_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;
+const TITLE_RELEVANCE_KEEP_PERCENTAGE = 0.60;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
+
+// Fields that are always zero when a run exits before AI evaluation
+const ZERO_COST = {
+  matchedJobsCount: 0,
+  rejectedJobsCount: 0,
+  actualLlmCostUsd: 0,
+  actualApifyCostUsd: 0,
+  llmInputTokens: 0,
+  llmInputCacheHitTokens: 0,
+  llmOutputTokens: 0,
+} as const;
 
 export const handler = async (
   event: { userId: string; lookbackHours?: number },
@@ -117,17 +129,12 @@ async function processUserWorker(
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
+        exitStage: 'blocked_companies',
         scrapedJobsCount: rawCount,
         batchDedupCount: 0,
         dbDedupCount: 0,
         keywordFilteredCount: 0,
-        matchedJobsCount: 0,
-        rejectedJobsCount: 0,
-        actualLlmCostUsd: 0,
-        actualApifyCostUsd: 0,
-        llmInputTokens: 0,
-        llmInputCacheHitTokens: 0,
-        llmOutputTokens: 0
+        ...ZERO_COST
       });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
@@ -155,17 +162,12 @@ async function processUserWorker(
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
+        exitStage: 'db_dedup',
         scrapedJobsCount: rawCount,
-        batchDedupCount: batchDedupCount,
-        dbDedupCount: dbDedupCount,
+        batchDedupCount,
+        dbDedupCount,
         keywordFilteredCount: 0,
-        matchedJobsCount: 0,
-        rejectedJobsCount: 0,
-        actualLlmCostUsd: 0,
-        actualApifyCostUsd: 0,
-        llmInputTokens: 0,
-        llmInputCacheHitTokens: 0,
-        llmOutputTokens: 0
+        ...ZERO_COST
       });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
@@ -183,52 +185,87 @@ async function processUserWorker(
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
+        exitStage: 'keyword_filter',
         scrapedJobsCount: rawCount,
-        batchDedupCount: batchDedupCount,
-        dbDedupCount: dbDedupCount,
-        keywordFilteredCount: keywordFilteredCount,
-        matchedJobsCount: 0,
-        rejectedJobsCount: 0,
-        actualLlmCostUsd: 0,
-        actualApifyCostUsd: 0,
-        llmInputTokens: 0,
-        llmInputCacheHitTokens: 0,
-        llmOutputTokens: 0
+        batchDedupCount,
+        dbDedupCount,
+        keywordFilteredCount,
+        ...ZERO_COST
       });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
     // 6b. Conservative YOE Pre-Filter (regex-based, skip LLM for clearly overqualified requirements)
     const candidateYoe = Math.ceil(user.experienceYears ?? 0);
-    const { passToLLM, yoeRejected } = yoePreFilter(toCheck, candidateYoe);
+    const { passToLLM: afterYoe, yoeRejected } = yoePreFilter(toCheck, candidateYoe);
     const yoeFilteredCount = yoeRejected.length;
-    const passToLlmCount = passToLLM.length;
-    const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount;
 
-    console.log(`User ${user.id}: YOE Filtered ${yoeFilteredCount} jobs (candidate has ${candidateYoe} yr), sending ${passToLlmCount} to LLM`)
+    console.log(`User ${user.id}: YOE Filtered ${yoeFilteredCount} jobs (candidate has ${candidateYoe} yr), remaining ${afterYoe.length}`)
 
-    if (passToLlmCount === 0) {
+    if (afterYoe.length === 0) {
+      const preLlmFiltered = keywordFilteredCount + yoeFilteredCount;
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: preLlmFiltered, aiRejected: 0, matched: 0 };
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
+        status: 'SUCCESS',
+        exitStage: 'yoe_filter',
+        scrapedJobsCount: rawCount,
+        batchDedupCount,
+        dbDedupCount,
+        keywordFilteredCount: preLlmFiltered,
+        ...ZERO_COST
+      });
+      return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
+    }
+
+    // 6c. Auto-derived Seniority Keyword Filter — exclude titles too senior for candidate's YOE
+    const { relevant: afterSeniority, filtered: seniorityFiltered } = seniorityKeywordFilter(afterYoe, candidateYoe);
+    const seniorityFilteredCount = seniorityFiltered.length;
+
+    console.log(`User ${user.id}: Seniority Filtered ${seniorityFilteredCount} jobs, remaining ${afterSeniority.length}`)
+
+    if (afterSeniority.length === 0) {
+      const preLlmFiltered = keywordFilteredCount + yoeFilteredCount + seniorityFilteredCount;
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: preLlmFiltered, aiRejected: 0, matched: 0 };
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
+        status: 'SUCCESS',
+        exitStage: 'seniority_filter',
+        scrapedJobsCount: rawCount,
+        batchDedupCount,
+        dbDedupCount,
+        keywordFilteredCount: preLlmFiltered,
+        ...ZERO_COST
+      });
+      return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
+    }
+
+    // 6d. Title Relevance Pre-Filter — score by Jaro-Winkler similarity to target titles, keep top 60%
+    const targetTitles = (user.suggestedJobTitles as string[]) || [];
+    const afterTitle = titleRelevanceFilter(afterSeniority, targetTitles, TITLE_RELEVANCE_KEEP_PERCENTAGE);
+    const titleFilteredCount = afterSeniority.length - afterTitle.length;
+
+    console.log(`User ${user.id}: Title Relevance Filtered ${titleFilteredCount} jobs, remaining ${afterTitle.length}`)
+
+    const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount + seniorityFilteredCount + titleFilteredCount;
+
+    if (afterTitle.length === 0) {
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: totalPreLlmFiltered, aiRejected: 0, matched: 0 };
       if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
       await recordUserRun(user.id, {
         status: 'SUCCESS',
+        exitStage: 'title_relevance',
         scrapedJobsCount: rawCount,
-        batchDedupCount: batchDedupCount,
-        dbDedupCount: dbDedupCount,
-        keywordFilteredCount: keywordFilteredCount,
-        matchedJobsCount: 0,
-        rejectedJobsCount: 0,
-        actualLlmCostUsd: 0,
-        actualApifyCostUsd: 0,
-        llmInputTokens: 0,
-        llmInputCacheHitTokens: 0,
-        llmOutputTokens: 0
+        batchDedupCount,
+        dbDedupCount,
+        keywordFilteredCount: totalPreLlmFiltered,
+        ...ZERO_COST
       });
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
     // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
-    const { matched, rejected, usage } = await checkRelevanceBatch(passToLLM, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, rejected, usage } = await checkRelevanceBatch(afterTitle, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
     const aiRejectedCount = rejected.length;
 
@@ -265,6 +302,7 @@ async function processUserWorker(
     // 10. Audit log
     await recordUserRun(user.id, {
       status: 'SUCCESS',
+      exitStage: 'ai_evaluation',
       scrapedJobsCount: rawCount,
       batchDedupCount: batchDedupCount,
       dbDedupCount: dbDedupCount,
@@ -304,17 +342,12 @@ async function processUserWorker(
     // Log failure in user_runs audit table
     await recordUserRun(user.id, {
       status: 'FAILED',
+      exitStage: 'catch_error',
       scrapedJobsCount: 0,
       batchDedupCount: 0,
       dbDedupCount: 0,
       keywordFilteredCount: 0,
-      matchedJobsCount: 0,
-      rejectedJobsCount: 0,
-      actualLlmCostUsd: 0,
-      actualApifyCostUsd: 0,
-      llmInputTokens: 0,
-      llmInputCacheHitTokens: 0,
-      llmOutputTokens: 0,
+      ...ZERO_COST,
       errorMessage: errorMsg
     });
 

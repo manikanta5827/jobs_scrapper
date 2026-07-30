@@ -168,7 +168,7 @@ async function fetchViaLambdaScraper(
 ): Promise<Job[]> {
   const dateSincePosted = lookbackHours <= 24 ? '24hr' : lookbackHours <= 168 ? 'past week' : 'past month';
   const experienceLevel = mapExperienceYears(user.experienceYears ?? 0);
-  const jobType = mapEmploymentType(user.employmentType);
+  const jobType = ['full time'];
 
   const allJobs: Job[] = [];
   const CONCURRENCY = 4;
@@ -329,16 +329,8 @@ async function fetchViaApify(
 function mapExperienceYears(years: number): string[] {
   if (years <= 1) return ['internship', 'entry level'];
   if (years <= 3) return ['entry level', 'associate'];
-  if (years <= 7) return ['associate', 'senior'];
-  if (years <= 12) return ['senior', 'director'];
-  return ['director', 'executive'];
-}
-
-function mapEmploymentType(type?: string | null): string[] {
-  if (!type) return ['full time'];
-  const lower = type.toLowerCase();
-  if (lower.includes('contract')) return ['full time', 'contract'];
-  if (lower.includes('part')) return ['part time'];
-  if (lower.includes('intern')) return ['internship'];
-  return ['full time'];
+  if (years <= 5) return ['associate'];
+  if (years <= 8) return ['associate', 'senior'];
+  if (years <= 12) return ['senior'];
+  return ['senior', 'director'];
 }

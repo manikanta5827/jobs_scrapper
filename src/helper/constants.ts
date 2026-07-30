@@ -12,7 +12,7 @@ export const MIN_MATCH_SCORE = parseInt(process.env.MIN_MATCH_SCORE ?? "7", 10);
 export const HIGH_SCORE_THRESHOLD = 8;
 
 // Deterministic skill-coverage thresholds used by fit_evaluator.ts
-export const STRONG_MATCH_THRESHOLD = 1.0;
+export const STRONG_MATCH_THRESHOLD = 0.80;
 export const MINOR_GAPS_THRESHOLD = 0.6;
 export const PREFERRED_BONUS_THRESHOLD = 0.8;
 
