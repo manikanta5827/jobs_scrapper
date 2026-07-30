@@ -19,7 +19,8 @@ import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from
 
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-south-1' });
 
-const LAMBDA_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
+const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
+const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper-prod';
 const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 const NO_OF_JOBS_TO_FETCH = 50;
 
@@ -56,10 +57,9 @@ export async function fetchJobsForUser(
   },
   lookbackHours: number = 12
 ): Promise<Job[]> {
-  const provider = (process.env.SCRAPER_PROVIDER || 'lambda').toLowerCase();
   const queries = buildSearchQueriesFromProfile(user);
 
-  console.log(`[JobFetcher] Provider: "${provider}". Processing ${queries.length} queries for user ${user.id || 'unknown'}`);
+  console.log(`[JobFetcher] Processing ${queries.length} queries for user ${user.id || 'unknown'} (LinkedIn + Naukri)`);
 
   if (queries.length === 0) {
     console.warn(`[JobFetcher] No search queries could be generated for user ${user.id}`);
@@ -68,22 +68,32 @@ export async function fetchJobsForUser(
 
   let jobs: Job[] = [];
 
-  if (provider === 'apify') {
-    try {
-      jobs = await fetchViaApify(queries, lookbackHours);
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[JobFetcher] Apify provider failed (${errMsg}). Falling back to Lambda...`);
-      jobs = await fetchViaLambdaScraper(queries, user, lookbackHours);
-    }
+  // Fetch from both LinkedIn and Naukri Lambdas in parallel
+  const [linkedinJobs, naukriJobs] = await Promise.allSettled([
+    fetchViaLambdaScraper(queries, user, lookbackHours),
+    fetchViaNaukriLambda(queries, user, lookbackHours),
+  ]);
+
+  if (linkedinJobs.status === 'fulfilled') {
+    jobs.push(...linkedinJobs.value);
   } else {
-    // Default provider: "lambda"
+    console.warn(`[JobFetcher] LinkedIn scraper failed: ${linkedinJobs.reason?.message}`);
+  }
+
+  if (naukriJobs.status === 'fulfilled') {
+    jobs.push(...naukriJobs.value);
+  } else {
+    console.warn(`[JobFetcher] Naukri scraper failed: ${naukriJobs.reason?.message}`);
+  }
+
+  // Fallback: if both Lambdas failed entirely, try Apify
+  if (jobs.length === 0) {
+    console.warn('[JobFetcher] Both Lambda scrapers failed. Trying Apify fallback...');
     try {
-      jobs = await fetchViaLambdaScraper(queries, user, lookbackHours);
+      jobs = await fetchViaApify(queries, lookbackHours);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[JobFetcher] Lambda provider failed (${errMsg}). Trying Apify fallback...`);
-      jobs = await fetchViaApify(queries, lookbackHours);
+      console.warn(`[JobFetcher] Apify fallback also failed: ${errMsg}`);
     }
   }
 
@@ -171,14 +181,14 @@ async function fetchViaLambdaScraper(
   const jobType = ['full time'];
 
   const allJobs: Job[] = [];
-  const CONCURRENCY = 4;
-  const BATCH_DELAY_MS = 2000; // 2 seconds delay between concurrent batches
+  const CONCURRENCY = 5;
+  const BATCH_DELAY_MS = 1000; // 1 seconds delay between concurrent batches
 
   for (let i = 0; i < queries.length; i += CONCURRENCY) {
     const batch = queries.slice(i, i + CONCURRENCY);
 
     const results = await Promise.allSettled(
-      batch.map(q => invokeScraperLambda({
+      batch.map(q => invokeScraperLambda(LINKEDIN_SCRAPER_NAME, {
         keyword: q.keyword,
         location: q.location,
         geoId: q.geoId,
@@ -194,15 +204,62 @@ async function fetchViaLambdaScraper(
       const res = results[j];
       const q = batch[j];
       if (res.status === 'fulfilled') {
-        const mapped = res.value.map(item => mapScraperItemToJob(item));
+        const mapped = res.value.map(item => mapScraperItemToJob(item, 'linkedin'));
         allJobs.push(...mapped);
-        console.log(`  ✓ Lambda Scraper: "${q.keyword}" @ "${q.location}" → ${res.value.length} jobs`);
+        console.log(`  ✓ LinkedIn: "${q.keyword}" @ "${q.location}" → ${res.value.length} jobs`);
       } else {
-        console.warn(`  ✗ Lambda Scraper: "${q.keyword}" @ "${q.location}" failed: ${res.reason?.message || 'Error'}`);
+        console.warn(`  ✗ LinkedIn: "${q.keyword}" @ "${q.location}" failed: ${res.reason?.message || 'Error'}`);
       }
     }
 
-    // Polite sleep delay between concurrent batches to prevent LinkedIn throttling
+    if (i + CONCURRENCY < queries.length) {
+      await sleep(BATCH_DELAY_MS);
+    }
+  }
+
+  return allJobs;
+}
+
+// ─── NAUKRI LAMBDA SCRAPER PROVIDER ─────────────────────────────────────────
+
+async function fetchViaNaukriLambda(
+  queries: SearchQuery[],
+  user: { experienceYears?: number | null; employmentType?: string | null },
+  lookbackHours: number
+): Promise<Job[]> {
+  const jobAge = lookbackHours <= 24 ? '1' : lookbackHours <= 168 ? '7' : '30';
+  const experience = user.experienceYears != null ? String(Math.ceil(user.experienceYears)) : undefined;
+
+  const allJobs: Job[] = [];
+  const CONCURRENCY = 5;
+  const BATCH_DELAY_MS = 2000;
+
+  for (let i = 0; i < queries.length; i += CONCURRENCY) {
+    const batch = queries.slice(i, i + CONCURRENCY);
+
+    const results = await Promise.allSettled(
+      batch.map(q => invokeScraperLambda(NAUKRI_SCRAPER_NAME, {
+        keyword: q.keyword,
+        location: q.location,
+        jobAge,
+        experience,
+        limit: NO_OF_JOBS_TO_FETCH,
+        sort: 'date',
+      }))
+    );
+
+    for (let j = 0; j < results.length; j++) {
+      const res = results[j];
+      const q = batch[j];
+      if (res.status === 'fulfilled') {
+        const mapped = res.value.map(item => mapScraperItemToJob(item, 'naukri'));
+        allJobs.push(...mapped);
+        console.log(`  ✓ Naukri: "${q.keyword}" @ "${q.location}" → ${res.value.length} jobs`);
+      } else {
+        console.warn(`  ✗ Naukri: "${q.keyword}" @ "${q.location}" failed: ${res.reason?.message || 'Error'}`);
+      }
+    }
+
     if (i + CONCURRENCY < queries.length) {
       await sleep(BATCH_DELAY_MS);
     }
@@ -230,9 +287,9 @@ interface ScraperItem {
   };
 }
 
-async function invokeScraperLambda(params: Record<string, unknown>): Promise<ScraperItem[]> {
+async function invokeScraperLambda(functionName: string, params: Record<string, unknown>): Promise<ScraperItem[]> {
   const command = new InvokeCommand({
-    FunctionName: LAMBDA_SCRAPER_NAME,
+    FunctionName: functionName,
     Payload: Buffer.from(JSON.stringify({ queryStringParameters: params })),
   });
 
@@ -248,7 +305,7 @@ async function invokeScraperLambda(params: Record<string, unknown>): Promise<Scr
   return body.data || [];
 }
 
-function mapScraperItemToJob(item: ScraperItem): Job {
+function mapScraperItemToJob(item: ScraperItem, source: 'linkedin' | 'naukri' = 'linkedin'): Job {
   const details = item.details;
   return {
     id: item.id,
@@ -264,6 +321,7 @@ function mapScraperItemToJob(item: ScraperItem): Job {
     jobFunction: details?.jobFunction || undefined,
     industries: details?.industries || undefined,
     applicantsCount: details?.numApplicants || undefined,
+    _source: source,
   };
 }
 

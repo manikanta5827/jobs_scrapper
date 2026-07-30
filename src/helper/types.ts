@@ -24,6 +24,7 @@ export interface Job {
   fingerprint?:      string;
   jobTitle?:         string;
   extractedYoeText?: string | null;
+  _source?:          'linkedin' | 'naukri' | 'apify';
   [key: string]:      unknown; // Still allow other fields but they won't be explicitly typed
 }
 
