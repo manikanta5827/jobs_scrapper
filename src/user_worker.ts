@@ -14,7 +14,7 @@ import {
   downgradeUserToFree
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
-import { keywordFilter, companyBlockFilter, yoePreFilter, titleRelevanceFilter, seniorityKeywordFilter } from './helper/filter';
+import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './helper/filter';
 import { sendTelegramMessage } from './helper/telegram_helper';
 import { pushToPostQueue } from './helper/sqs_helper';
 import { shutdownTelemetry } from './helper/telemetry';
@@ -28,7 +28,6 @@ import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './helper/constants
 
 const DEEPSEEK_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;
-const TITLE_RELEVANCE_KEEP_PERCENTAGE = 0.60;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 
 // Fields that are always zero when a run exits before AI evaluation
@@ -240,32 +239,10 @@ async function processUserWorker(
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
-    // 6d. Title Relevance Pre-Filter — score by Jaro-Winkler similarity to target titles, keep top 60%
-    const targetTitles = (user.suggestedJobTitles as string[]) || [];
-    const afterTitle = titleRelevanceFilter(afterSeniority, targetTitles, TITLE_RELEVANCE_KEEP_PERCENTAGE);
-    const titleFilteredCount = afterSeniority.length - afterTitle.length;
-
-    console.log(`User ${user.id}: Title Relevance Filtered ${titleFilteredCount} jobs, remaining ${afterTitle.length}`)
-
-    const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount + seniorityFilteredCount + titleFilteredCount;
-
-    if (afterTitle.length === 0) {
-      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: totalPreLlmFiltered, aiRejected: 0, matched: 0 };
-      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
-      await recordUserRun(user.id, {
-        status: 'SUCCESS',
-        exitStage: 'title_relevance',
-        scrapedJobsCount: rawCount,
-        batchDedupCount,
-        dbDedupCount,
-        keywordFilteredCount: totalPreLlmFiltered,
-        ...ZERO_COST
-      });
-      return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
-    }
+    const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount + seniorityFilteredCount;
 
     // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
-    const { matched, rejected, usage } = await checkRelevanceBatch(afterTitle, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, rejected, usage } = await checkRelevanceBatch(afterSeniority, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
     const matchedCount = matched.length;
     const aiRejectedCount = rejected.length;
 
