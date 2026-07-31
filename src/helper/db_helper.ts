@@ -127,6 +127,7 @@ export async function trackJobs(
     applicantsCount?: string | number;
     optimizedResumeMd?: string;
     descriptionText?: string;
+    source?: string;
   }[]
 ): Promise<void> {
   if (jobsToTrack.length === 0) return;
@@ -155,6 +156,7 @@ export async function trackJobs(
           applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
           optimizedResumeMd: j.optimizedResumeMd,
           descriptionText: j.descriptionText,
+          source: j.source,
         })))
         .onConflictDoNothing();
     });
@@ -564,6 +566,41 @@ export async function getAnalyticsStats() {
     };
   });
 
+  // Daily breakdown for the last 3 days (today, yesterday, day before)
+  const dailyStats = await db.select({
+    day: sql<string>`TO_CHAR(${userRuns.runAt} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`,
+    runsCount: sql<number>`COUNT(*)`,
+    totalCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}), 0)`,
+    minCostUsd: sql<number>`COALESCE(MIN(NULLIF(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}, 0)), 0)`,
+    maxCostUsd: sql<number>`COALESCE(MAX(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}), 0)`
+  })
+  .from(userRuns)
+  .where(gte(userRuns.runAt, sql`CURRENT_DATE - INTERVAL '3 days'`))
+  .groupBy(sql`TO_CHAR(${userRuns.runAt} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`)
+  .orderBy(sql`TO_CHAR(${userRuns.runAt} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') DESC`);
+
+  const formattedDaily = dailyStats.map(d => ({
+    day: d.day,
+    runsCount: Number(d.runsCount),
+    totalCostUsd: Number(d.totalCostUsd),
+    minCostUsd: Number(d.minCostUsd),
+    maxCostUsd: Number(d.maxCostUsd)
+  }));
+
+  // Jobs delivered grouped by source provider
+  const jobsBySource = await db.select({
+    source: sql<string>`COALESCE(${jobs.source}, 'unknown')`,
+    count: sql<number>`COUNT(*)`
+  })
+  .from(jobs)
+  .groupBy(sql`COALESCE(${jobs.source}, 'unknown')`)
+  .orderBy(sql`COUNT(*) DESC`);
+
+  const formattedJobsBySource = jobsBySource.map(s => ({
+    source: s.source,
+    count: Number(s.count)
+  }));
+
   return {
     totalUsersCount,
     activeUsersCount,
@@ -574,6 +611,8 @@ export async function getAnalyticsStats() {
     successfulRunsCount: Number(stats.successfulRuns),
     totalActualCostUsd,
     totalProfitUsd,
-    monthlyStats: formattedMonthly
+    monthlyStats: formattedMonthly,
+    dailyStats: formattedDaily,
+    jobsBySource: formattedJobsBySource
   };
 }

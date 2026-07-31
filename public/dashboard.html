@@ -458,6 +458,31 @@
       font-weight: 600;
       font-family: var(--font-mono);
     }
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .source-linkedin {
+      background: #dbeafe;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .source-naukri {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+    .source-unknown {
+      background: var(--surface-secondary);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border);
+    }
     .score-high {
       background: var(--success-bg);
       color: var(--success);
@@ -746,6 +771,7 @@
               <th>Job Title & Experience</th>
               <th>Company</th>
               <th>Location</th>
+              <th>Source</th>
               <th>Skills Alignment</th>
               <th>AI Match</th>
               <th>Discovered At</th>
@@ -1031,6 +1057,9 @@
         const matchedSkills = Array.isArray(job.matchedSkills) ? job.matchedSkills : (Array.isArray(job.matched_skills) ? job.matched_skills : (Array.isArray(job.ai_matched_skills) ? job.ai_matched_skills : []));
         const missingSkills = Array.isArray(job.missingSkills) ? job.missingSkills : (Array.isArray(job.missing_skills) ? job.missing_skills : (Array.isArray(job.ai_missing_skills) ? job.ai_missing_skills : []));
         const createdAt = job.createdAt || job.created_at || job.postedAt || job.posted_at || new Date().toISOString();
+        const source = (job.source || job._source || '').toLowerCase();
+        const sourceLabel = source === 'naukri' ? 'Naukri' : source === 'linkedin' ? 'LinkedIn' : source || 'Unknown';
+        const sourceClass = source === 'naukri' ? 'source-naukri' : source === 'linkedin' ? 'source-linkedin' : 'source-unknown';
 
         const dateObj = new Date(createdAt);
         const formattedDate = dateObj.toLocaleDateString('en-US', {
@@ -1073,6 +1102,7 @@
           </td>
           <td><span class="company-name">${escapeHtml(company)}</span></td>
           <td style="color: var(--text-secondary);">${escapeHtml(location)}</td>
+          <td><span class="source-badge ${sourceClass}">💼 ${sourceLabel}</span></td>
           <td>
             <div style="max-width: 280px; display: flex; flex-wrap: wrap;">${skillsHtml}</div>
           </td>

@@ -2,26 +2,19 @@
  * job_fetcher.ts
  * Unified Job Fetcher Architecture.
  *
- * Switch scraper providers seamlessly via environment variable:
- *   SCRAPER_PROVIDER="lambda"  (default: self-hosted Lambda microservice, $0 cost)
- *   SCRAPER_PROVIDER="apify"   (fallback/secondary: Apify actor scraping)
- *
- * Clean separation of concern:
- * 1. Query Builder: Auto-constructs (Keyword × Location) search queries from candidate profile.
- * 2. Provider Invoker: Executes parallel search queries against selected scraping engine.
- * 3. Output Standardization: Returns unified Job[] with full descriptionText and metadata.
+ * Fetches jobs from LinkedIn and Naukri in parallel via self-hosted Lambda microservices.
  */
 
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import type { Job } from './types';
 import { setTimeout as sleep } from 'timers/promises';
-import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
+// import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
 
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-south-1' });
 
 const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
 const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper-prod';
-const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
+// const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 const NO_OF_JOBS_TO_FETCH = 50;
 
 
@@ -45,7 +38,7 @@ const CITY_GEO_IDS: Record<string, string> = {
 
 /**
  * Main entry point: Fetch jobs for a candidate user based on candidate profile.
- * Controlled by SCRAPER_PROVIDER env var ("lambda" | "apify").
+ * Runs LinkedIn and Naukri scrapers in parallel via Lambda.
  */
 export async function fetchJobsForUser(
   user: {
@@ -84,17 +77,6 @@ export async function fetchJobsForUser(
     jobs.push(...naukriJobs.value);
   } else {
     console.warn(`[JobFetcher] Naukri scraper failed: ${naukriJobs.reason?.message}`);
-  }
-
-  // Fallback: if both Lambdas failed entirely, try Apify
-  if (jobs.length === 0) {
-    console.warn('[JobFetcher] Both Lambda scrapers failed. Trying Apify fallback...');
-    try {
-      jobs = await fetchViaApify(queries, lookbackHours);
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[JobFetcher] Apify fallback also failed: ${errMsg}`);
-    }
   }
 
   // Deduplicate by link across queries
@@ -325,62 +307,70 @@ function mapScraperItemToJob(item: ScraperItem, source: 'linkedin' | 'naukri' = 
   };
 }
 
-// ─── APIFY PROVIDER (SECONDARY / FALLBACK) ──────────────────────────────────
+// ─── APIFY PROVIDER (DEPRECATED) ───────────────────────────────────────────
+// No longer in use — both LinkedIn and Naukri scrapers are served via self-hosted Lambdas.
+// Keeping this code commented in case Apify is ever needed as a fallback again.
+// Re-enable by:
+//   - Uncommenting the import: import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
+//   - Uncommenting APIFY_ACTOR_ID constant above
+//   - Uncommenting the fallback block in fetchJobsForUser below the Naukri result check
 
-async function fetchViaApify(
-  queries: SearchQuery[],
-  lookbackHours: number
-): Promise<Job[]> {
-  const urls = queries.map(q => {
-    const kw = encodeURIComponent(q.keyword);
-    const loc = encodeURIComponent(q.location);
-    const geoParam = q.geoId ? `&geoId=${q.geoId}` : '';
-    const lookbackSeconds = Math.floor(lookbackHours * 3600);
-    return `https://www.linkedin.com/jobs/search/?keywords=${kw}&location=${loc}${geoParam}&f_TPR=r${lookbackSeconds}`;
-  });
-
-  const tokenData = await getValidApifyToken();
-  if (!tokenData) throw new Error("No valid Apify token available.");
-
-  const endpoint = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${tokenData.apiKey}&format=json&clean=true&memory=1024`;
-  const body = JSON.stringify({
-    urls,
-    scrapeCompany: false,
-    count: 25,
-    useIncognitoMode: false
-  });
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 180000);
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      signal: controller.signal,
-    });
-
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      const text = await res.text();
-      if (res.status === 401 || res.status === 403) {
-        await markApifyTokenExpired(tokenData.id);
-      }
-      throw new Error(`Apify HTTP ${res.status}: ${text}`);
-    }
-
-    const items = await res.json();
-    if (!Array.isArray(items)) throw new Error('Apify returned non-array response');
-
-    await updateApifyTokenUsage(tokenData.id, items.length);
-    return items as Job[];
-  } catch (err) {
-    clearTimeout(timer);
-    throw err;
-  }
-}
+// async function fetchViaApify(
+//   queries: SearchQuery[],
+//   lookbackHours: number
+// ): Promise<Job[]> {
+//   const urls = queries.map(q => {
+//     const kw = encodeURIComponent(q.keyword);
+//     const loc = encodeURIComponent(q.location);
+//     const geoParam = q.geoId ? `&geoId=${q.geoId}` : '';
+//     const lookbackSeconds = Math.floor(lookbackHours * 3600);
+//     return `https://www.linkedin.com/jobs/search/?keywords=${kw}&location=${loc}${geoParam}&f_TPR=r${lookbackSeconds}`;
+//   });
+//
+//   const tokenData = await getValidApifyToken();
+//   if (!tokenData) throw new Error("No valid Apify token available.");
+//
+//   const endpoint = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${tokenData.apiKey}&format=json&clean=true&memory=1024`;
+//   const body = JSON.stringify({
+//     urls,
+//     scrapeCompany: false,
+//     count: 25,
+//     useIncognitoMode: false
+//   });
+//
+//   const controller = new AbortController();
+//   const timer = setTimeout(() => controller.abort(), 180000);
+//
+//   try {
+//     const res = await fetch(endpoint, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body,
+//       signal: controller.signal,
+//     });
+//
+//     clearTimeout(timer);
+//
+//     if (!res.ok) {
+//       const text = await res.text();
+//       if (res.status === 401 || res.status === 403) {
+//         await markApifyTokenExpired(tokenData.id);
+//       }
+//       throw new Error(`Apify HTTP ${res.status}: ${text}`);
+//     }
+//
+//     const items = await res.json();
+//     if (!Array.isArray(items)) throw new Error('Apify returned non-array response');
+//
+//     await updateApifyTokenUsage(tokenData.id, items.length);
+//     const jobs = items as Job[];
+//     jobs.forEach(j => { j._source = 'apify'; });
+//     return jobs;
+//   } catch (err) {
+//     clearTimeout(timer);
+//     throw err;
+//   }
+// }
 
 // ─── UTILITIES ─────────────────────────────────────────────────────────────
 
