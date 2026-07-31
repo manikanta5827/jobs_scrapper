@@ -57,7 +57,11 @@ function buildSearchUrl(options: SimplyHiredJobQueryOptions): string {
   const params = new URLSearchParams();
 
   if (options.keyword) params.append('q', options.keyword);
-  if (options.location) params.append('l', options.location);
+  if (options.location) {
+    params.append('l', options.location);
+  } else if (options.remote) {
+    params.append('l', 'Remote');
+  }
 
   if (options.cursor) {
     params.append('cursor', options.cursor);

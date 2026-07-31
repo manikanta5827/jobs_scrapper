@@ -108,7 +108,15 @@ function buildSearchUrl(options: IndeedJobQueryOptions): string {
   const baseUrl = getBaseUrl(options);
   const params = new URLSearchParams();
 
-  if (options.keyword) params.append('q', options.keyword);
+  let queryText = options.keyword || '';
+  if (options.salary) {
+    const salStr = String(options.salary);
+    if (!queryText.includes(salStr)) {
+      queryText = queryText ? `${queryText} $${salStr.replace(/[^0-9]/g, '')}` : `$${salStr.replace(/[^0-9]/g, '')}`;
+    }
+  }
+  if (queryText) params.append('q', queryText);
+
   if (options.location) params.append('l', options.location);
   if (options.fromage) params.append('fromage', String(options.fromage));
 

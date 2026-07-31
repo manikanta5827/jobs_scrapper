@@ -116,6 +116,19 @@ export class NaukriJobsQuery {
       params.append('location', this.options.location);
     }
 
+    if (this.options.sort === 'date') {
+      params.append('sort', 'f');
+    }
+
+    if (this.options.wfhType && this.options.wfhType.length > 0) {
+      const wfhMap: Record<string, string> = { office: '0', remote: '2', hybrid: '3', '0': '0', '2': '2', '3': '3' };
+      const items = Array.isArray(this.options.wfhType) ? this.options.wfhType : [this.options.wfhType];
+      const codes = items.map((w) => wfhMap[String(w).toLowerCase()] || String(w)).filter(Boolean);
+      if (codes.length > 0) {
+        params.append('wfhType', codes.join(','));
+      }
+    }
+
     const pagePath = pageNumber > 1 ? `${slug}-jobs-${pageNumber}` : `${slug}-jobs`;
     return `https://www.naukri.com/${pagePath}?${params.toString()}`;
   }
