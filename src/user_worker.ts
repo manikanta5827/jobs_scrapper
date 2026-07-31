@@ -173,6 +173,7 @@ async function processUserWorker(
 
     // 6. Per-user Keyword Filtering (Exclude keywords)
     const excludeList = (user.excludeTitleKeywords as string[]) || [];
+    console.log(`\n excluded keywords list :: ${excludeList} \n`);
     const { relevant: toCheck } = keywordFilter(newJobs, excludeList);
     const toCheckCount = toCheck.length;
     const keywordFilteredCount = newCount - toCheckCount;
@@ -201,6 +202,16 @@ async function processUserWorker(
 
     console.log(`User ${user.id}: YOE Filtered ${yoeFilteredCount} jobs (candidate has ${candidateYoe} yr), remaining ${afterYoe.length}`)
 
+    // Print all the 'keyword_bin_reason' values inside the objects present in the yoeRejected array
+    console.log("YOE Rejected keyword_bin_reason(s):");
+    yoeRejected.forEach((job, idx) => {
+      if (job.keyword_bin_reason) {
+        console.log(`  [${idx}] keyword_bin_reason: ${job.keyword_bin_reason}`);
+      } else {
+        console.log(`  [${idx}] No keyword_bin_reason present`);
+      }
+    });
+    
     if (afterYoe.length === 0) {
       const preLlmFiltered = keywordFilteredCount + yoeFilteredCount;
       const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: dbDedupCount, keywordFiltered: preLlmFiltered, aiRejected: 0, matched: 0 };
