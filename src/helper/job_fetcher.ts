@@ -330,8 +330,7 @@ async function fetchViaIndeedLambda(
   lookbackHours: number
 ): Promise<Job[]> {
   const fromage = lookbackHours <= 24 ? 1 : lookbackHours <= 72 ? 3 : lookbackHours <= 168 ? 7 : 30;
-  const jobType = user.employmentType?.toLowerCase() || 'fulltime';
-  
+
   const allJobs: Job[] = [];
   const CONCURRENCY = 5;
   const BATCH_DELAY_MS = 2000;
@@ -344,7 +343,7 @@ async function fetchViaIndeedLambda(
         keyword: q.keyword,
         location: q.location,
         fromage,
-        jobType,
+        jobType: 'fulltime',
         limit: NO_OF_JOBS_TO_FETCH,
         sort: 'date',
       }))

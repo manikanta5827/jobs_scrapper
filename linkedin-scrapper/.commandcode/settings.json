@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm:*)",
+      "Shell(agent-browser:*)",
+      "Shell(rm:*)",
+      "Shell(node -e  const { queryNaukriJobs } = require('./dist'); (async () => { console.log('Searching Naukri for backend developer (limit 5)...'); const jobs = await queryNaukriJobs({ keyword: 'backend developer', experience: 1, jobAge: 1, limit: 5, }); console.log('Found', jobs.length, 'jobs:'); jobs.forEach((j, i) => { console.log('--- Job ' + (i+1) + ' ---'); console.log('Title:', j.position?.substring(0, 60)); console.log('Company:', j.company); console.log('Location:', j.location); console.log('Salary:', j.salary); console.log('Posted:', j.agoTime); console.log('Details:', (j.details?.descriptionText || '').substring(0, 80)); console.log('URL:', j.jobUrl); console.log('Source:', j.source); console.log(); }); })().catch(err => { console.error('Error:', err.message); process.exit(1); });  2 >& 1)",
+      "Shell(cat <<'JSEOF' | agent-browser eval --stdin const cards = document.querySelectorAll('.job_seen_beacon, [data-testid=\"job-card\"], .jobCard, [class*=\"cardOutline\"]'); const results = []; const allCards = document.querySelectorAll('td.resultContent, [class*=\"job_seen\"], [class*=\"jobCard\"], a[data-jk]'); allCards.forEach((card, i) => { const title = card.querySelector('h2 span, h2 a, [class*=\"jobTitle\"], a[data-jk] span')?.innerText?.trim() || ''; const company = card.querySelector('[data-testid=\"company-name\"], [class*=\"companyName\"], [class*=\"company_name\"], span[class*=\"css-\"]')?.innerText?.trim() || ''; const location = card.querySelector('[data-testid=\"text-location\"], [class*=\"companyLocation\"]')?.innerText?.trim() || ''; const jk = card.closest('a[data-jk]')?.getAttribute('data-jk') || ''; if (title) results.push({ i, title, company, location, jk }); }); results JSEOF)",
+      "Shell(grep:*)",
+      "Shell(curl -s -o /tmp/sh_page2.html -w \"HTTP %{http_code}, size: %{size_download}\" \\ -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\" \\ \"https://www.simplyhired.com/search?q=software+engineer&l=remote&pn=2\" && echo \"\" && node -e \" const fs = require('fs'); const html = fs.readFileSync('/tmp/sh_page2.html', 'utf8'); const match = html.match(/<script id=\\\"__NEXT_DATA__\\\"[^>]*>(.*?)<\\/script>/); if (match) { const data = JSON.parse(match[1]); console.log('Page 2 - Jobs:', data?.props?.pageProps?.jobs?.length); console.log('First job title:', data?.props?.pageProps?.jobs?.[0]?.title); } else { console.log('No data'); } \")"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

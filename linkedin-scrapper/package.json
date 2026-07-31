@@ -1,0 +1,50 @@
+{
+  "name": "linkedin-jobs-scraper",
+  "version": "1.0.0",
+  "description": "High-performance TypeScript scraper for LinkedIn Jobs with proxy and Lambda support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "test:linkedin": "ts-node src/linkedin-test.ts",
+    "test:naukri": "node -r ts-node/register src/naukri-test.ts",
+    "test:simplyhired": "node -r ts-node/register src/simplyhired-test.ts",
+    "test:indeed": "node -r ts-node/register src/indeed-test.ts",
+    "sam:build": "sam validate --lint && sam build --parallel",
+    "sam:local:linkedin": "sam build && sam local invoke LinkedInScraperFunction -e event.json",
+    "sam:local:naukri": "sam build && sam local invoke NaukriScraperFunction -e event.json",
+    "sam:local:simplyhired": "sam build && sam local invoke SimplyHiredScraperFunction -e event.json",
+    "sam:local:indeed": "sam build && sam local invoke IndeedScraperFunction -e event.json",
+    "sam:deploy": "sam validate --lint && sam build --parallel && sam deploy"
+  },
+  "keywords": [
+    "linkedin",
+    "jobs",
+    "scraper",
+    "typescript",
+    "lambda"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@sparticuz/chromium": "^133.0.0",
+    "axios": "^1.7.9",
+    "axios-cookiejar-support": "^7.0.0",
+    "cheerio": "^1.0.0",
+    "https-proxy-agent": "^7.0.6",
+    "puppeteer-core": "23.6.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.10.4",
+    "random-useragent": "^0.5.0",
+    "tough-cookie": "^6.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/puppeteer-core": "^5.4.0",
+    "@types/random-useragent": "^0.3.3",
+    "puppeteer": "^25.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

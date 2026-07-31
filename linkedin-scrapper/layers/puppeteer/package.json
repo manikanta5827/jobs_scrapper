@@ -1,0 +1,11 @@
+{
+  "name": "puppeteer-layer",
+  "version": "1.0.0",
+  "description": "Puppeteer, Stealth, and Chromium binaries layer for scraper Lambdas",
+  "dependencies": {
+    "@sparticuz/chromium": "^133.0.0",
+    "puppeteer-core": "23.6.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.10.4"
+  }
+}

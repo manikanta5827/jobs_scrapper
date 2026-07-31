@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Jobs Scraper — LinkedIn + Naukri + SimplyHired + Indeed Lambda microservices
+
+Parameters:
+  LogRetentionDays:
+    Type: Number
+    Description: CloudWatch Log retention in days
+    Default: 7
+  ProxyUrl:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: Optional Rotating Proxy URL (e.g. http://user:pass@proxy-host:port)
+    Default: /scraper/PROXY_URL
+
+Globals:
+  Function:
+    Timeout: 90
+    MemorySize: 256
+    Runtime: nodejs22.x
+    Environment:
+      Variables:
+        PROXY_URL: !Ref ProxyUrl
+
+Resources:
+  # --- PUPPETEER & CHROMIUM LAMBDA LAYER ---
+  PuppeteerLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: puppeteer-dependencies
+      Description: Shared Puppeteer Extra, Stealth, and Chromium dependencies
+      ContentUri: layers/puppeteer/
+      CompatibleRuntimes:
+        - nodejs22.x
+      CompatibleArchitectures:
+        - x86_64
+    Metadata:
+      BuildMethod: nodejs22.x
+
+  # --- LINKEDIN LAMBDA (lightweight HTTP scraper) ---
+  LinkedInScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: linkedin-jobs-scraper
+      CodeUri: ./
+      Handler: src/lambda-linkedin.handler
+      Description: Scrapes LinkedIn job listings via guest API (axios + cheerio)
+      Architectures:
+        - arm64
+      Policies:
+        - AWSLambdaBasicExecutionRole
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        External:
+          - '@aws-sdk/*'
+        Sourcemap: true
+        EntryPoints:
+          - src/lambda-linkedin.ts
+
+  AccountLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LinkedInScraperFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub '${AWS::AccountId}'
+
+  LinkedInScraperLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${LinkedInScraperFunction}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  # --- NAUKRI LAMBDA (Puppeteer + stealth browser scraper) ---
+  NaukriScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: naukri-jobs-scraper
+      CodeUri: ./
+      Handler: src/lambda-naukri.handler
+      Timeout: 120
+      MemorySize: 1024
+      Architectures:
+        - x86_64
+      Layers:
+        - !Ref PuppeteerLayer
+      Description: Scrapes Naukri.com job listings via Puppeteer + stealth browser
+      Policies:
+        - AWSLambdaBasicExecutionRole
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        External:
+          - '@aws-sdk/*'
+          - 'puppeteer-core'
+          - 'puppeteer-extra'
+          - 'puppeteer-extra-plugin-stealth'
+          - '@sparticuz/chromium'
+        Sourcemap: true
+        EntryPoints:
+          - src/lambda-naukri.ts
+
+  NaukriInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref NaukriScraperFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub '${AWS::AccountId}'
+
+  NaukriLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${NaukriScraperFunction}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  # --- SIMPLYHIRED LAMBDA (lightweight HTTP scraper, SSR Next.js data) ---
+  SimplyHiredScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: simplyhired-jobs-scraper
+      CodeUri: ./
+      Handler: src/lambda-simplyhired.handler
+      Description: Scrapes SimplyHired.com job listings via SSR data extraction (axios)
+      Architectures:
+        - arm64
+      Policies:
+        - AWSLambdaBasicExecutionRole
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        External:
+          - '@aws-sdk/*'
+        Sourcemap: true
+        EntryPoints:
+          - src/lambda-simplyhired.ts
+
+  SimplyHiredInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SimplyHiredScraperFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub '${AWS::AccountId}'
+
+  SimplyHiredLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${SimplyHiredScraperFunction}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  # --- INDEED LAMBDA (browser automation via Puppeteer + stealth) ---
+  IndeedScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: indeed-jobs-scraper
+      CodeUri: ./
+      Handler: src/lambda-indeed.handler
+      Description: Scrapes Indeed.com job listings & full descriptions via Puppeteer browser automation
+      MemorySize: 1024
+      Timeout: 120
+      Architectures:
+        - x86_64
+      Layers:
+        - !Ref PuppeteerLayer
+      Policies:
+        - AWSLambdaBasicExecutionRole
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        External:
+          - '@aws-sdk/*'
+          - '@sparticuz/chromium'
+          - 'puppeteer-core'
+          - 'puppeteer-extra'
+          - 'puppeteer-extra-plugin-stealth'
+        Sourcemap: true
+        EntryPoints:
+          - src/lambda-indeed.ts
+
+  IndeedInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IndeedScraperFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub '${AWS::AccountId}'
+
+  IndeedLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${IndeedScraperFunction}'
+      RetentionInDays: !Ref LogRetentionDays
+
+Outputs:
+  LinkedInFunctionArn:
+    Description: LinkedIn Lambda ARN for direct invocation
+    Value: !GetAtt LinkedInScraperFunction.Arn
+  NaukriFunctionArn:
+    Description: Naukri Lambda ARN for direct invocation
+    Value: !GetAtt NaukriScraperFunction.Arn
+  SimplyHiredFunctionArn:
+    Description: SimplyHired Lambda ARN for direct invocation
+    Value: !GetAtt SimplyHiredScraperFunction.Arn
+  IndeedFunctionArn:
+    Description: Indeed Lambda ARN for direct invocation
+    Value: !GetAtt IndeedScraperFunction.Arn
