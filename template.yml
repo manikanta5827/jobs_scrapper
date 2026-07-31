@@ -217,19 +217,11 @@ Resources:
             - Effect: Allow
               Action:
                 - lambda:InvokeFunction
-              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:linkedin-jobs-scraper-prod'
-            - Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:naukri-jobs-scraper-prod'
-            - Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:simplyhired-jobs-scraper-prod'
-            - Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:indeed-jobs-scraper-prod'
+              Resource:
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:linkedin-jobs-scraper'
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:naukri-jobs-scraper'
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:simplyhired-jobs-scraper'
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:indeed-jobs-scraper'
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
@@ -240,10 +232,10 @@ Resources:
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           ADMIN_API_KEY: !Ref AdminApiKey
           POST_QUEUE_URL: !Ref PostQueue
-          LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
-          NAUKRI_SCRAPER_FUNCTION_NAME: naukri-jobs-scraper-prod
-          SIMPLYHIRED_SCRAPER_FUNCTION_NAME: simplyhired-jobs-scraper-prod
-          INDEED_SCRAPER_FUNCTION_NAME: indeed-jobs-scraper-prod
+          LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper
+          NAUKRI_SCRAPER_FUNCTION_NAME: naukri-jobs-scraper
+          SIMPLYHIRED_SCRAPER_FUNCTION_NAME: simplyhired-jobs-scraper
+          INDEED_SCRAPER_FUNCTION_NAME: indeed-jobs-scraper
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
     EventInvokeConfig:

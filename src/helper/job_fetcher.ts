@@ -12,10 +12,10 @@ import { setTimeout as sleep } from 'timers/promises';
 
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-south-1' });
 
-const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
-const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper-prod';
-const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper-prod';
-const INDEED_SCRAPER_NAME = process.env.INDEED_SCRAPER_FUNCTION_NAME || 'indeed-jobs-scraper-prod';
+const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper';
+const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper';
+const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper';
+const INDEED_SCRAPER_NAME = process.env.INDEED_SCRAPER_FUNCTION_NAME || 'indeed-jobs-scraper';
 // const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 const NO_OF_JOBS_TO_FETCH = 50;
 
