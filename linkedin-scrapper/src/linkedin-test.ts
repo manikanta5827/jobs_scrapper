@@ -7,7 +7,7 @@ async function testFullJobDescription() {
     queryStringParameters: {
       keyword: 'Software Engineer',
       location: 'Bengaluru',
-      limit: '2',
+      limit: '35',
     },
   });
 

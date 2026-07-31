@@ -140,7 +140,6 @@ export class IndeedJobsQuery {
     const maxLimit = this.options.limit || 25;
     const { browser, proxyAuth } = await launchBrowser(this.options.proxyUrl);
     const baseUrl = getBaseUrl(this.options);
-    const searchUrl = buildSearchUrl(this.options);
     const jobPostings: JobPosting[] = [];
 
     try {
@@ -150,55 +149,83 @@ export class IndeedJobsQuery {
       }
       await page.setUserAgent(UA);
 
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await delay(3000);
+      const allRawCards: Array<{
+        jobKey: string;
+        title: string;
+        company: string;
+        location: string;
+        salary: string;
+        agoTime: string;
+      }> = [];
+      const seenKeys = new Set<string>();
+      let pageIndex = this.options.page || 0;
 
-      // Extract basic job metadata from search page DOM
-      const rawCardJobs = await page.evaluate(() => {
-        const results: Array<{
-          jobKey: string;
-          title: string;
-          company: string;
-          location: string;
-          salary: string;
-          agoTime: string;
-        }> = [];
+      while (allRawCards.length < maxLimit) {
+        const searchUrl = buildSearchUrl({ ...this.options, page: pageIndex });
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await delay(2500);
 
-        const cardElements = document.querySelectorAll(
-          'div.cardOutline, div.job_seen_beacon, td.resultContent, div.jobsearch-ResultsList > li'
-        );
+        // Extract basic job metadata from search page DOM
+        const pageCards = await page.evaluate(() => {
+          const results: Array<{
+            jobKey: string;
+            title: string;
+            company: string;
+            location: string;
+            salary: string;
+            agoTime: string;
+          }> = [];
 
-        cardElements.forEach((card) => {
-          const jkAnchor =
-            card.querySelector('a[data-jk]') ||
-            card.querySelector('h2.jobTitle a') ||
-            card.closest('[data-jk]');
-          const jk = jkAnchor?.getAttribute('data-jk') || card.getAttribute('data-jk');
-          const titleEl = card.querySelector('h2.jobTitle') || card.querySelector('a[id^="job_"]');
-          const compEl = card.querySelector('[data-testid="company-name"]') || card.querySelector('.companyName');
-          const locEl = card.querySelector('[data-testid="text-location"]') || card.querySelector('.companyLocation');
-          const salaryEl =
-            card.querySelector('[data-testid="attribute_snippet"]') ||
-            card.querySelector('.salary-snippet-container') ||
-            card.querySelector('.estimated-salary');
-          const dateEl = card.querySelector('.date') || card.querySelector('[data-testid="myJobsStateDate"]');
+          const cardElements = document.querySelectorAll(
+            'div.cardOutline, div.job_seen_beacon, td.resultContent, div.jobsearch-ResultsList > li'
+          );
 
-          if (jk && !results.some((r) => r.jobKey === jk)) {
-            results.push({
-              jobKey: jk,
-              title: titleEl ? titleEl.textContent.trim().replace(/^new\s*/i, '') : '',
-              company: compEl ? compEl.textContent.trim() : '',
-              location: locEl ? locEl.textContent.trim() : '',
-              salary: salaryEl ? salaryEl.textContent.trim() : 'Not specified',
-              agoTime: dateEl ? dateEl.textContent.trim() : '',
-            });
-          }
+          cardElements.forEach((card) => {
+            const jkAnchor =
+              card.querySelector('a[data-jk]') ||
+              card.querySelector('h2.jobTitle a') ||
+              card.closest('[data-jk]');
+            const jk = jkAnchor?.getAttribute('data-jk') || card.getAttribute('data-jk');
+            const titleEl = card.querySelector('h2.jobTitle') || card.querySelector('a[id^="job_"]');
+            const compEl = card.querySelector('[data-testid="company-name"]') || card.querySelector('.companyName');
+            const locEl = card.querySelector('[data-testid="text-location"]') || card.querySelector('.companyLocation');
+            const salaryEl =
+              card.querySelector('[data-testid="attribute_snippet"]') ||
+              card.querySelector('.salary-snippet-container') ||
+              card.querySelector('.estimated-salary');
+            const dateEl = card.querySelector('.date') || card.querySelector('[data-testid="myJobsStateDate"]');
+
+            if (jk && !results.some((r) => r.jobKey === jk)) {
+              results.push({
+                jobKey: jk,
+                title: titleEl ? titleEl.textContent.trim().replace(/^new\s*/i, '') : '',
+                company: compEl ? compEl.textContent.trim() : '',
+                location: locEl ? locEl.textContent.trim() : '',
+                salary: salaryEl ? salaryEl.textContent.trim() : 'Not specified',
+                agoTime: dateEl ? dateEl.textContent.trim() : '',
+              });
+            }
+          });
+
+          return results;
         });
 
-        return results;
-      });
+        if (!pageCards || pageCards.length === 0) break;
 
-      const jobsToFetch = rawCardJobs.slice(0, maxLimit);
+        let addedInPage = 0;
+        for (const card of pageCards) {
+          if (card.jobKey && !seenKeys.has(card.jobKey)) {
+            seenKeys.add(card.jobKey);
+            allRawCards.push(card);
+            addedInPage++;
+          }
+        }
+
+        if (addedInPage === 0) break;
+        pageIndex++;
+      }
+
+      const jobsToFetch = allRawCards.slice(0, maxLimit);
 
       // Fetch full details for each job
       for (const cardJob of jobsToFetch) {
@@ -261,7 +288,7 @@ export class IndeedJobsQuery {
         });
       }
     } finally {
-      await browser.close();
+      try { await browser.close(); } catch {}
     }
 
     return jobPostings;

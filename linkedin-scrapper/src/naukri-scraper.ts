@@ -99,7 +99,7 @@ export class NaukriJobsQuery {
     this.options = options;
   }
 
-  public buildSearchUrl(): string {
+  public buildSearchUrl(pageNumber: number = 1): string {
     const slug = this.options.keyword.toLowerCase().replace(/\s+/g, '-');
     const params = new URLSearchParams();
 
@@ -116,7 +116,8 @@ export class NaukriJobsQuery {
       params.append('location', this.options.location);
     }
 
-    return `https://www.naukri.com/${slug}-jobs?${params.toString()}`;
+    const pagePath = pageNumber > 1 ? `${slug}-jobs-${pageNumber}` : `${slug}-jobs`;
+    return `https://www.naukri.com/${pagePath}?${params.toString()}`;
   }
 
   public async getJobs(): Promise<JobPosting[]> {
@@ -125,20 +126,40 @@ export class NaukriJobsQuery {
       const { browser, proxyAuth } = await launchBrowser(this.options.proxyUrl);
       browserInstance = browser;
       const maxLimit = this.options.limit || 25;
-
-      const searchUrl = this.buildSearchUrl();
-      const browserPage = await browserInstance.newPage();
-      if (proxyAuth) {
-        await browserPage.authenticate(proxyAuth);
-      }
       let allJobs: JobPosting[] = [];
+      const seenJobUrls = new Set<string>();
+      let currentPage = this.options.page || 1;
 
-      try {
-        await browserPage.setDefaultNavigationTimeout(30000);
-        await browserPage.goto(searchUrl, { waitUntil: 'networkidle2' });
-        allJobs = await this.extractJobCards(browserPage);
-      } finally {
-        await browserPage.close();
+      while (allJobs.length < maxLimit) {
+        const searchUrl = this.buildSearchUrl(currentPage);
+        const browserPage = await browserInstance.newPage();
+        if (proxyAuth) {
+          await browserPage.authenticate(proxyAuth);
+        }
+
+        try {
+          await browserPage.setDefaultNavigationTimeout(30000);
+          await browserPage.goto(searchUrl, { waitUntil: 'networkidle2' });
+          const pageJobs = await this.extractJobCards(browserPage);
+
+          if (!pageJobs || pageJobs.length === 0) break;
+
+          let addedInPage = 0;
+          for (const job of pageJobs) {
+            if (job.jobUrl && !seenJobUrls.has(job.jobUrl)) {
+              seenJobUrls.add(job.jobUrl);
+              allJobs.push(job);
+              addedInPage++;
+            }
+          }
+
+          if (addedInPage === 0) break;
+        } finally {
+          try { await browserPage.close(); } catch {}
+        }
+
+        currentPage++;
+        await delay(1000);
       }
 
       // Cap at limit, enrich with details

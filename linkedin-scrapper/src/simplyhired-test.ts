@@ -5,12 +5,12 @@ async function testSimplyHiredJobs() {
 
   const res = await handler({
     queryStringParameters: {
-      keyword: 'backend developer fresher',
+      keyword: 'backend developer',
       location: 'Remote',
-      datePosted: '7days',
+      datePosted: '30days',
       jobType: 'fulltime',
       sort: 'date',
-      limit: '5',
+      limit: '35',
     },
   });
 

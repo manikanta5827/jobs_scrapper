@@ -31,4 +31,6 @@ export interface SimplyHiredJobQueryOptions {
   domain?: string;
   limit?: number;
   page?: number;
+  cursor?: string;
 }
+

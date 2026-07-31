@@ -9,7 +9,7 @@ async function testIndeedJobs() {
       location: 'Remote',
       fromage: '7',
       jobType: 'fulltime',
-      limit: '3',
+      limit: '15',
     },
   });
 

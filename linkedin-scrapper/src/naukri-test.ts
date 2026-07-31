@@ -11,7 +11,7 @@ async function testNaukriJobs() {
       wfhType: 'remote,hybrid',
       sort: 'date',
       experience: '3',
-      limit: '3',
+      limit: '25',
     },
   });
 

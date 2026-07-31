@@ -59,7 +59,9 @@ function buildSearchUrl(options: SimplyHiredJobQueryOptions): string {
   if (options.keyword) params.append('q', options.keyword);
   if (options.location) params.append('l', options.location);
 
-  if (options.page && options.page > 1) {
+  if (options.cursor) {
+    params.append('cursor', options.cursor);
+  } else if (options.page && options.page > 1) {
     params.append('pn', String(options.page));
   }
 
@@ -115,18 +117,19 @@ interface RawViewJob {
   jobTypes?: string[];
 }
 
-function parseNextData(html: string): { jobs: RawJob[]; viewJob: RawViewJob | null } {
+function parseNextData(html: string): { jobs: RawJob[]; viewJob: RawViewJob | null; pageCursors: Record<string, string> } {
   const match = html.match(/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/);
-  if (!match) return { jobs: [], viewJob: null };
+  if (!match) return { jobs: [], viewJob: null, pageCursors: {} };
 
   try {
     const data = JSON.parse(match[1]);
     const pageProps = data?.props?.pageProps || {};
     const jobs: RawJob[] = pageProps.jobs || [];
     const viewJob: RawViewJob | null = pageProps.viewJobData || null;
-    return { jobs, viewJob };
+    const pageCursors: Record<string, string> = pageProps.pageCursors || {};
+    return { jobs, viewJob, pageCursors };
   } catch {
-    return { jobs: [], viewJob: null };
+    return { jobs: [], viewJob: null, pageCursors: {} };
   }
 }
 
@@ -177,12 +180,14 @@ export class SimplyHiredJobsQuery {
   public async getJobs(): Promise<JobPosting[]> {
     const maxLimit = this.options.limit || 25;
     let allJobs: JobPosting[] = [];
+    const seenJobIds = new Set<string>();
     let currentPage = this.options.page || 1;
+    let currentCursor: string | undefined = this.options.cursor;
     let totalCount = 0;
     const baseUrl = getBaseUrl(this.options);
 
     while (allJobs.length < maxLimit) {
-      const url = buildSearchUrl({ ...this.options, page: currentPage });
+      const url = buildSearchUrl({ ...this.options, page: currentPage, cursor: currentCursor });
 
       const headers: Record<string, string> = {
         'User-Agent': UA,
@@ -201,7 +206,7 @@ export class SimplyHiredJobsQuery {
         validateStatus: (status: number) => status === 200,
       });
 
-      const { jobs, viewJob } = parseNextData(response.data);
+      const { jobs, viewJob, pageCursors } = parseNextData(response.data);
 
       if (!jobs || jobs.length === 0) break;
 
@@ -210,12 +215,39 @@ export class SimplyHiredJobsQuery {
         totalCount = resultMatch ? parseInt(resultMatch[1], 10) : jobs.length;
       }
 
-      const mapped = jobs.map((job, i) => mapToJobPosting(job, i === 0 ? viewJob : null, i, baseUrl));
-      allJobs.push(...mapped);
+      let addedCount = 0;
+      for (let i = 0; i < jobs.length; i++) {
+        const rawJob = jobs[i];
+        if (rawJob.jobKey && !seenJobIds.has(rawJob.jobKey)) {
+          seenJobIds.add(rawJob.jobKey);
+          const mapped = mapToJobPosting(rawJob, i === 0 ? viewJob : null, i, baseUrl);
+          allJobs.push(mapped);
+          addedCount++;
+        }
+      }
 
-      if (jobs.length < 20 || allJobs.length >= totalCount) break;
+      // If no new unique jobs were added on this page or we reached totalCount, stop
+      if (addedCount === 0 || allJobs.length >= totalCount) break;
 
       currentPage++;
+      const nextCursor = pageCursors?.[String(currentPage)];
+      if (nextCursor) {
+        currentCursor = nextCursor;
+      } else {
+        // Fallback: extract next page cursor from HTML if pageCursors map didn't have it
+        const nextLinkMatch = response.data.match(/data-testid="pageNumberBlockNext"[^>]*href="([^"]*)"/);
+        if (nextLinkMatch) {
+          const cursorMatch = nextLinkMatch[1].match(/cursor=([^&"'\s]+)/);
+          if (cursorMatch) {
+            currentCursor = decodeURIComponent(cursorMatch[1]);
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+
       await delay(500 + Math.random() * 300);
     }
 
