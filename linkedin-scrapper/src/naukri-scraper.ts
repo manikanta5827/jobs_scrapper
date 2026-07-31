@@ -151,8 +151,8 @@ export class NaukriJobsQuery {
         }
 
         try {
-          await browserPage.setDefaultNavigationTimeout(30000);
-          await browserPage.goto(searchUrl, { waitUntil: 'networkidle2' });
+          await browserPage.setDefaultNavigationTimeout(15000);
+          await browserPage.goto(searchUrl, { waitUntil: 'domcontentloaded' });
           const pageJobs = await this.extractJobCards(browserPage);
 
           if (!pageJobs || pageJobs.length === 0) break;
@@ -277,8 +277,17 @@ export class NaukriJobsQuery {
       await page.authenticate(proxyAuth);
     }
     try {
-      await page.setDefaultNavigationTimeout(20000);
-      await page.goto(jobUrl, { waitUntil: 'networkidle2' });
+      await page.setRequestInterception(true);
+      page.on('request', (req: any) => {
+        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+
+      await page.setDefaultNavigationTimeout(10000);
+      await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
 
       return page.evaluate(() => {
         const descEl = document.querySelector('.styles_job-desc-container__txpYf, [class*=job-desc-container], [class*=jd-desc]');

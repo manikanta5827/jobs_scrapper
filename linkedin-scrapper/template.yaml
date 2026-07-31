@@ -79,7 +79,7 @@ Resources:
       FunctionName: naukri-jobs-scraper
       CodeUri: ./
       Handler: src/lambda-naukri.handler
-      Timeout: 120
+      Timeout: 600
       MemorySize: 1024
       Architectures:
         - x86_64
@@ -161,7 +161,7 @@ Resources:
       Handler: src/lambda-indeed.handler
       Description: Scrapes Indeed.com job listings & full descriptions via Puppeteer browser automation
       MemorySize: 1024
-      Timeout: 120
+      Timeout: 600
       Architectures:
         - x86_64
       Layers:

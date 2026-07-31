@@ -5,13 +5,11 @@ async function testNaukriJobs() {
 
   const res = await handler({
     queryStringParameters: {
-      keyword: 'backend developer',
-      location: 'Hyderabad',
+      keyword: 'Cloud Developer',
+      location: 'Mumbai',
       jobAge: '7',
-      wfhType: 'remote,hybrid',
       sort: 'date',
-      experience: '3',
-      limit: '25',
+      limit: '10',
     },
   });
 

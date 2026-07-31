@@ -54,7 +54,7 @@ export async function fetchJobsForUser(
 ): Promise<Job[]> {
   const queries = buildSearchQueriesFromProfile(user);
 
-  console.log(`[JobFetcher] Processing ${queries.length} queries for user ${user.id || 'unknown'} (LinkedIn + Naukri)`);
+  console.log(`[JobFetcher] Processing ${queries.length} queries for user ${user.id || 'unknown'}`);
 
   if (queries.length === 0) {
     console.warn(`[JobFetcher] No search queries could be generated for user ${user.id}`);
