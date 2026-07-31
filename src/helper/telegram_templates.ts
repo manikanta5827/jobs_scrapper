@@ -34,7 +34,10 @@ export function getSuccessHeader(dateTimeStr: string, stats: JobStats): string {
  */
 export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   const scoreEmoji = (j.ai_score ?? 0) >= HIGH_SCORE_THRESHOLD ? '✅' : '⚠️';
-  const sourceLabel = j._source === 'naukri' ? 'Naukri' : 'LinkedIn';
+  
+  let sourceLabel = 'LinkedIn';
+  if (j._source === 'naukri') sourceLabel = 'Naukri';
+  else if (j._source === 'simplyhired') sourceLabel = 'SimplyHired';
   
   let msg = `<b>[ #${index} ] — ${j.title}</b>\n`;
   msg += `────────────────────\n`;
@@ -64,7 +67,7 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
     msg += `📝 <b>AI Reason:</b> <i>${j.ai_reason}</i>\n\n`;
   }
 
-  const applyPlatform = j._source === 'naukri' ? 'NAUKRI' : 'LINKEDIN';
+  const applyPlatform = sourceLabel.toUpperCase();
   msg += `\n🚀 <a href="${j.link}"><b>APPLY ON ${applyPlatform}</b></a>\n`;
   const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || APP_FALLBACK_URL;
   const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.id || '')}`;

@@ -14,6 +14,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-so
 
 const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
 const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper-prod';
+const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper-prod';
 // const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 const NO_OF_JOBS_TO_FETCH = 50;
 
@@ -61,10 +62,11 @@ export async function fetchJobsForUser(
 
   let jobs: Job[] = [];
 
-  // Fetch from both LinkedIn and Naukri Lambdas in parallel
-  const [linkedinJobs, naukriJobs] = await Promise.allSettled([
+  // Fetch from all three Lambdas in parallel
+  const [linkedinJobs, naukriJobs, simplyhiredJobs] = await Promise.allSettled([
     fetchViaLambdaScraper(queries, user, lookbackHours),
     fetchViaNaukriLambda(queries, user, lookbackHours),
+    fetchViaSimplyHiredLambda(queries, user, lookbackHours),
   ]);
 
   if (linkedinJobs.status === 'fulfilled') {
@@ -77,6 +79,12 @@ export async function fetchJobsForUser(
     jobs.push(...naukriJobs.value);
   } else {
     console.warn(`[JobFetcher] Naukri scraper failed: ${naukriJobs.reason?.message}`);
+  }
+
+  if (simplyhiredJobs.status === 'fulfilled') {
+    jobs.push(...simplyhiredJobs.value);
+  } else {
+    console.warn(`[JobFetcher] SimplyHired scraper failed: ${simplyhiredJobs.reason?.message}`);
   }
 
   // Deduplicate by link across queries
@@ -250,6 +258,62 @@ async function fetchViaNaukriLambda(
   return allJobs;
 }
 
+// ─── SIMPLYHIRED LAMBDA SCRAPER PROVIDER ────────────────────────────────────
+
+async function fetchViaSimplyHiredLambda(
+  queries: SearchQuery[],
+  user: { experienceYears?: number | null; employmentType?: string | null },
+  lookbackHours: number
+): Promise<Job[]> {
+  const datePosted = lookbackHours <= 24 ? '24hr' : lookbackHours <= 72 ? '3days' : lookbackHours <= 168 ? '7days' : '30days';
+  
+  // Experience for keyword
+  let expKeyword = '';
+  if (user.experienceYears != null) {
+    if (user.experienceYears <= 1) expKeyword = ' fresher';
+    else if (user.experienceYears <= 3) expKeyword = ' entry level';
+    else if (user.experienceYears <= 8) expKeyword = ' senior';
+    else expKeyword = ' lead';
+  }
+
+  const allJobs: Job[] = [];
+  const CONCURRENCY = 5;
+  const BATCH_DELAY_MS = 2000;
+
+  for (let i = 0; i < queries.length; i += CONCURRENCY) {
+    const batch = queries.slice(i, i + CONCURRENCY);
+
+    const results = await Promise.allSettled(
+      batch.map(q => invokeScraperLambda(SIMPLYHIRED_SCRAPER_NAME, {
+        keyword: q.keyword + expKeyword,
+        location: q.location,
+        datePosted,
+        jobType: 'fulltime',
+        limit: NO_OF_JOBS_TO_FETCH,
+        sort: 'date',
+      }))
+    );
+
+    for (let j = 0; j < results.length; j++) {
+      const res = results[j];
+      const q = batch[j];
+      if (res.status === 'fulfilled') {
+        const mapped = res.value.map(item => mapScraperItemToJob(item, 'simplyhired'));
+        allJobs.push(...mapped);
+        console.log(`  ✓ SimplyHired: "${q.keyword}" @ "${q.location}" → ${res.value.length} jobs`);
+      } else {
+        console.warn(`  ✗ SimplyHired: "${q.keyword}" @ "${q.location}" failed: ${res.reason?.message || 'Error'}`);
+      }
+    }
+
+    if (i + CONCURRENCY < queries.length) {
+      await sleep(BATCH_DELAY_MS);
+    }
+  }
+
+  return allJobs;
+}
+
 interface ScraperItem {
   id?: string;
   jobUrl?: string;
@@ -287,7 +351,7 @@ async function invokeScraperLambda(functionName: string, params: Record<string, 
   return body.data || [];
 }
 
-function mapScraperItemToJob(item: ScraperItem, source: 'linkedin' | 'naukri' = 'linkedin'): Job {
+function mapScraperItemToJob(item: ScraperItem, source: 'linkedin' | 'naukri' | 'simplyhired' = 'linkedin'): Job {
   const details = item.details;
   return {
     id: item.id,
