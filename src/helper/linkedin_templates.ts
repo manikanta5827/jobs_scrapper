@@ -55,7 +55,7 @@ export function formatJobPost(job: EnrichedJob): string {
   post += 'No more reading descriptions wondering "is this even for me?" Just apply.\n\n';
   post += '✅ Perfectly matched to your resume\n';
   post += '✅ No searching. No filtering. Jobs come to you.\n';
-  post += '📩 Mail me if intrested : thummurimanikanta7@gmail.com \n\n';
+  post += '📩 Whatsapp me if intrested : 8309497947 \n\n';
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
 }

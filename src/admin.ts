@@ -60,6 +60,12 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     if (!jobId) {
       return response(400, { error: 'Missing Job ID parameter' });
     }
+
+    const paramParse = UuidParamSchema.safeParse(jobId);
+    if (!paramParse.success) {
+      return response(400, { error: `Validation Error: Invalid Job ID format` });
+    }
+
     const job = await getJobById(jobId);
     if (!job) {
       return response(404, { error: 'Job not found' });

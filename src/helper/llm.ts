@@ -37,6 +37,7 @@ export async function executellmCall<T>(
   temperature?: number,
   telemetryOptions?: { functionId?: string; metadata?: Record<string, string> },
   modelId?: string,
+  disableThinking: boolean = false,
 ): Promise<{ object: T; usage: TokenUsage }> {
   if (!process.env.LLM_API_KEY) {
     throw new FatalError("Missing LLM_API_KEY");
@@ -46,14 +47,20 @@ export async function executellmCall<T>(
     apiKey: process.env.LLM_API_KEY,
   });
 
-  const model = wrapModelWithTelemetry(
-    openrouter(modelId ?? 'deepseek/deepseek-v4-flash', {
-      extraBody: {
-        provider: {
-          order: ['deepinfra'],
-        }
+  const openRouterConfig: any = {
+    extraBody: {
+      provider: {
+        order: ['deepinfra'],
       }
-    }),
+    }
+  };
+
+  if (disableThinking) {
+    openRouterConfig.thinking = { type: 'disabled' };
+  }
+
+  const model = wrapModelWithTelemetry(
+    openrouter(modelId ?? 'deepseek/deepseek-v4-flash', openRouterConfig),
     {
       functionId: telemetryOptions?.functionId ?? 'llm-call',
       metadata: telemetryOptions?.metadata ?? {},
@@ -590,6 +597,8 @@ CRITICAL: Do NOT return the resume verbatim. Tailor it.`;
     systemPrompt,
     0.4,
     { functionId: 'generate-ats-resume', metadata: { jobTitle, companyName } },
+    undefined,
+    true // disableThinking
   );
 
   const resumeMd = convertAtsResumeToMarkdown(resume, userName || 'Candidate', userEmail || '');
