@@ -38,6 +38,7 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   let sourceLabel = 'LinkedIn';
   if (j._source === 'naukri') sourceLabel = 'Naukri';
   else if (j._source === 'simplyhired') sourceLabel = 'SimplyHired';
+  else if (j._source === 'indeed') sourceLabel = 'Indeed';
   
   let msg = `<b>[ #${index} ] — ${j.title}</b>\n`;
   msg += `────────────────────\n`;

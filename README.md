@@ -1,6 +1,6 @@
 # 🚀 AI-Powered Multi-Platform Job Scraper
 
-An automated job discovery engine that acts as your personal recruiter. It scrapes LinkedIn, Naukri, and SimplyHired for new opportunities, evaluates them against your specific profile using OpenAI, and delivers a curated list of high-quality matches directly to your inbox.
+An automated job discovery engine that acts as your personal recruiter. It scrapes LinkedIn, Naukri, SimplyHired, and Indeed for new opportunities, evaluates them against your specific profile using OpenAI, and delivers a curated list of high-quality matches directly to your inbox.
 
 ## 🌟 Key Features
 
@@ -12,7 +12,7 @@ An automated job discovery engine that acts as your personal recruiter. It scrap
 
 ## 🛠 How It Works (The Pipeline)
 
-1.  **Scrape**: Fetches raw job listings from LinkedIn, Naukri, and SimplyHired via **Custom AWS Lambda Scrapers**.
+1.  **Scrape**: Fetches raw job listings from LinkedIn, Naukri, SimplyHired, and Indeed via **Custom AWS Lambda Scrapers**.
 2.  **Deduplicate**: Checks against **Neon Postgres** to ensure you don't see the same job twice.
 3.  **Keyword Filter**: Instantly removes roles with mismatched seniority (e.g., "10+ YOE") or irrelevant domains.
 4.  **AI Analysis**: GPT-4o-mini evaluates the job against your `resume.txt` to find the best fit.
@@ -24,7 +24,7 @@ An automated job discovery engine that acts as your personal recruiter. It scrap
 *   **Storage**: Neon Serverless Postgres, Drizzle ORM.
 *   **Intelligence**: OpenAI API (GPT-4o-mini).
 *   **Infrastructure**: AWS SAM (EventBridge, SSM, SES).
-*   **Scraping**: Custom AWS Lambda Microservices (LinkedIn, Naukri, SimplyHired).
+*   **Scraping**: Custom AWS Lambda Microservices (LinkedIn, Naukri, SimplyHired, Indeed).
 
 ---
 *For technical setup and deployment instructions, see [RUN.md](./RUN.md).*

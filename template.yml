@@ -226,6 +226,10 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:simplyhired-jobs-scraper-prod'
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:indeed-jobs-scraper-prod'
       Environment:
         Variables:
           APIFY_API_KEY: !Ref ApifyApiKey
@@ -239,6 +243,7 @@ Resources:
           LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper-prod
           NAUKRI_SCRAPER_FUNCTION_NAME: naukri-jobs-scraper-prod
           SIMPLYHIRED_SCRAPER_FUNCTION_NAME: simplyhired-jobs-scraper-prod
+          INDEED_SCRAPER_FUNCTION_NAME: indeed-jobs-scraper-prod
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
     EventInvokeConfig:

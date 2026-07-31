@@ -15,6 +15,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-so
 const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper-prod';
 const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper-prod';
 const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper-prod';
+const INDEED_SCRAPER_NAME = process.env.INDEED_SCRAPER_FUNCTION_NAME || 'indeed-jobs-scraper-prod';
 // const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 const NO_OF_JOBS_TO_FETCH = 50;
 
@@ -62,11 +63,12 @@ export async function fetchJobsForUser(
 
   let jobs: Job[] = [];
 
-  // Fetch from all three Lambdas in parallel
-  const [linkedinJobs, naukriJobs, simplyhiredJobs] = await Promise.allSettled([
+  // Fetch from all four Lambdas in parallel
+  const [linkedinJobs, naukriJobs, simplyhiredJobs, indeedJobs] = await Promise.allSettled([
     fetchViaLambdaScraper(queries, user, lookbackHours),
     fetchViaNaukriLambda(queries, user, lookbackHours),
     fetchViaSimplyHiredLambda(queries, user, lookbackHours),
+    fetchViaIndeedLambda(queries, user, lookbackHours),
   ]);
 
   if (linkedinJobs.status === 'fulfilled') {
@@ -85,6 +87,12 @@ export async function fetchJobsForUser(
     jobs.push(...simplyhiredJobs.value);
   } else {
     console.warn(`[JobFetcher] SimplyHired scraper failed: ${simplyhiredJobs.reason?.message}`);
+  }
+
+  if (indeedJobs.status === 'fulfilled') {
+    jobs.push(...indeedJobs.value);
+  } else {
+    console.warn(`[JobFetcher] Indeed scraper failed: ${indeedJobs.reason?.message}`);
   }
 
   // Deduplicate by link across queries
@@ -314,6 +322,54 @@ async function fetchViaSimplyHiredLambda(
   return allJobs;
 }
 
+// ─── INDEED LAMBDA SCRAPER PROVIDER ─────────────────────────────────────────
+
+async function fetchViaIndeedLambda(
+  queries: SearchQuery[],
+  user: { experienceYears?: number | null; employmentType?: string | null },
+  lookbackHours: number
+): Promise<Job[]> {
+  const fromage = lookbackHours <= 24 ? 1 : lookbackHours <= 72 ? 3 : lookbackHours <= 168 ? 7 : 30;
+  const jobType = user.employmentType?.toLowerCase() || 'fulltime';
+  
+  const allJobs: Job[] = [];
+  const CONCURRENCY = 5;
+  const BATCH_DELAY_MS = 2000;
+
+  for (let i = 0; i < queries.length; i += CONCURRENCY) {
+    const batch = queries.slice(i, i + CONCURRENCY);
+
+    const results = await Promise.allSettled(
+      batch.map(q => invokeScraperLambda(INDEED_SCRAPER_NAME, {
+        keyword: q.keyword,
+        location: q.location,
+        fromage,
+        jobType,
+        limit: NO_OF_JOBS_TO_FETCH,
+        sort: 'date',
+      }))
+    );
+
+    for (let j = 0; j < results.length; j++) {
+      const res = results[j];
+      const q = batch[j];
+      if (res.status === 'fulfilled') {
+        const mapped = res.value.map(item => mapScraperItemToJob(item, 'indeed'));
+        allJobs.push(...mapped);
+        console.log(`  ✓ Indeed: "${q.keyword}" @ "${q.location}" → ${res.value.length} jobs`);
+      } else {
+        console.warn(`  ✗ Indeed: "${q.keyword}" @ "${q.location}" failed: ${res.reason?.message || 'Error'}`);
+      }
+    }
+
+    if (i + CONCURRENCY < queries.length) {
+      await sleep(BATCH_DELAY_MS);
+    }
+  }
+
+  return allJobs;
+}
+
 interface ScraperItem {
   id?: string;
   jobUrl?: string;
@@ -351,7 +407,7 @@ async function invokeScraperLambda(functionName: string, params: Record<string, 
   return body.data || [];
 }
 
-function mapScraperItemToJob(item: ScraperItem, source: 'linkedin' | 'naukri' | 'simplyhired' = 'linkedin'): Job {
+function mapScraperItemToJob(item: ScraperItem, source: 'linkedin' | 'naukri' | 'simplyhired' | 'indeed' = 'linkedin'): Job {
   const details = item.details;
   return {
     id: item.id,
