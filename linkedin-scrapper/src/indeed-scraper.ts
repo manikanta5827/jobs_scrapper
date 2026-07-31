@@ -155,7 +155,14 @@ export class IndeedJobsQuery {
       if (proxyAuth) {
         await page.authenticate(proxyAuth);
       }
-      await page.setUserAgent(UA);
+      await page.setRequestInterception(true);
+      page.on('request', (req: any) => {
+        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
 
       const allRawCards: Array<{
         jobKey: string;
@@ -170,8 +177,8 @@ export class IndeedJobsQuery {
 
       while (allRawCards.length < maxLimit) {
         const searchUrl = buildSearchUrl({ ...this.options, page: pageIndex });
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await delay(2500);
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await delay(1500);
 
         // Extract basic job metadata from search page DOM
         const pageCards = await page.evaluate(() => {
@@ -206,11 +213,11 @@ export class IndeedJobsQuery {
             if (jk && !results.some((r) => r.jobKey === jk)) {
               results.push({
                 jobKey: jk,
-                title: titleEl ? titleEl.textContent.trim().replace(/^new\s*/i, '') : '',
-                company: compEl ? compEl.textContent.trim() : '',
-                location: locEl ? locEl.textContent.trim() : '',
-                salary: salaryEl ? salaryEl.textContent.trim() : 'Not specified',
-                agoTime: dateEl ? dateEl.textContent.trim() : '',
+                title: titleEl?.textContent?.trim()?.replace(/^new\s*/i, '') || '',
+                company: compEl?.textContent?.trim() || '',
+                location: locEl?.textContent?.trim() || '',
+                salary: salaryEl?.textContent?.trim() || 'Not specified',
+                agoTime: dateEl?.textContent?.trim() || '',
               });
             }
           });
@@ -244,8 +251,8 @@ export class IndeedJobsQuery {
         let salaryText = cardJob.salary;
 
         try {
-          await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
-          await delay(1500);
+          await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+          await delay(500);
 
           const detailData = await page.evaluate(() => {
             const descEl =
@@ -262,10 +269,10 @@ export class IndeedJobsQuery {
               document.querySelector('.jobsearch-JobMetadataHeader-item');
 
             return {
-              descriptionText: descEl ? descEl.textContent.trim() : '',
-              company: compEl ? compEl.textContent.trim() : '',
-              location: locEl ? locEl.textContent.trim() : '',
-              salary: salEl ? salEl.textContent.trim() : '',
+              descriptionText: descEl?.textContent?.trim() || '',
+              company: compEl?.textContent?.trim() || '',
+              location: locEl?.textContent?.trim() || '',
+              salary: salEl?.textContent?.trim() || '',
             };
           });
 
