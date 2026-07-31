@@ -17,7 +17,7 @@ const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-
 const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper';
 const INDEED_SCRAPER_NAME = process.env.INDEED_SCRAPER_FUNCTION_NAME || 'indeed-jobs-scraper';
 // const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
-const NO_OF_JOBS_TO_FETCH = 100;
+const NO_OF_JOBS_TO_FETCH = 50;
 
 
 /** Single search query sent to the scraper engine */
