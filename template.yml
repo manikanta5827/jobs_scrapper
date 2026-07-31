@@ -134,28 +134,18 @@ Resources:
           APP_ENV: !Ref AppEnv
 
       Events:
-        # Run 1: 8 AM IST, Mon-Sun — catches overnight jobs from previous evening
-        Run8am:
+        # Run 1: 11 AM IST, Mon-SAT — catches overnight jobs from previous evening
+        MorningRun:
           Type: ScheduleV2
           Properties:
-            ScheduleExpression: cron(0 8 ? * * *)
+            ScheduleExpression: cron(0 11 ? * MON-SAT *)
             ScheduleExpressionTimezone: "Asia/Kolkata"
             Input: !Sub '{"lookbackHours": 14, "adminApiKey": "${AdminApiKey}", "includeFreeTier": true}'
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
-        # Run 2: 12 PM IST, Mon-Sun — catches morning postings
-        Run12pm:
-          Type: ScheduleV2
-          Properties:
-            ScheduleExpression: cron(0 12 ? * MON-SAT *)
-            ScheduleExpressionTimezone: "Asia/Kolkata"
-            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
-            RetryPolicy:
-              MaximumRetryAttempts: 0
-              MaximumEventAgeInSeconds: 3600
-        # Run 3: 4 PM IST, Mon-Sun — catches afternoon postings
-        Run4pm:
+        # Run 3: 4 PM IST, Mon-Sat — catches afternoon postings
+        EveningRun:
           Type: ScheduleV2
           Properties:
             ScheduleExpression: cron(0 16 ? * MON-SAT *)
@@ -164,8 +154,8 @@ Resources:
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
-        # Run 4: 8 PM IST, Mon-Sun — catches evening postings
-        Run8pm:
+        # Run 4: 8 PM IST, Mon-Sat — catches evening postings
+        NightRun:
           Type: ScheduleV2
           Properties:
             ScheduleExpression: cron(0 20 ? * MON-SAT *)

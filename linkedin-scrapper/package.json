@@ -16,7 +16,7 @@
     "sam:local:naukri": "sam build && sam local invoke NaukriScraperFunction -e event.json",
     "sam:local:simplyhired": "sam build && sam local invoke SimplyHiredScraperFunction -e event.json",
     "sam:local:indeed": "sam build && sam local invoke IndeedScraperFunction -e event.json",
-    "sam:deploy": "sam validate --lint && sam build --parallel && sam deploy"
+    "sam:deploy": "sam validate --lint && sam build --parallel && sam deploy  --no-confirm-changeset"
   },
   "keywords": [
     "linkedin",

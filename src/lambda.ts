@@ -28,7 +28,7 @@ export const handler = async (
   console.log(`MainLambda Dispatcher started. Lookback: ${lookbackHours}h, IncludeFreeTier: ${includeFreeTier}`, new Date().toISOString());
 
   // 1. Reset expired high-usage Apify tokens & purge 7-day-old unmatched jobs
-  await resetHighUsageTokens();
+  // await resetHighUsageTokens();
   await purgeOldUnmatchedJobs(7);
 
   // Fetch active users to process

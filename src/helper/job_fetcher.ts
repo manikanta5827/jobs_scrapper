@@ -239,6 +239,7 @@ async function fetchViaNaukriLambda(
       batch.map(q => invokeScraperLambda(NAUKRI_SCRAPER_NAME, {
         keyword: q.keyword,
         jobAge,
+        location: "India",
         experience,
         limit: NO_OF_JOBS_TO_FETCH,
         sort: 'date',
@@ -340,7 +341,7 @@ async function fetchViaIndeedLambda(
     const results = await Promise.allSettled(
       batch.map(q => invokeScraperLambda(INDEED_SCRAPER_NAME, {
         keyword: q.keyword,
-        location: q.location,
+        location: 'India',
         fromage,
         jobType: 'fulltime',
         limit: NO_OF_JOBS_TO_FETCH,
