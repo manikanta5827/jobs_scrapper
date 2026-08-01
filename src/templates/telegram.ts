@@ -35,14 +35,19 @@ export function getSuccessHeader(dateTimeStr: string, stats: JobStats): string {
 export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   const scoreEmoji = (j.ai_score ?? 0) >= HIGH_SCORE_THRESHOLD ? '✅' : '⚠️';
   
+  const rawSource = String(j.source || '').toLowerCase();
   let sourceLabel = 'LinkedIn';
-  if (j._source === 'naukri') sourceLabel = 'Naukri';
-  else if (j._source === 'simplyhired') sourceLabel = 'SimplyHired';
-  else if (j._source === 'indeed') sourceLabel = 'Indeed';
+  if (rawSource === 'naukri' || (j.link && j.link.includes('naukri.com'))) {
+    sourceLabel = 'Naukri';
+  } else if (rawSource === 'simplyhired' || (j.link && j.link.includes('simplyhired.'))) {
+    sourceLabel = 'SimplyHired';
+  } else if (rawSource === 'indeed' || (j.link && j.link.includes('indeed.'))) {
+    sourceLabel = 'Indeed';
+  }
   
   let msg = `<b>[ #${index} ] — ${j.title}</b>\n`;
   msg += `────────────────────\n`;
-  if (j._source) {
+  if (j.source || sourceLabel !== 'LinkedIn') {
     msg += `💼 <b>Source:</b> <code>${sourceLabel}</code>\n`;
   }
   msg += `🏢 <b>Company:</b>  <code>${j.companyName}</code>\n`;

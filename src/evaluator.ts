@@ -209,7 +209,7 @@ async function processUserWorker(
     console.log("YOE Rejected keyword_bin_reason(s):");
     yoeRejected.forEach((job, idx) => {
       if (job.keyword_bin_reason) {
-        console.log(`  [${idx}] keyword_bin_reason: ${job.keyword_bin_reason}`);
+        console.log(`  [${idx}] keyword_bin_reason: ${job.keyword_bin_reason} for job title ${job.title} and link ${job.link}`);
       } else {
         console.log(`  [${idx}] No keyword_bin_reason present`);
       }
@@ -289,7 +289,7 @@ async function processUserWorker(
         directApply: m?.ai_direct_apply || j.applyUrl || null,
         applicantsCount: j.applicantsCount,
         descriptionText: j.descriptionText,
-        source: j._source,
+        source: j.source,
       };
     }));
 
@@ -357,7 +357,7 @@ async function sendMatchedJobs(botToken: string, chatId: string, matched: Enrich
   if (!chatId) return;
 
   // Sort matched jobs by score descending so highest-rated appear first
-  matched.sort((a, b) => (Number(b.aiScore ?? 0)) - (Number(a.aiScore ?? 0)));
+  matched.sort((a, b) => (Number(b.ai_score ?? 0)) - (Number(a.ai_score ?? 0)));
 
   if (matched.length === 0) {
     await sendTelegramMessage(botToken, chatId, getZeroMatchesMessage(dateStr, stats));

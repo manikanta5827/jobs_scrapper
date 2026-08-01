@@ -19,6 +19,7 @@ export function normalizeJob(job: any): Job {
     jobFunction: job.jobFunction || job.details?.jobFunction || '',
     industries: job.industries || job.details?.industries || '',
     postedAt: job.postedAt || job.date || '',
+    source: job.source || 'linkedin',
   };
 }
 

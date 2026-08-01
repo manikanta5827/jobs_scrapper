@@ -211,7 +211,7 @@ Resources:
       Runtime: nodejs24.x
       Architectures:
         - arm64
-      MemorySize: 256
+      MemorySize: 128
       LoggingConfig:
         LogFormat: JSON
       CodeUri: src/

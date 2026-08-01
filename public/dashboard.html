@@ -1057,7 +1057,7 @@
         const matchedSkills = Array.isArray(job.matchedSkills) ? job.matchedSkills : (Array.isArray(job.matched_skills) ? job.matched_skills : (Array.isArray(job.ai_matched_skills) ? job.ai_matched_skills : []));
         const missingSkills = Array.isArray(job.missingSkills) ? job.missingSkills : (Array.isArray(job.missing_skills) ? job.missing_skills : (Array.isArray(job.ai_missing_skills) ? job.ai_missing_skills : []));
         const createdAt = job.createdAt || job.created_at || job.postedAt || job.posted_at || new Date().toISOString();
-        const source = (job.source || job._source || '').toLowerCase();
+        const source = (job.source || '').toLowerCase();
         const sourceLabel = source === 'naukri' ? 'Naukri' : source === 'linkedin' ? 'LinkedIn' : source || 'Unknown';
         const sourceClass = source === 'naukri' ? 'source-naukri' : source === 'linkedin' ? 'source-linkedin' : 'source-unknown';
 

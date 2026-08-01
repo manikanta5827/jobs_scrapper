@@ -154,7 +154,7 @@ function extractLocations(user: {
 //
 //     await updateApifyTokenUsage(tokenData.id, items.length);
 //     const jobs = items as Job[];
-//     jobs.forEach(j => { j._source = 'apify'; });
+//     jobs.forEach(j => { j.source = 'apify'; });
 //     return jobs;
 //   } catch (err) {
 //     clearTimeout(timer);
