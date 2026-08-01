@@ -193,7 +193,7 @@ export class NaukriJobsQuery {
             const resourceType = req.resourceType();
             const url = req.url();
             const isBlockedDomain = BLOCKED_DOMAINS.some((domain) => url.includes(domain));
-            if (['image', 'media'].includes(resourceType) || isBlockedDomain) {
+            if (['image', 'media', 'font'].includes(resourceType) || isBlockedDomain) {
               req.abort();
             } else {
               req.continue();

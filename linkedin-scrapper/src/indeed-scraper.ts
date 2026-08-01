@@ -193,7 +193,7 @@ export class IndeedJobsQuery {
         const resourceType = req.resourceType();
         const url = req.url();
         const isBlockedDomain = BLOCKED_DOMAINS.some((domain) => url.includes(domain));
-        if (['image', 'media'].includes(resourceType) || isBlockedDomain) {
+        if (['image', 'media', 'font'].includes(resourceType) || isBlockedDomain) {
           req.abort();
         } else {
           req.continue();
@@ -248,7 +248,17 @@ export class IndeedJobsQuery {
               card.querySelector('.estimated-salary');
             const dateEl = card.querySelector('.date') || card.querySelector('[data-testid="myJobsStateDate"]');
             const snippetEl =
-              card.querySelector('.jobCard-description, .job-snippet, [data-testid="jobs-snippet"], .underShelfFooter, div[class*="snippet"], ul[class*="snippet"], .jobMetaDataGroup, ul');
+              card.querySelector('.jobCard-description, .job-snippet, [data-testid="jobs-snippet"], .underShelfFooter, div[class*="snippet"], ul[class*="snippet"], .jobMetaDataGroup, ul:not([class*="mosaic"])') ||
+              card.querySelector('td.resultContent') ||
+              card;
+
+            const getCleanText = (el: Element | null) => {
+              if (!el) return '';
+              const clone = el.cloneNode(true) as HTMLElement;
+              clone.querySelectorAll('style, script, h2, [data-testid="company-name"], [data-testid="text-location"], .companyName, .companyLocation, .date, [data-testid="myJobsStateDate"]').forEach((n) => n.remove());
+              const text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+              return text;
+            };
 
             if (jk && !results.some((r) => r.jobKey === jk)) {
               results.push({
@@ -258,7 +268,7 @@ export class IndeedJobsQuery {
                 location: locEl?.textContent?.trim() || '',
                 salary: salaryEl?.textContent?.trim() || 'Not specified',
                 agoTime: dateEl?.textContent?.trim() || '',
-                snippet: snippetEl?.textContent?.trim() || '',
+                snippet: getCleanText(snippetEl),
               });
             }
           });

@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "ts-node src/index.ts",
     "test:linkedin": "ts-node src/linkedin-test.ts",
+    "test:all": "node -r ts-node/register src/aggressive-test-all.ts",
     "test:naukri": "node -r ts-node/register src/naukri-test.ts",
     "test:simplyhired": "node -r ts-node/register src/simplyhired-test.ts",
     "test:indeed": "node -r ts-node/register src/indeed-test.ts",
