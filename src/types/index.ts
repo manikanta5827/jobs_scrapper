@@ -20,7 +20,7 @@ export interface Job {
   jobFunction?:      string;
   industries?:       string;
   benefits?:         string[];
-  keyword_bin_reason?: string;
+  keywordBinReason?: string;
   fingerprint?:      string;
   jobTitle?:         string;
   extractedYoeText?: string | null;

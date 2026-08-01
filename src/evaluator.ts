@@ -205,13 +205,13 @@ async function processUserWorker(
 
     console.log(`User ${user.id}: YOE Filtered ${yoeFilteredCount} jobs (candidate has ${candidateYoe} yr), remaining ${afterYoe.length}`)
 
-    // Print all the 'keyword_bin_reason' values inside the objects present in the yoeRejected array
-    console.log("YOE Rejected keyword_bin_reason(s):");
+    // Print all the 'keywordBinReason' values inside the objects present in the yoeRejected array
+    console.log("YOE Rejected keywordBinReason(s):");
     yoeRejected.forEach((job, idx) => {
-      if (job.keyword_bin_reason) {
-        console.log(`  [${idx}] keyword_bin_reason: ${job.keyword_bin_reason} for job title ${job.title} and link ${job.link}`);
+      if (job.keywordBinReason) {
+        console.log(`  [${idx}] keywordBinReason: ${job.keywordBinReason} for job title ${job.title} and link ${job.link}`);
       } else {
-        console.log(`  [${idx}] No keyword_bin_reason present`);
+        console.log(`  [${idx}] No keywordBinReason present`);
       }
     });
     

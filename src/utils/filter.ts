@@ -55,7 +55,7 @@ export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = 
     const matchedExcludes = excludes.filter(kw => targetText.includes(kw));
 
     if (matchedExcludes.length > 0) {
-      binned.push({ ...job, keyword_bin_reason: matchedExcludes.join(', ') });
+      binned.push({ ...job, keywordBinReason: matchedExcludes.join(', ') });
     } else {
       relevant.push(job);
     }
@@ -148,7 +148,7 @@ export function yoePreFilter(
     if (minRequired !== null && minRequired > candidateYoe) {
       yoeRejected.push({
         ...job,
-        keyword_bin_reason: `YOE: requires ${minRequired}+ yr, candidate has ${candidateYoe} yr`,
+        keywordBinReason: `YOE: requires ${minRequired}+ yr, candidate has ${candidateYoe} yr`,
       });
       continue;
     }
@@ -157,7 +157,7 @@ export function yoePreFilter(
     if (maxRequired !== null && maxRequired < candidateYoe && !isFresherFriendly) {
       yoeRejected.push({
         ...job,
-        keyword_bin_reason: `YOE: requires ${maxRequired}- yr max, candidate has ${candidateYoe} yr`,
+        keywordBinReason: `YOE: requires ${maxRequired}- yr max, candidate has ${candidateYoe} yr`,
       });
       continue;
     }
@@ -203,7 +203,7 @@ export function seniorityKeywordFilter(
     if (matched) {
       filtered.push({
         ...job,
-        keyword_bin_reason: `Seniority: "${matched}" in title, candidate has ${candidateYoe} YOE`,
+        keywordBinReason: `Seniority: "${matched}" in title, candidate has ${candidateYoe} YOE`,
       });
     } else {
       relevant.push(job);
