@@ -1,5 +1,5 @@
-import { IndeedJobQueryOptions } from './indeed-types';
-import { JobPosting, JobDetails } from './linkedin-types';
+import { IndeedJobQueryOptions } from '../types/indeed-types';
+import { JobPosting, JobDetails } from '../types/linkedin-types';
 import { parseProxy } from '../helpers/proxy-utils';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

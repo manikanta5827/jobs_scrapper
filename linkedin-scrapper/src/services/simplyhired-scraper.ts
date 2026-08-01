@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { SimplyHiredJobQueryOptions } from './simplyhired-types';
-import { JobPosting, JobDetails } from './linkedin-types';
+import { SimplyHiredJobQueryOptions } from '../types/simplyhired-types';
+import { JobPosting, JobDetails } from '../types/linkedin-types';
 import { getProxyAgent } from '../helpers/proxy-utils';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';

@@ -1,4 +1,4 @@
-import { IndeedJobQueryOptions, IndeedJobTypeOption, IndeedSortOption } from './indeed-types';
+import { IndeedJobQueryOptions, IndeedJobTypeOption, IndeedSortOption } from '../types/indeed-types';
 
 const VALID_JOB_TYPES: IndeedJobTypeOption[] = ['fulltime', 'parttime', 'contract', 'internship', 'temporary'];
 const VALID_SORT: IndeedSortOption[] = ['relevance', 'date'];

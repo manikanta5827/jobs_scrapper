@@ -10,7 +10,7 @@ import {
   ExperienceLevelOption,
   JobTypeOption,
   RemoteFilterOption,
-} from './linkedin-types';
+} from '../types/linkedin-types';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

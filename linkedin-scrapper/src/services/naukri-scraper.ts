@@ -1,5 +1,5 @@
-import { NaukriJobQueryOptions } from './naukri-types';
-import { JobPosting, JobDetails } from './linkedin-types';
+import { NaukriJobQueryOptions } from '../types/naukri-types';
+import { JobPosting, JobDetails } from '../types/linkedin-types';
 import { parseProxy } from '../helpers/proxy-utils';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -1,4 +1,4 @@
-import { NaukriJobQueryOptions } from './naukri-types';
+import { NaukriJobQueryOptions } from '../types/naukri-types';
 
 const VALID_JOB_AGE = [1, 3, 7, 15, 30];
 const VALID_SORT = ['relevance', 'date', 'r', 'f'];

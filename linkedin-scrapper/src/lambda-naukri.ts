@@ -1,7 +1,7 @@
 import { NaukriJobsQuery } from './services/naukri-scraper';
 import { validateNaukriJobQueryOptions } from './services/naukri-validator';
-import type { LambdaEvent, LambdaResponse } from './helpers/lambda-types';
-import { uploadScrapedJobsToS3 } from './helpers/s3-uploader';
+import type { LambdaEvent, LambdaResponse } from './types/lambda-types';
+import { uploadScrapedJobsToS3 } from './services/s3-uploader';
 
 const getRandomJitter = (minMs = 1000, maxMs = 2000) =>
   new Promise((resolve) =>

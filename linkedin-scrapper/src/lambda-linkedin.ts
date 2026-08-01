@@ -1,7 +1,7 @@
 import { LinkedInJobsQuery } from './services/linkedin-scraper';
 import { validateJobQueryOptions } from './services/linkedin-validator';
-import type { LambdaEvent, LambdaResponse } from './helpers/lambda-types';
-import { uploadScrapedJobsToS3 } from './helpers/s3-uploader';
+import type { LambdaEvent, LambdaResponse } from './types/lambda-types';
+import { uploadScrapedJobsToS3 } from './services/s3-uploader';
 
 const getRandomJitter = (minMs = 300, maxMs = 800) =>
   new Promise((resolve) =>

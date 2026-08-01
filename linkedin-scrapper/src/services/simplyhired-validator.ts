@@ -1,4 +1,4 @@
-import { SimplyHiredJobQueryOptions, SimplyHiredDateOption, SimplyHiredJobTypeOption } from './simplyhired-types';
+import { SimplyHiredJobQueryOptions, SimplyHiredDateOption, SimplyHiredJobTypeOption } from '../types/simplyhired-types';
 
 const VALID_DATES: SimplyHiredDateOption[] = ['24hr', '3days', '7days', '14days', '30days', '1', '3', '7', '14', '30'];
 const VALID_JOB_TYPES: SimplyHiredJobTypeOption[] = [
