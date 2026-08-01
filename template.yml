@@ -8,10 +8,6 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: Email address for admin alerts
     Default: /job-scraper/ADMIN_EMAIL
-  AppEnv:
-    Type: String
-    Description: Application environment (dev/prod)
-    Default: prod
   LogRetentionDays:
     Type: Number
     Description: CloudWatch Log retention in days
@@ -54,6 +50,22 @@ Parameters:
     Default: "https://us.i.posthog.com"
 
 Resources:
+
+  # ─── AWS S3 RAW JOBS STORAGE (7-day retention) ─────────────────────────────
+  RawJobsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteRawJobsAfter7Days
+            Status: Enabled
+            Prefix: raw-jobs/
+            ExpirationInDays: 7
+      BucketName: !Sub 'job-scraper-raw-jobs-${AWS::AccountId}'
 
   # ─── API GATEWAY WITH CUSTOM RESPONSES & NATIVE CORS ───────────────────────
   APIGateway:
@@ -107,8 +119,8 @@ Resources:
 
   # ─── LAMBDA FUNCTIONS ──────────────────────────────────────────────────────
 
-  # Main Orchestrator / Dispatcher Lambda triggered 3x daily (Mon-Sat)
-  MainLambda:
+  # Main Orchestrator / ScraperDispatcherLambda triggered 3x daily (Mon-Sat)
+  ScraperDispatcherLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs24.x
@@ -118,20 +130,31 @@ Resources:
       LoggingConfig:
         LogFormat: JSON
       CodeUri: src/
-      Handler: lambda.handler
+      Handler: scraper_dispatcher.handler
       Timeout: 60
       Policies:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:
             ParameterName: "/job-scraper/*"
-        - LambdaInvokePolicy:
-            FunctionName: !Ref UserWorkerLambda
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource:
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:linkedin-jobs-scraper'
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:naukri-jobs-scraper'
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:simplyhired-jobs-scraper'
+                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:indeed-jobs-scraper'
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
           ADMIN_API_KEY: !Ref AdminApiKey
-          USER_WORKER_FUNCTION_NAME: !Ref UserWorkerLambda
-          APP_ENV: !Ref AppEnv
+          S3_BUCKET_NAME: !Ref RawJobsBucket
+          TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
+          LINKEDIN_SCRAPER_FUNCTION_NAME: linkedin-jobs-scraper
+          NAUKRI_SCRAPER_FUNCTION_NAME: naukri-jobs-scraper
+          SIMPLYHIRED_SCRAPER_FUNCTION_NAME: simplyhired-jobs-scraper
+          INDEED_SCRAPER_FUNCTION_NAME: indeed-jobs-scraper
 
       Events:
         # Run 1: 11 AM IST, Mon-SAT — catches overnight jobs from previous evening
@@ -179,10 +202,10 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - lambda.ts
+          - scraper_dispatcher.ts
 
-  # Isolated Per-User Worker Lambda (Invoked asynchronously per candidate user)
-  UserWorkerLambda:
+  # Evaluator Orchestrator / Dispatcher Lambda triggered 30 mins after scrapers (11:30, 16:30, 20:30 IST)
+  EvaluatorDispatcherLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs24.x
@@ -192,8 +215,77 @@ Resources:
       LoggingConfig:
         LogFormat: JSON
       CodeUri: src/
-      Handler: user_worker.handler
+      Handler: evaluator_dispatcher.handler
+      Timeout: 60
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SSMParameterReadPolicy:
+            ParameterName: "/job-scraper/*"
+        - LambdaInvokePolicy:
+            FunctionName: !Ref EvaluatorLambda
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+          ADMIN_API_KEY: !Ref AdminApiKey
+          EVALUATOR_FUNCTION_NAME: !Ref EvaluatorLambda
+      Events:
+        MorningEvalRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(30 11 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 14, "adminApiKey": "${AdminApiKey}", "includeFreeTier": true}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        EveningEvalRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(30 16 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+        NightEvalRun:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(30 20 ? * MON-SAT *)
+            ScheduleExpressionTimezone: "Asia/Kolkata"
+            Input: !Sub '{"lookbackHours": 5, "adminApiKey": "${AdminApiKey}"}'
+            RetryPolicy:
+              MaximumRetryAttempts: 0
+              MaximumEventAgeInSeconds: 3600
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - evaluator_dispatcher.ts
+
+  # Isolated Per-User EvaluatorLambda (Invoked asynchronously per candidate user)
+  EvaluatorLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 256
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: src/
+      Handler: evaluator.handler
       Timeout: 900
+      ReservedConcurrentExecutions: 10
       Policies:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:
@@ -201,24 +293,29 @@ Resources:
         - Statement:
             - Effect: Allow
               Action:
+                - s3:ListBucket
+              Resource: !GetAtt RawJobsBucket.Arn
+              Condition:
+                StringLike:
+                  s3:prefix:
+                    - "raw-jobs/*"
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:DeleteObject
+              Resource: !Sub "${RawJobsBucket.Arn}/raw-jobs/*"
+            - Effect: Allow
+              Action:
                 - sqs:SendMessage
                 - sqs:SendMessageBatch
               Resource: !GetAtt PostQueue.Arn
-            - Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource:
-                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:linkedin-jobs-scraper'
-                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:naukri-jobs-scraper'
-                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:simplyhired-jobs-scraper'
-                - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:indeed-jobs-scraper'
       Environment:
         Variables:
+          S3_BUCKET_NAME: !Ref RawJobsBucket
           APIFY_API_KEY: !Ref ApifyApiKey
           LLM_API_KEY: !Ref LlmApiKey
           DATABASE_URL: !Ref DatabaseUrl
           MIN_MATCH_SCORE: !Ref MinMatchScore
-          APP_ENV: !Ref AppEnv
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
           ADMIN_API_KEY: !Ref AdminApiKey
           POST_QUEUE_URL: !Ref PostQueue
@@ -245,7 +342,7 @@ Resources:
           - "@aws-sdk/*"
           - "aws-lambda"
         EntryPoints:
-          - user_worker.ts
+          - evaluator.ts
 
   # Admin Lambda Endpoint for manual triggers and RESTful user CRUD API
   AdminLambda:
@@ -265,15 +362,17 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: "/job-scraper/*"
         - LambdaInvokePolicy:
-            FunctionName: !Ref MainLambda
+            FunctionName: !Ref ScraperDispatcherLambda
+        - LambdaInvokePolicy:
+            FunctionName: !Ref EvaluatorDispatcherLambda
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
           LLM_API_KEY: !Ref LlmApiKey
-          APP_ENV: !Ref AppEnv
           MIN_MATCH_SCORE: !Ref MinMatchScore
           ADMIN_API_KEY: !Ref AdminApiKey
-          MAIN_LAMBDA_FUNCTION_NAME: !Ref MainLambda
+          SCRAPER_DISPATCHER_FUNCTION_NAME: !Ref ScraperDispatcherLambda
+          EVALUATOR_DISPATCHER_FUNCTION_NAME: !Ref EvaluatorDispatcherLambda
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
       Events:
@@ -301,12 +400,20 @@ Resources:
             Path: /stats
             Method: GET
 
-        # POST /run — Trigger main scraper Lambda
-        RunMainLambda:
+        # POST /run — Trigger main scraper dispatcher Lambda
+        RunScraperDispatcher:
           Type: Api
           Properties:
             RestApiId: !Ref APIGateway
             Path: /run
+            Method: POST
+
+        # POST /run-evaluator — Trigger evaluator dispatcher Lambda
+        RunEvaluatorDispatcher:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /run-evaluator
             Method: POST
 
         # POST /admin/analyze-resume — Analyze resume with LLM synchronously
@@ -423,7 +530,6 @@ Resources:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
-          APP_ENV: !Ref AppEnv
       Events:
         TelegramWebhookApi:
           Type: Api
@@ -481,7 +587,6 @@ Resources:
           POST_QUEUE_URL: !Ref PostQueue
           CLOUDFLARE_IMAGE_WORKER_URL: !Ref CloudflareImageWorkerUrl
           TELEGRAM_MATCHED_JOBS_BOT_TOKEN: !Ref TelegramMatchedJobsBotToken
-          APP_ENV: !Ref AppEnv
           DATABASE_URL: !Ref DatabaseUrl
           MIN_MATCH_SCORE: !Ref MinMatchScore
       Events:
@@ -510,20 +615,28 @@ Resources:
           - post_scheduler.ts
 
   # ─── CLOUDWATCH LOG GROUPS WITH 3-DAY RETENTION ────────────────────────────
-  MyLogGroup:
+  ScraperDispatcherLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${MainLambda}"
+      LogGroupName: !Sub "/aws/lambda/${ScraperDispatcherLambda}"
       RetentionInDays: !Ref LogRetentionDays
 
-  UserWorkerLambdaLogGroup:
+  EvaluatorDispatcherLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${UserWorkerLambda}"
+      LogGroupName: !Sub "/aws/lambda/${EvaluatorDispatcherLambda}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  EvaluatorLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${EvaluatorLambda}"
       RetentionInDays: !Ref LogRetentionDays
 
   AdminLambdaLogGroup:
@@ -557,15 +670,15 @@ Resources:
         - Protocol: email
           Endpoint: !Ref AdminEmail
 
-  MainLambdaErrorAlarm:
+  ScraperDispatcherLambdaErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: !Sub "Triggers if ${MainLambda} fails"
+      AlarmDescription: !Sub "Triggers if ${ScraperDispatcherLambda} fails"
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
         - Name: FunctionName
-          Value: !Ref MainLambda
+          Value: !Ref ScraperDispatcherLambda
       Statistic: Sum
       Period: 60
       EvaluationPeriods: 1
@@ -575,15 +688,15 @@ Resources:
       AlarmActions:
         - !Ref AdminAlertTopic
 
-  UserWorkerLambdaErrorAlarm:
+  EvaluatorLambdaErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: !Sub "Triggers if ${UserWorkerLambda} fails"
+      AlarmDescription: !Sub "Triggers if ${EvaluatorLambda} fails"
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
         - Name: FunctionName
-          Value: !Ref UserWorkerLambda
+          Value: !Ref EvaluatorLambda
       Statistic: Sum
       Period: 60
       EvaluationPeriods: 1
@@ -657,3 +770,9 @@ Outputs:
   TelegramWebhookUrl:
     Description: "API Gateway base URL for Telegram Webhook"
     Value: !Sub "https://${APIGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook/telegram"
+  RawJobsBucketName:
+    Description: "Name of S3 Bucket storing raw scraped job JSON files"
+    Value: !Ref RawJobsBucket
+  EvaluatorDispatcherLambdaArn:
+    Description: "ARN of EvaluatorDispatcherLambda"
+    Value: !GetAtt EvaluatorDispatcherLambda.Arn

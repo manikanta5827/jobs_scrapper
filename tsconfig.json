@@ -13,5 +13,5 @@
         "noUnusedParameters": true,
         "forceConsistentCasingInFileNames": true
     },
-    "exclude": ["node_modules", ".vscode", ".aws-sam", "__test__/**/*.test.ts", "temp"]
+    "exclude": ["node_modules", ".vscode", ".aws-sam", "__test__/**/*.test.ts", "temp", "linkedin-scrapper"]
 }

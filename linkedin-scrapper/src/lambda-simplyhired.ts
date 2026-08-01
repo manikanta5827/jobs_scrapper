@@ -1,6 +1,7 @@
 import { SimplyHiredJobsQuery } from './simplyhired-scraper';
 import { validateSimplyHiredJobQueryOptions } from './simplyhired-validator';
 import type { LambdaEvent, LambdaResponse } from './lambda-types';
+import { uploadScrapedJobsToS3 } from '../../src/helper/s3_fetcher';
 
 const getRandomJitter = (minMs = 300, maxMs = 800) =>
   new Promise((resolve) =>
@@ -9,6 +10,7 @@ const getRandomJitter = (minMs = 300, maxMs = 800) =>
 
 export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
   let queries: Record<string, string>[] = [];
+  let userId = event.userId;
 
   if (event.queries && Array.isArray(event.queries)) {
     queries = event.queries;
@@ -16,6 +18,7 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     try {
       const parsed = JSON.parse(event.body);
       if (Array.isArray(parsed.queries)) queries = parsed.queries;
+      if (parsed.userId) userId = parsed.userId;
     } catch {
       // Ignore JSON parse errors
     }
@@ -23,6 +26,9 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
 
   if (queries.length === 0 && event.queryStringParameters) {
     queries = [event.queryStringParameters];
+    if (event.queryStringParameters.userId) {
+      userId = event.queryStringParameters.userId;
+    }
   }
 
   if (queries.length === 0) {
@@ -63,10 +69,12 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
       }
     }
 
+    const s3Key = await uploadScrapedJobsToS3('simplyhired', userId, allJobs);
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, count: allJobs.length, data: allJobs }),
+      body: JSON.stringify({ success: true, count: allJobs.length, s3Key }),
     };
   } catch (error: any) {
     return {
@@ -76,3 +84,4 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     };
   }
 };
+

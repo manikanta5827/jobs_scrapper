@@ -1,8 +1,9 @@
 import { db, initDb } from "../db/index";
 import { jobs, keyRotation, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
-import { Tier, MIN_MATCH_SCORE } from './constants';
+import { Tier, MIN_MATCH_SCORE, TIER_CONFIG } from './constants';
 import type { JobFitFacts } from './types';
+import { sendTelegramMessage } from './telegram_helper';
 
 // ─── Key Rotation Helpers ────────────────────────────────────────────────────
 
@@ -446,6 +447,35 @@ export async function downgradeUserToFree(userId: string): Promise<boolean> {
     ))
     .returning();
   return result.length > 0;
+}
+
+/**
+ * Checks if a premium user's subscription has expired.
+ * If expired, downgrades the user to FREE tier in the DB, sends a Telegram notification,
+ * updates the user object in memory, and returns true.
+ * Returns false if the subscription is not expired.
+ */
+export async function checkAndHandleSubscriptionExpiry(user: any, botToken?: string): Promise<boolean> {
+  if (user.tier === Tier.PREMIUM && user.subscriptionExpiresAt) {
+    const now = new Date();
+    const expiresAt = new Date(user.subscriptionExpiresAt);
+    if (now > expiresAt) {
+      console.log(`User ${user.id}: Premium subscription expired. Downgrading to free tier.`);
+      const downgraded = await downgradeUserToFree(user.id);
+      if (downgraded && user.telegramChatId && botToken) {
+        const amountText = user.subscriptionAmount && user.subscriptionAmount > 0
+          ? `₹${user.subscriptionAmount}/month`
+          : 'Premium';
+        const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
+        await sendTelegramMessage(botToken, user.telegramChatId,
+          `⏰ <b>Subscription Expired</b>\nYour ${amountText} subscription has ended. You're now on the free tier (${freeAlerts} alert/day).\nContact admin to renew.`
+        );
+      }
+      user.tier = Tier.FREE;
+      return true;
+    }
+  }
+  return false;
 }
 
 // Log execution turn details into userRuns (no wallet deduction — subscription model)

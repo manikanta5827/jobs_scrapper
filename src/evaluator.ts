@@ -1,17 +1,16 @@
 /**
- * user_worker.ts — Isolated Per-User Worker Lambda Handler
- * Invoked asynchronously by MainLambda dispatcher. Handles full execution lifecycle for a single user.
+ * evaluator.ts — Isolated Per-User EvaluatorLambda Handler
+ * Invoked asynchronously by EvaluatorDispatcherLambda. Handles S3 fetch, filtering, LLM evaluation, and cleanup for a single user.
  */
 
 import type { Context } from 'aws-lambda';
-import { fetchJobsForUser } from './helper/job_fetcher';
+import { fetchJobsFromS3, deleteS3JobsBatch } from './helper/s3_fetcher';
 import { checkRelevanceBatch, calculateCostUsd } from './helper/llm';
 import { 
   getExistingJobsData, 
   trackJobs, 
   getUserById,
-  recordUserRun,
-  downgradeUserToFree
+  recordUserRun
 } from './helper/db_helper';
 import { getUniqueJobsFromBatch } from './helper/job_utils';
 import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './helper/filter';
@@ -70,7 +69,7 @@ async function processUserWorker(
     timeZone: 'Asia/Kolkata'
   }) + ' IST';
 
-  console.log(`UserWorkerLambda started for User ID: ${userId}. Lookback: ${lookbackHours}h`, new Date().toISOString());
+  console.log(`EvaluatorLambda started for User ID: ${userId}. Lookback: ${lookbackHours}h`, new Date().toISOString());
 
   // Fetch candidate user record from database
   const user = await getUserById(userId);
@@ -87,34 +86,19 @@ async function processUserWorker(
 
   const chatId = user.telegramChatId;
 
-  // 1. Subscription Expiry Check — auto-downgrade expired premium users to free tier
-  if (user.tier === Tier.PREMIUM && user.subscriptionExpiresAt) {
-    const now = new Date();
-    const expiresAt = new Date(user.subscriptionExpiresAt);
-    if (now > expiresAt) {
-      console.log(`User ${userId}: Premium subscription expired. Downgrading to free tier.`);
-      const downgraded = await downgradeUserToFree(userId);
-      if (downgraded && chatId) {
-        const amountText = user.subscriptionAmount && user.subscriptionAmount > 0
-          ? `₹${user.subscriptionAmount}/month`
-          : 'Premium';
-        const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
-        await sendTelegramMessage(TELEGRAM_BOT_TOKEN, chatId,
-          `⏰ <b>Subscription Expired</b>\nYour ${amountText} subscription has ended. You're now on the free tier (${freeAlerts} alert/day).\nContact admin to renew.`
-        );
-      }
-      user.tier = Tier.FREE;
-    }
-  }
-
   try {
-    // 2. Scrape job listings via unified Job Fetcher (uses SCRAPER_PROVIDER env var, default "lambda")
-    console.time('fetch-users');
-    const rawJobs = await fetchJobsForUser(user, lookbackHours);
+    // 1. Fetch raw scraped job listings from S3 bucket
+    console.time('fetch-s3-jobs');
+    const { jobs: rawJobs, s3Keys } = await fetchJobsFromS3(user.id);
     const rawCount = rawJobs.length;
-    console.timeEnd('fetch-users');
+    console.timeEnd('fetch-s3-jobs');
 
-    console.log(`User ${user.id}: Scraped ${rawCount} total jobs`);
+    if (s3Keys.length === 0) {
+      console.log(`User ${user.id}: No S3 batch files found.`);
+      return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
+    }
+
+    console.log(`User ${user.id}: Loaded ${rawCount} total jobs from S3`);
 
     // 3. Filter out blocked companies (system-wide, before dedup)
     const { relevant: jobsAfterBlock } = companyBlockFilter(rawJobs);
@@ -135,6 +119,7 @@ async function processUserWorker(
         keywordFilteredCount: 0,
         ...ZERO_COST
       });
+      await deleteS3JobsBatch(s3Keys);
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -168,6 +153,7 @@ async function processUserWorker(
         keywordFilteredCount: 0,
         ...ZERO_COST
       });
+      await deleteS3JobsBatch(s3Keys);
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -192,6 +178,7 @@ async function processUserWorker(
         keywordFilteredCount,
         ...ZERO_COST
       });
+      await deleteS3JobsBatch(s3Keys);
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -225,6 +212,7 @@ async function processUserWorker(
         keywordFilteredCount: preLlmFiltered,
         ...ZERO_COST
       });
+      await deleteS3JobsBatch(s3Keys);
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -247,6 +235,7 @@ async function processUserWorker(
         keywordFilteredCount: preLlmFiltered,
         ...ZERO_COST
       });
+      await deleteS3JobsBatch(s3Keys);
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
@@ -321,6 +310,9 @@ async function processUserWorker(
         console.error(`Failed to push to LinkedIn post queue for user ${user.id}:`, queueErr);
       }
     }
+
+    // 13. Clean up processed S3 batch files (delete only the exact downloaded keys)
+    await deleteS3JobsBatch(s3Keys);
 
     return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: matchedCount }) };
 

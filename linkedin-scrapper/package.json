@@ -30,6 +30,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1101.0",
     "@sparticuz/chromium": "^133.0.0",
     "axios": "^1.7.9",
     "axios-cookiejar-support": "^7.0.0",

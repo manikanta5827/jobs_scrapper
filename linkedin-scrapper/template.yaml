@@ -11,6 +11,9 @@ Parameters:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: Optional Rotating Proxy URL (e.g. http://user:pass@proxy-host:port)
     Default: /scraper/PROXY_URL
+  S3BucketName:
+    Type: String
+    Description: Name of S3 Bucket to store raw scraped jobs
 
 Globals:
   Function:
@@ -20,6 +23,7 @@ Globals:
     Environment:
       Variables:
         PROXY_URL: !Ref ProxyUrl
+        S3_BUCKET_NAME: !Ref S3BucketName
 
 Resources:
   # --- PUPPETEER & CHROMIUM LAMBDA LAYER ---
@@ -46,8 +50,14 @@ Resources:
       Description: Scrapes LinkedIn job listings via guest API (axios + cheerio)
       Architectures:
         - arm64
+      ReservedConcurrentExecutions: 25
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub 'arn:aws:s3:::${S3BucketName}/raw-jobs/*'
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -83,11 +93,17 @@ Resources:
       MemorySize: 1024
       Architectures:
         - x86_64
+      ReservedConcurrentExecutions: 15
       Layers:
         - !Ref PuppeteerLayer
       Description: Scrapes Naukri.com job listings via Puppeteer + stealth browser
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub 'arn:aws:s3:::${S3BucketName}/raw-jobs/*'
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -126,8 +142,14 @@ Resources:
       Description: Scrapes SimplyHired.com job listings via SSR data extraction (axios)
       Architectures:
         - arm64
+      ReservedConcurrentExecutions: 25
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub 'arn:aws:s3:::${S3BucketName}/raw-jobs/*'
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -164,10 +186,16 @@ Resources:
       Timeout: 600
       Architectures:
         - x86_64
+      ReservedConcurrentExecutions: 15
       Layers:
         - !Ref PuppeteerLayer
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub 'arn:aws:s3:::${S3BucketName}/raw-jobs/*'
     Metadata:
       BuildMethod: esbuild
       BuildProperties:

@@ -12,10 +12,11 @@
         "typecheck": "tsc --noEmit",
         "db:generate": "npx drizzle-kit generate",
         "db:migrate": "npx tsx scripts/migrate.ts",
-        "lambda": "sam local invoke MainLambda --env-vars env.json -e event.json --container-host-interface 0.0.0.0"
+        "lambda": "sam local invoke ScraperDispatcherLambda --env-vars env.json -e event.json --container-host-interface 0.0.0.0"
     },
     "dependencies": {
         "@aws-sdk/client-lambda": "^3.999.0",
+        "@aws-sdk/client-s3": "^3.1101.0",
         "@aws-sdk/client-sqs": "^3.999.0",
         "@aws-sdk/client-ssm": "^3.999.0",
         "@neondatabase/serverless": "^0.10.4",

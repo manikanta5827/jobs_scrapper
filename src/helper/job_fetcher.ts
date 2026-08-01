@@ -109,7 +109,7 @@ export async function fetchJobsForUser(
 
 // ─── QUERY BUILDER ─────────────────────────────────────────────────────────
 
-function buildSearchQueriesFromProfile(user: {
+export function buildSearchQueriesFromProfile(user: {
   suggestedJobTitles?: string[] | null;
   targetLocations?: string | null;
 }): SearchQuery[] {
@@ -326,7 +326,7 @@ async function fetchViaSimplyHiredLambda(
 
 async function fetchViaIndeedLambda(
   queries: SearchQuery[],
-  user: { experienceYears?: number | null; employmentType?: string | null },
+  _user: { experienceYears?: number | null; employmentType?: string | null },
   lookbackHours: number
 ): Promise<Job[]> {
   const fromage = lookbackHours <= 24 ? 1 : lookbackHours <= 72 ? 3 : lookbackHours <= 168 ? 7 : 30;

@@ -168,7 +168,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
       const { lookbackHours, targetUserId } = parseResult.data;
 
       await lambdaClient.send(new InvokeCommand({
-        FunctionName: process.env.MAIN_LAMBDA_FUNCTION_NAME!,
+        FunctionName: process.env.SCRAPER_DISPATCHER_FUNCTION_NAME!,
         InvocationType: 'Event',
         Payload: JSON.stringify({ 
           lookbackHours, 
@@ -177,7 +177,29 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         }),
       }));
 
-      return response(202, { message: 'MainLambda invoked', lookbackHours, targetUserId });
+      return response(202, { message: 'ScraperDispatcherLambda invoked', lookbackHours, targetUserId });
+    }
+
+    // ─── Route: POST /run-evaluator ────────────────────────────────────────────
+    if (path === '/run-evaluator' && method === 'POST') {
+      const parseResult = TriggerRunSchema.safeParse(body);
+      if (!parseResult.success) {
+        return response(400, { error: `Validation Error: ${formatZodError(parseResult.error)}` });
+      }
+
+      const { lookbackHours, targetUserId } = parseResult.data;
+
+      await lambdaClient.send(new InvokeCommand({
+        FunctionName: process.env.EVALUATOR_DISPATCHER_FUNCTION_NAME!,
+        InvocationType: 'Event',
+        Payload: JSON.stringify({ 
+          lookbackHours, 
+          targetUserId, 
+          adminApiKey: process.env.ADMIN_API_KEY 
+        }),
+      }));
+
+      return response(202, { message: 'EvaluatorDispatcherLambda invoked', lookbackHours, targetUserId });
     }
 
     // ─── Route: /users (List Users or Add User) ────────────────────────────────

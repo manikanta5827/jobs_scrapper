@@ -650,6 +650,8 @@
       <div class="card-header">
         <div class="card-title">Candidates Ledger</div>
         <div style="display: flex; gap: 8px;">
+          <button class="btn" onclick="triggerScraperRun(null)" title="Trigger Scraper Dispatcher for all active candidates">▶ Run Scrapers</button>
+          <button class="btn" onclick="triggerEvaluatorRun(null)" title="Trigger Evaluator Dispatcher for all active candidates">▶ Run Evaluators</button>
           <button class="btn" id="btnRefreshCandidates" onclick="loadDashboardData()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
             Refresh
@@ -1362,7 +1364,8 @@
             <td><b style="color: var(--text-main);">${u.totalRunsCount || 0}</b></td>
             <td>
               <div style="display: flex; gap: 6px;">
-                <button class="btn btn-sm" onclick="triggerUserRun('${u.id}')" title="Trigger Run">▶ Run</button>
+                <button class="btn btn-sm" onclick="triggerScraperRun('${u.id}')" title="Trigger Scraper Lambda">▶ Scrape</button>
+                <button class="btn btn-sm" onclick="triggerEvaluatorRun('${u.id}')" title="Trigger Evaluator Lambda">▶ Evaluate</button>
                 <button class="btn btn-sm" onclick="openSubscriptionModal('${u.id}', '${u.email}', '${u.tier || 'free'}')">Manage</button>
                 <button class="btn btn-sm" onclick="openEditUserModal('${u.id}')">Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">
@@ -1722,10 +1725,23 @@
       }
     }
 
-    async function triggerUserRun(userId) {
+    async function triggerScraperRun(userId) {
       try {
-        await apiRequest('/run', 'POST', { targetUserId: userId, lookbackHours: 12 });
-        showToast(`Run dispatched for Candidate ${userId.substring(0, 8)}!`);
+        const payload = userId ? { targetUserId: userId, lookbackHours: 12 } : { lookbackHours: 12 };
+        await apiRequest('/run', 'POST', payload);
+        const msg = userId ? `Scrapers dispatched for Candidate ${userId.substring(0, 8)}!` : 'Scraper Dispatcher triggered for all active users!';
+        showToast(msg);
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+      }
+    }
+
+    async function triggerEvaluatorRun(userId) {
+      try {
+        const payload = userId ? { targetUserId: userId, lookbackHours: 12 } : { lookbackHours: 12 };
+        await apiRequest('/run-evaluator', 'POST', payload);
+        const msg = userId ? `Evaluators dispatched for Candidate ${userId.substring(0, 8)}!` : 'Evaluator Dispatcher triggered for all active users!';
+        showToast(msg);
       } catch (err) {
         alert(`Error: ${err.message}`);
       }

@@ -1,35 +1,30 @@
 /**
- * lambda.ts — Dispatcher / Orchestrator Lambda Handler
- * Flow: Triggered by EventBridge cron → Reset expired tokens → Fetch Active Users → Asynchronously Fan-Out UserWorkerLambda per user
+ * evaluator_dispatcher.ts — Evaluator Dispatcher Lambda Handler
+ * Flow: Triggered by EventBridge cron (11:30, 16:30, 20:30 IST) → Fetch Active Users → Asynchronously fan-out EvaluatorLambda per user
  */
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { resetHighUsageTokens, purgeOldUnmatchedJobs, getActiveUsersMinimal, getUserById } from './helper/db_helper';
+import { getActiveUsersMinimal, getUserById } from './helper/db_helper';
 import { Tier } from './helper/constants';
 
 const lambdaClient = new LambdaClient({});
 
 export const handler = async (
-  event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string; includeFreeTier?: boolean } & ScheduledEvent,
+  event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string; includeFreeTier?: boolean } & Partial<ScheduledEvent>,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
-  // Security check: verify admin API key matches configured secret
-  const isAuthorized = event.adminApiKey === process.env.ADMIN_API_KEY;
-  if (!isAuthorized) {
-    console.warn('Unauthorized attempt to trigger MainLambda');
+  // Security check for manual API invocations
+  if (event.adminApiKey && event.adminApiKey !== process.env.ADMIN_API_KEY) {
+    console.warn('Unauthorized attempt to trigger EvaluatorDispatcherLambda');
     return response(401, { error: 'Unauthorized: Missing or invalid adminApiKey' });
   }
 
   const lookbackHours = event.lookbackHours || 12;
   const includeFreeTier = event.includeFreeTier || false;
-  const workerFunctionName = process.env.USER_WORKER_FUNCTION_NAME!;
+  const workerFunctionName = process.env.EVALUATOR_FUNCTION_NAME!;
 
-  console.log(`MainLambda Dispatcher started. Lookback: ${lookbackHours}h, IncludeFreeTier: ${includeFreeTier}`, new Date().toISOString());
-
-  // 1. Reset expired high-usage Apify tokens & purge 7-day-old unmatched jobs
-  // await resetHighUsageTokens();
-  await purgeOldUnmatchedJobs(7);
+  console.log(`EvaluatorDispatcherLambda started. Lookback: ${lookbackHours}h, IncludeFreeTier: ${includeFreeTier}`, new Date().toISOString());
 
   // Fetch active users to process
   type MinimalUser = { id: string; email: string; isActive: boolean; telegramChatId?: string | null; tier: string; subscriptionExpiresAt?: Date | null };
@@ -48,9 +43,9 @@ export const handler = async (
     return response(200, { message: "No active users to process." });
   }
 
-  console.log(`Dispatching ${usersToProcess.length} active users to UserWorkerLambda in parallel.`);
+  console.log(`Dispatching ${usersToProcess.length} active users to EvaluatorLambda (${workerFunctionName}) in parallel.`);
 
-  // Fan-out: Invoke UserWorkerLambda asynchronously (InvocationType: 'Event') for each user
+  // Fan-out: Invoke EvaluatorLambda asynchronously (InvocationType: 'Event') for each user
   const dispatchPromises = usersToProcess.map(async (user: MinimalUser) => {
     try {
       await lambdaClient.send(new InvokeCommand({
@@ -58,10 +53,10 @@ export const handler = async (
         InvocationType: 'Event', // Asynchronous execution
         Payload: JSON.stringify({ userId: user.id, lookbackHours }),
       }));
-      console.log(`Dispatched UserWorkerLambda for User ID: ${user.id} (${user.email}) [tier: ${user.tier}]`);
+      console.log(`Dispatched EvaluatorLambda for User ID: ${user.id} (${user.email}) [tier: ${user.tier}]`);
       return { userId: user.id, dispatched: true };
     } catch (err: unknown) {
-      console.error(`Failed to dispatch UserWorkerLambda for User ID ${user.id}:`, err);
+      console.error(`Failed to dispatch EvaluatorLambda for User ID ${user.id}:`, err);
       throw err;
     }
   });
@@ -69,7 +64,7 @@ export const handler = async (
   const results = await Promise.all(dispatchPromises);
 
   return response(200, { 
-    message: `Dispatched ${usersToProcess.length} user workers successfully`, 
+    message: `Dispatched ${usersToProcess.length} user worker evaluators successfully`, 
     results 
   });
 };
