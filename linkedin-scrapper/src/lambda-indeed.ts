@@ -74,20 +74,22 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
       }
     }
 
-    console.log(`[Indeed Lambda] Uploaded ${allJobs.length} jobs to S3 for User ID ${userId}`);
-    
     const s3Key = await uploadScrapedJobsToS3('indeed', userId, allJobs);
+
+    console.log(`[Indeed Lambda] Uploaded ${allJobs.length} jobs to S3 for User ID ${userId} at S3 Key ${s3Key ?? 'null'}`);
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, count: allJobs.length, s3Key }),
+      body: JSON.stringify({ success: true, count: allJobs.length, s3Key: s3Key ?? 'null' }),
     };
   } catch (error: any) {
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    console.error(`[Indeed Lambda] Error:`, errorMessage);
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: false, error: error.message || 'Internal Server Error' }),
+      body: JSON.stringify({ success: false, error: 'Internal Server Error' }),
     };
   }
 };

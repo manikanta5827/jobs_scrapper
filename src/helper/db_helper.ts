@@ -71,16 +71,7 @@ export async function markApifyTokenExpired(tokenId: number): Promise<void> {
     .where(eq(keyRotation.id, tokenId));
 }
 
-// Reset usage cost to zero for expired subscription cycles
-export async function resetHighUsageTokens(): Promise<void> {
-  await initDb();
-  await db.update(keyRotation)
-    .set({ usageCost: 0, updatedAt: new Date() })
-    .where(and(
-      sql`${keyRotation.usageCost} >= 5`,
-      sql`DATE(${keyRotation.subscriptionStartDate}) <= CURRENT_DATE`
-    ));
-}
+
 
 // ─── Per-User Jobs Deduplication Helpers ─────────────────────────────────────
 
