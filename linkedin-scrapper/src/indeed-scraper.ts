@@ -1,9 +1,18 @@
-import { IndeedJobQueryOptions, IndeedJobTypeOption } from './indeed-types';
+import { IndeedJobQueryOptions } from './indeed-types';
 import { JobPosting, JobDetails } from './types';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const BLOCKED_DOMAINS = [
+  'google.com',
+  'googletagmanager.com',
+  'googlesyndication.com',
+  'doubleclick.net',
+  'facebook.net',
+  'facebook.com',
+  'accounts.google.com',
+  'analytics',
+];
 
 let puppeteer: any;
 let StealthPlugin: any;
@@ -157,7 +166,10 @@ export class IndeedJobsQuery {
       }
       await page.setRequestInterception(true);
       page.on('request', (req: any) => {
-        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+        const resourceType = req.resourceType();
+        const url = req.url();
+        const isBlockedDomain = BLOCKED_DOMAINS.some((domain) => url.includes(domain));
+        if (['image', 'media'].includes(resourceType) || isBlockedDomain) {
           req.abort();
         } else {
           req.continue();
@@ -171,6 +183,7 @@ export class IndeedJobsQuery {
         location: string;
         salary: string;
         agoTime: string;
+        snippet: string;
       }> = [];
       const seenKeys = new Set<string>();
       let pageIndex = this.options.page || 0;
@@ -189,6 +202,7 @@ export class IndeedJobsQuery {
             location: string;
             salary: string;
             agoTime: string;
+            snippet: string;
           }> = [];
 
           const cardElements = document.querySelectorAll(
@@ -209,6 +223,8 @@ export class IndeedJobsQuery {
               card.querySelector('.salary-snippet-container') ||
               card.querySelector('.estimated-salary');
             const dateEl = card.querySelector('.date') || card.querySelector('[data-testid="myJobsStateDate"]');
+            const snippetEl =
+              card.querySelector('.jobCard-description, .job-snippet, [data-testid="jobs-snippet"], .underShelfFooter, div[class*="snippet"], ul[class*="snippet"], .jobMetaDataGroup, ul');
 
             if (jk && !results.some((r) => r.jobKey === jk)) {
               results.push({
@@ -218,6 +234,7 @@ export class IndeedJobsQuery {
                 location: locEl?.textContent?.trim() || '',
                 salary: salaryEl?.textContent?.trim() || 'Not specified',
                 agoTime: dateEl?.textContent?.trim() || '',
+                snippet: snippetEl?.textContent?.trim() || '',
               });
             }
           });
@@ -245,7 +262,7 @@ export class IndeedJobsQuery {
       // Fetch full details for each job
       for (const cardJob of jobsToFetch) {
         const detailUrl = `${baseUrl}/viewjob?jk=${cardJob.jobKey}`;
-        let fullDescription = '';
+        let fullDescription = cardJob.snippet || '';
         let companyName = cardJob.company;
         let formattedLocation = cardJob.location;
         let salaryText = cardJob.salary;
@@ -276,7 +293,9 @@ export class IndeedJobsQuery {
             };
           });
 
-          if (detailData.descriptionText) fullDescription = detailData.descriptionText;
+          if (detailData.descriptionText && detailData.descriptionText.trim().length > 0) {
+            fullDescription = detailData.descriptionText;
+          }
           if (!companyName && detailData.company) companyName = detailData.company;
           if (!formattedLocation && detailData.location) formattedLocation = detailData.location;
           if (salaryText === 'Not specified' && detailData.salary) salaryText = detailData.salary;
@@ -296,7 +315,6 @@ export class IndeedJobsQuery {
           date: '',
           salary: salaryText,
           jobUrl: detailUrl,
-          companyLogo: '',
           agoTime: cardJob.agoTime,
           details,
           source: 'indeed',

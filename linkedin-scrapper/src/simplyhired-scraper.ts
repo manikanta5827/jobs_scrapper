@@ -168,7 +168,6 @@ function mapToJobPosting(job: RawJob, viewJob: RawViewJob | null, index: number,
     date: viewJob?.datePublished || job.dateOnIndeed || '',
     salary: extractSalary(job, viewJob),
     jobUrl,
-    companyLogo: viewJob?.employerSquareLogoUrl || '',
     agoTime: job.dateOnIndeed || '',
     details,
   };

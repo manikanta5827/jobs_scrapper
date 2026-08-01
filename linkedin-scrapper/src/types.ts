@@ -67,7 +67,7 @@ export interface JobPosting {
   date?: string;
   salary: string;
   jobUrl: string;
-  companyLogo: string;
+  companyLogo?: string;
   agoTime: string;
   /** Full job details (description, seniority, employment type, criteria) */
   details?: JobDetails;

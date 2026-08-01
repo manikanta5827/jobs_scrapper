@@ -324,8 +324,6 @@ export class LinkedInJobsQuery {
           .trim()
           .replace(/\s+/g, ' ');
         const jobUrl = card.find('.base-card__full-link').attr('href') || '';
-        const companyLogo = card.find('.artdeco-entity-image').attr('data-delayed-url') || '';
-
         let id = card.attr('data-entity-urn') || '';
         if (!id && jobUrl) {
           const match = jobUrl.match(/view\/([0-9]+)/) || jobUrl.match(/([0-9]{9,12})/);
@@ -341,7 +339,6 @@ export class LinkedInJobsQuery {
             date,
             salary: salary || 'Not specified',
             jobUrl,
-            companyLogo,
             agoTime,
           });
         }

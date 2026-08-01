@@ -3,6 +3,19 @@ import { JobPosting, JobDetails } from './types';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const BLOCKED_DOMAINS = [
+  'google.com',
+  'googletagmanager.com',
+  'googlesyndication.com',
+  'doubleclick.net',
+  'facebook.net',
+  'facebook.com',
+  'accounts.google.com',
+  'csp.withgoogle.com',
+  'logs.naukri.com',
+  'analytics',
+];
+
 // Dynamic imports to keep puppeteer optional at module load time
 // (only loaded when Naukri source is selected)
 let puppeteer: any;
@@ -151,6 +164,18 @@ export class NaukriJobsQuery {
         }
 
         try {
+          await browserPage.setRequestInterception(true);
+          browserPage.on('request', (req: any) => {
+            const resourceType = req.resourceType();
+            const url = req.url();
+            const isBlockedDomain = BLOCKED_DOMAINS.some((domain) => url.includes(domain));
+            if (['image', 'media'].includes(resourceType) || isBlockedDomain) {
+              req.abort();
+            } else {
+              req.continue();
+            }
+          });
+
           await browserPage.setDefaultNavigationTimeout(15000);
           await browserPage.goto(searchUrl, { waitUntil: 'domcontentloaded' });
           const pageJobs = await this.extractJobCards(browserPage);
@@ -185,7 +210,9 @@ export class NaukriJobsQuery {
           chunk.map(async (job) => {
             try {
               const details = await this.fetchJobDetails(browserInstance, job.jobUrl, proxyAuth);
-              if (details) job.details = details;
+              if (details && details.descriptionText && details.descriptionText.trim().length > 0) {
+                job.details = { ...job.details, ...details };
+              }
             } catch {
               // Keep the short description from search results
             }
@@ -226,14 +253,9 @@ export class NaukriJobsQuery {
         const jobUrl = linkEl ? linkEl.getAttribute('href') || '' : '';
 
         let company = '';
-        let companyLogo = '';
         const companyLink = card.querySelector('.comp-dtls-wrap a, a.comp-name') as HTMLAnchorElement;
         if (companyLink) {
           company = companyLink.title || companyLink.textContent?.trim() || '';
-        }
-        const logoImg = card.querySelector('.logo img, img.logo') as HTMLImageElement;
-        if (logoImg) {
-          companyLogo = logoImg.src || '';
         }
 
         const location = card.querySelector('.locWdth')?.textContent?.trim() || '';
@@ -241,7 +263,8 @@ export class NaukriJobsQuery {
         const salary = card.querySelector('.sal-wrap span, .sal')?.textContent?.trim() || 'Not specified';
         const agoTime = card.querySelector('.job-post-day')?.textContent?.trim() || '';
 
-        const description = card.querySelector('.job-desc')?.textContent?.trim() || '';
+        const descriptionEl = card.querySelector('span.job-desc, .row4, .job-description, .job-desc');
+        const description = descriptionEl?.textContent?.trim() || '';
 
         return {
           id: '',
@@ -251,7 +274,6 @@ export class NaukriJobsQuery {
           date: '',
           salary,
           jobUrl: jobUrl.startsWith('https://') ? jobUrl : 'https://www.naukri.com' + jobUrl,
-          companyLogo,
           agoTime,
           details: {
             descriptionText: description,
@@ -279,7 +301,10 @@ export class NaukriJobsQuery {
     try {
       await page.setRequestInterception(true);
       page.on('request', (req: any) => {
-        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+        const resourceType = req.resourceType();
+        const url = req.url();
+        const isBlockedDomain = BLOCKED_DOMAINS.some((domain) => url.includes(domain));
+        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType) || isBlockedDomain) {
           req.abort();
         } else {
           req.continue();
@@ -288,6 +313,7 @@ export class NaukriJobsQuery {
 
       await page.setDefaultNavigationTimeout(10000);
       await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('.styles_job-desc-container__txpYf, [class*="job-desc-container"], [class*="jd-desc"]', { timeout: 4000 }).catch(() => null);
 
       return page.evaluate(() => {
         const descEl = document.querySelector('.styles_job-desc-container__txpYf, [class*=job-desc-container], [class*=jd-desc]');
