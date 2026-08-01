@@ -79,7 +79,6 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-blink-features=AutomationControlled',
-    '--disable-features=IsolateOrigins,site-per-process',
     '--window-size=1920,1080',
     '--disable-dev-shm-usage',
   ];
@@ -181,6 +180,14 @@ export class IndeedJobsQuery {
 
   public async getJobs(): Promise<JobPosting[]> {
     const maxLimit = this.options.limit || 25;
+    const scrapePromise = this._scrapeJobs(maxLimit);
+    const timeoutPromise = new Promise<JobPosting[]>((resolve) =>
+      setTimeout(() => resolve([]), 35000)
+    );
+    return Promise.race([scrapePromise, timeoutPromise]);
+  }
+
+  private async _scrapeJobs(maxLimit: number): Promise<JobPosting[]> {
     const { browser, proxyAuth } = await launchBrowser(this.options.proxyUrl);
     const baseUrl = getBaseUrl(this.options);
     const jobPostings: JobPosting[] = [];
@@ -213,11 +220,17 @@ export class IndeedJobsQuery {
       }> = [];
       const seenKeys = new Set<string>();
       let pageIndex = this.options.page || 0;
+      const maxPages = pageIndex + 3;
 
-      while (allRawCards.length < maxLimit) {
+      while (allRawCards.length < maxLimit && pageIndex < maxPages) {
         const searchUrl = buildSearchUrl({ ...this.options, page: pageIndex });
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await delay(1500);
+        try {
+          await page.goto(searchUrl, { waitUntil: 'commit', timeout: 12000 });
+          await delay(2000);
+        } catch {
+          // If search navigation fails or challenges, break and return cards found so far
+          break;
+        }
 
         // Extract basic job metadata from search page DOM
         const pageCards = await page.evaluate(() => {
@@ -238,38 +251,46 @@ export class IndeedJobsQuery {
           cardElements.forEach((card) => {
             const jkAnchor =
               card.querySelector('a[data-jk]') ||
-              card.querySelector('h2.jobTitle a') ||
-              card.closest('[data-jk]');
-            const jk = jkAnchor?.getAttribute('data-jk') || card.getAttribute('data-jk');
-            const titleEl = card.querySelector('h2.jobTitle') || card.querySelector('a[id^="job_"]');
-            const compEl = card.querySelector('[data-testid="company-name"]') || card.querySelector('.companyName');
-            const locEl = card.querySelector('[data-testid="text-location"]') || card.querySelector('.companyLocation');
-            const salaryEl =
-              card.querySelector('[data-testid="attribute_snippet"]') ||
-              card.querySelector('.salary-snippet-container') ||
-              card.querySelector('.estimated-salary');
-            const dateEl = card.querySelector('.date') || card.querySelector('[data-testid="myJobsStateDate"]');
-            const snippetEl =
-              card.querySelector('.jobCard-description, .job-snippet, [data-testid="jobs-snippet"], .underShelfFooter, div[class*="snippet"], ul[class*="snippet"], .jobMetaDataGroup, ul:not([class*="mosaic"])') ||
-              card.querySelector('td.resultContent') ||
-              card;
+              card.querySelector('a.jcs-JobTitle');
 
-            const getCleanText = (el: Element | null) => {
-              if (!el) return '';
-              const clone = el.cloneNode(true) as HTMLElement;
-              clone.querySelectorAll('style, script, h2, [data-testid="company-name"], [data-testid="text-location"], .companyName, .companyLocation, .date, [data-testid="myJobsStateDate"]').forEach((n) => n.remove());
-              const text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
-              return text;
-            };
+            if (jkAnchor) {
+              const jobKey =
+                jkAnchor.getAttribute('data-jk') ||
+                jkAnchor.id?.replace(/^job_/, '') ||
+                '';
 
-            if (jk && !results.some((r) => r.jobKey === jk)) {
+              const titleEl = card.querySelector('h2.jobTitle, a.jcs-JobTitle');
+              const companyEl = card.querySelector(
+                '[data-testid="company-name"], span.companyName'
+              );
+              const locationEl = card.querySelector(
+                '[data-testid="text-location"], div.companyLocation'
+              );
+              const salaryEl = card.querySelector(
+                'div.metadata.salary-snippet-container, div.salary-snippet-container'
+              );
+              const dateEl = card.querySelector(
+                'span.date, span[data-testid="myJobsStateDate"]'
+              );
+              const snippetEl = card.querySelector(
+                'div.job-snippet, div[data-testid="jobs-snippet"]'
+              );
+
+              const getCleanText = (el: Element | null): string => {
+                if (!el) return '';
+                const clone = el.cloneNode(true) as HTMLElement;
+                const srOnly = clone.querySelectorAll('.visually-hidden, .sr-only');
+                srOnly.forEach((node) => node.remove());
+                return clone.textContent?.trim() || '';
+              };
+
               results.push({
-                jobKey: jk,
-                title: titleEl?.textContent?.trim()?.replace(/^new\s*/i, '') || '',
-                company: compEl?.textContent?.trim() || '',
-                location: locEl?.textContent?.trim() || '',
-                salary: salaryEl?.textContent?.trim() || 'Not specified',
-                agoTime: dateEl?.textContent?.trim() || '',
+                jobKey,
+                title: getCleanText(titleEl),
+                company: getCleanText(companyEl),
+                location: getCleanText(locationEl),
+                salary: getCleanText(salaryEl) || 'Not specified',
+                agoTime: getCleanText(dateEl),
                 snippet: getCleanText(snippetEl),
               });
             }
@@ -304,8 +325,8 @@ export class IndeedJobsQuery {
         let salaryText = cardJob.salary;
 
         try {
-          await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
-          await delay(500);
+          await page.goto(detailUrl, { waitUntil: 'commit', timeout: 8000 });
+          await delay(1000);
 
           const detailData = await page.evaluate(() => {
             const descEl =
@@ -357,7 +378,17 @@ export class IndeedJobsQuery {
         });
       }
     } finally {
-      try { await browser.close(); } catch {}
+      try {
+        await Promise.race([
+          browser.close(),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch {}
+      if (browser && browser.process() != null) {
+        try {
+          browser.process().kill('SIGKILL');
+        } catch {}
+      }
     }
 
     return jobPostings;

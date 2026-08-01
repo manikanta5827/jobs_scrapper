@@ -3,7 +3,15 @@ import { validateIndeedJobQueryOptions } from './indeed-validator';
 import type { LambdaEvent, LambdaResponse } from './lambda-types';
 
 export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
-  const queryParams = event.queryStringParameters || {};
+  let queryParams: any = event.queryStringParameters || {};
+  if (Object.keys(queryParams).length === 0 && event.body) {
+    try {
+      queryParams = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+    } catch {}
+  }
+  if (Object.keys(queryParams).length === 0 && ((event as any).keyword || (event as any).location)) {
+    queryParams = event;
+  }
 
   const validation = validateIndeedJobQueryOptions(queryParams);
   if (!validation.valid || !validation.sanitizedOptions) {
