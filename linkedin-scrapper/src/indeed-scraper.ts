@@ -79,6 +79,8 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-blink-features=AutomationControlled',
+    '--disable-features=IsolateOrigins,site-per-process',
+    '--window-size=1920,1080',
     '--disable-dev-shm-usage',
   ];
 

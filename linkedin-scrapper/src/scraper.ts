@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import randomUseragent from 'random-useragent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import https from 'https';
 import {
   JobQueryOptions,
   JobPosting,
@@ -13,6 +14,49 @@ import {
 } from './types';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ponytail: modern TLS ciphers to prevent OpenSSL/JA3 fingerprint detection in Node.js
+const MODERN_TLS_CIPHERS = [
+  'TLS_AES_128_GCM_SHA256',
+  'TLS_AES_256_GCM_SHA384',
+  'TLS_CHACHA20_POLY1305_SHA256',
+  'ECDHE-ECDSA-AES128-GCM-SHA256',
+  'ECDHE-RSA-AES128-GCM-SHA256',
+  'ECDHE-ECDSA-AES256-GCM-SHA384',
+  'ECDHE-RSA-AES256-GCM-SHA384',
+].join(':');
+
+const chromeHttpsAgent = new https.Agent({
+  ciphers: MODERN_TLS_CIPHERS,
+  honorCipherOrder: true,
+  minVersion: 'TLSv1.2',
+});
+
+const CHROME_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
+
+const getChromeHeaders = (isAjax = false): Record<string, string> => ({
+  'User-Agent': CHROME_USER_AGENT,
+  'sec-ch-ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+  'sec-fetch-dest': isAjax ? 'empty' : 'document',
+  'sec-fetch-mode': isAjax ? 'cors' : 'navigate',
+  'sec-fetch-site': isAjax ? 'same-origin' : 'none',
+  Accept: isAjax
+    ? 'application/json, text/javascript, */*; q=0.01'
+    : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  DNT: '1',
+  Connection: 'keep-alive',
+  ...(isAjax
+    ? {
+        Referer: 'https://www.linkedin.com/jobs',
+        'X-Requested-With': 'XMLHttpRequest',
+      }
+    : {}),
+});
 
 // ponytail: tune these if you add proxy rotation or see persistent 429s
 const DETAIL_FETCH_RETRIES = 3;
@@ -28,11 +72,7 @@ export async function fetchJobDetails(jobId: string, proxyUrl?: string): Promise
   }
 
   const url = `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${cleanId}`;
-  const headers = {
-    'User-Agent': randomUseragent.getRandom(),
-    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-  };
+  const headers = getChromeHeaders(false);
 
   const config: any = {
     headers,
@@ -43,12 +83,14 @@ export async function fetchJobDetails(jobId: string, proxyUrl?: string): Promise
   const effectiveProxy = proxyUrl || process.env.PROXY_URL;
   if (effectiveProxy) {
     config.httpsAgent = new HttpsProxyAgent(effectiveProxy);
+  } else {
+    config.httpsAgent = chromeHttpsAgent;
   }
 
   for (let attempt = 1; attempt <= DETAIL_FETCH_RETRIES; attempt++) {
     try {
-      // Rotate user-agent per attempt to reduce fingerprinting
-      config.headers['User-Agent'] = randomUseragent.getRandom();
+      // Keep synchronized Chrome Client Hints across attempts
+      config.headers = getChromeHeaders(false);
       const response = await axios.get(url, config);
       const $ = cheerio.load(response.data);
 
@@ -278,15 +320,7 @@ export class LinkedInJobsQuery {
   }
 
   private async fetchBatch(start: number): Promise<JobPosting[]> {
-    const headers = {
-      'User-Agent': randomUseragent.getRandom(),
-      Accept: 'application/json, text/javascript, */*; q=0.01',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
-      Referer: 'https://www.linkedin.com/jobs',
-      'X-Requested-With': 'XMLHttpRequest',
-      Connection: 'keep-alive',
-    };
+    const headers = getChromeHeaders(true);
 
     const targetUrl = this.buildUrl(start);
     const config: any = {
@@ -298,6 +332,8 @@ export class LinkedInJobsQuery {
     const effectiveProxy = this.options.proxyUrl || process.env.PROXY_URL;
     if (effectiveProxy) {
       config.httpsAgent = new HttpsProxyAgent(effectiveProxy);
+    } else {
+      config.httpsAgent = chromeHttpsAgent;
     }
 
     const response = await axios.get(targetUrl, config);

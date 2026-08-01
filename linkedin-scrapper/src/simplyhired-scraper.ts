@@ -1,9 +1,43 @@
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import https from 'https';
 import { SimplyHiredJobQueryOptions } from './simplyhired-types';
 import { JobPosting, JobDetails } from './types';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+// ponytail: modern TLS ciphers to prevent OpenSSL/JA3 fingerprint detection in Node.js
+const MODERN_TLS_CIPHERS = [
+  'TLS_AES_128_GCM_SHA256',
+  'TLS_AES_256_GCM_SHA384',
+  'TLS_CHACHA20_POLY1305_SHA256',
+  'ECDHE-ECDSA-AES128-GCM-SHA256',
+  'ECDHE-RSA-AES128-GCM-SHA256',
+  'ECDHE-ECDSA-AES256-GCM-SHA384',
+  'ECDHE-RSA-AES256-GCM-SHA384',
+].join(':');
+
+const chromeHttpsAgent = new https.Agent({
+  ciphers: MODERN_TLS_CIPHERS,
+  honorCipherOrder: true,
+  minVersion: 'TLSv1.2',
+});
+
+const getChromeHeaders = (): Record<string, string> => ({
+  'User-Agent': UA,
+  'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"macOS"',
+  'sec-fetch-dest': 'document',
+  'sec-fetch-mode': 'navigate',
+  'sec-fetch-site': 'none',
+  'sec-fetch-user': '?1',
+  'upgrade-insecure-requests': '1',
+  Accept:
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  Connection: 'keep-alive',
+});
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -192,14 +226,10 @@ export class SimplyHiredJobsQuery {
     while (allJobs.length < maxLimit) {
       const url = buildSearchUrl({ ...this.options, page: currentPage, cursor: currentCursor });
 
-      const headers: Record<string, string> = {
-        'User-Agent': UA,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      };
+      const headers = getChromeHeaders();
 
       const proxyUrl = process.env.PROXY_URL;
-      const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+      const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : chromeHttpsAgent;
 
       const response = await axios.get(url, {
         headers,
