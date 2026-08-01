@@ -1,4 +1,4 @@
-import { JobQueryOptions } from './types';
+import { JobQueryOptions } from './linkedin-types';
 
 const VALID_DATE_POSTED = ['past month', 'past week', '24hr', 'past 24 hours'];
 

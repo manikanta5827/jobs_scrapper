@@ -1,4 +1,4 @@
-import { handler } from './lambda-simplyhired';
+import { handler } from '../lambda-simplyhired';
 
 async function testSimplyHiredJobs() {
   console.log('🚀 Testing SimplyHired Job Search with filters...\n');

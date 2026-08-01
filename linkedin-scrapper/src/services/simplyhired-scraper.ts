@@ -1,41 +1,9 @@
 import axios from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import https from 'https';
 import { SimplyHiredJobQueryOptions } from './simplyhired-types';
-import { JobPosting, JobDetails } from './types';
+import { JobPosting, JobDetails } from './linkedin-types';
+import { getProxyAgent } from '../helpers/proxy-utils';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
-// ponytail: modern TLS ciphers to prevent OpenSSL/JA3 fingerprint detection in Node.js
-const MODERN_TLS_CIPHERS = [
-  'TLS_AES_128_GCM_SHA256',
-  'TLS_AES_256_GCM_SHA384',
-  'TLS_CHACHA20_POLY1305_SHA256',
-  'ECDHE-ECDSA-AES128-GCM-SHA256',
-  'ECDHE-RSA-AES128-GCM-SHA256',
-  'ECDHE-ECDSA-AES256-GCM-SHA384',
-  'ECDHE-RSA-AES256-GCM-SHA384',
-].join(':');
-
-const chromeHttpsAgent = new https.Agent({
-  ciphers: MODERN_TLS_CIPHERS,
-  honorCipherOrder: true,
-  minVersion: 'TLSv1.2',
-});
-
-function getProxyAgent(proxyUrl?: string) {
-  if (!proxyUrl || typeof proxyUrl !== 'string') return chromeHttpsAgent;
-  const trimmed = proxyUrl.trim();
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    return chromeHttpsAgent;
-  }
-  try {
-    new URL(trimmed);
-    return new HttpsProxyAgent(trimmed);
-  } catch {
-    return chromeHttpsAgent;
-  }
-}
 
 const getChromeHeaders = (): Record<string, string> => ({
   'User-Agent': UA,

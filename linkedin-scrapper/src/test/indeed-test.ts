@@ -1,15 +1,15 @@
-import { handler } from './lambda-naukri';
+import { handler } from '../lambda-indeed';
 
-async function testNaukriJobs() {
-  console.log('🚀 Testing Naukri Job Search with Puppeteer...\n');
+async function testIndeedJobs() {
+  console.log('🚀 Testing Indeed Job Search with Puppeteer & Stealth...\n');
 
   const res = await handler({
     queryStringParameters: {
-      keyword: 'Cloud Developer',
-      location: 'Mumbai',
-      jobAge: '7',
-      sort: 'date',
-      limit: '10',
+      keyword: 'backend developer',
+      location: 'Remote',
+      fromage: '7',
+      jobType: 'fulltime',
+      limit: '15',
     },
   });
 
@@ -24,9 +24,9 @@ async function testNaukriJobs() {
       console.log('Company:', job.company);
       console.log('Location:', job.location);
       console.log('Salary:', job.salary);
-      console.log('Posted:', job.agoTime);
-      console.log('URL:', job.jobUrl);
       console.log('Source:', job.source);
+      console.log('Ago Time / Date:', job.agoTime);
+      console.log('URL:', job.jobUrl);
       console.log('Description:', job.details?.descriptionText?.substring(0, 200) + '...');
       console.log();
     });
@@ -35,4 +35,4 @@ async function testNaukriJobs() {
   }
 }
 
-testNaukriJobs().catch((err) => console.error('Test Error:', err));
+testIndeedJobs().catch((err) => console.error('Test Error:', err));

@@ -1,7 +1,7 @@
-import { queryIndeedJobs } from './indeed-scraper';
-import { validateIndeedJobQueryOptions } from './indeed-validator';
-import type { LambdaEvent, LambdaResponse } from './lambda-types';
-import { uploadScrapedJobsToS3 } from './s3-uploader';
+import { queryIndeedJobs } from './services/indeed-scraper';
+import { validateIndeedJobQueryOptions } from './services/indeed-validator';
+import type { LambdaEvent, LambdaResponse } from './helpers/lambda-types';
+import { uploadScrapedJobsToS3 } from './helpers/s3-uploader';
 
 const getRandomJitter = (minMs = 1000, maxMs = 2000) =>
   new Promise((resolve) =>

@@ -1,7 +1,7 @@
-import { handler as linkedinHandler } from './lambda-linkedin';
-import { handler as simplyHiredHandler } from './lambda-simplyhired';
-import { handler as naukriHandler } from './lambda-naukri';
-import { handler as indeedHandler } from './lambda-indeed';
+import { handler as linkedinHandler } from '../lambda-linkedin';
+import { handler as simplyHiredHandler } from '../lambda-simplyhired';
+import { handler as naukriHandler } from '../lambda-naukri';
+import { handler as indeedHandler } from '../lambda-indeed';
 
 interface TestQuery {
   name: string;

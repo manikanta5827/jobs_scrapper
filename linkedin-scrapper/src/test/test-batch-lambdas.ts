@@ -1,5 +1,5 @@
-import { handler as linkedinHandler } from './lambda-linkedin';
-import { handler as simplyhiredHandler } from './lambda-simplyhired';
+import { handler as linkedinHandler } from '../lambda-linkedin';
+import { handler as simplyhiredHandler } from '../lambda-simplyhired';
 
 async function testBatchLambdas() {
   console.log('🧪 TESTING MULTI-QUERY BATCH LAMBDA INVOCATIONS WITH RANDOM JITTER (BATCH SIZE: 6) 🧪\n');

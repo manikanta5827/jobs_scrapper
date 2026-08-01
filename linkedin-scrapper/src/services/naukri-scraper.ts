@@ -1,5 +1,6 @@
 import { NaukriJobQueryOptions } from './naukri-types';
-import { JobPosting, JobDetails } from './types';
+import { JobPosting, JobDetails } from './linkedin-types';
+import { parseProxy } from '../helpers/proxy-utils';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -52,28 +53,6 @@ async function getPuppeteer() {
     puppeteer.use(StealthPlugin());
   }
   return puppeteer;
-}
-
-interface ProxyConfig {
-  server?: string;
-  auth?: { username: string; password: string };
-}
-
-function parseProxy(proxyUrl?: string): ProxyConfig {
-  if (!proxyUrl) return {};
-  try {
-    const url = new URL(proxyUrl);
-    if (!['http:', 'https:', 'socks4:', 'socks5:'].includes(url.protocol)) {
-      return {};
-    }
-    const server = `${url.protocol}//${url.hostname}${url.port ? ':' + url.port : ''}`;
-    const auth = (url.username || url.password)
-      ? { username: decodeURIComponent(url.username), password: decodeURIComponent(url.password) }
-      : undefined;
-    return { server, auth };
-  } catch {
-    return {};
-  }
 }
 
 async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAuth?: { username: string; password: string } }> {

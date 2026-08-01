@@ -1,4 +1,4 @@
-import { handler } from './lambda-linkedin';
+import { handler } from '../lambda-linkedin';
 
 async function testFullJobDescription() {
   console.log('🚀 Testing Job Query with automatic full details...');

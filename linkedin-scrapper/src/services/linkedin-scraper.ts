@@ -1,8 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import randomUseragent from 'random-useragent';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import https from 'https';
+import { getProxyAgent } from '../helpers/proxy-utils';
 import {
   JobQueryOptions,
   JobPosting,
@@ -11,40 +10,9 @@ import {
   ExperienceLevelOption,
   JobTypeOption,
   RemoteFilterOption,
-} from './types';
+} from './linkedin-types';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// ponytail: modern TLS ciphers to prevent OpenSSL/JA3 fingerprint detection in Node.js
-const MODERN_TLS_CIPHERS = [
-  'TLS_AES_128_GCM_SHA256',
-  'TLS_AES_256_GCM_SHA384',
-  'TLS_CHACHA20_POLY1305_SHA256',
-  'ECDHE-ECDSA-AES128-GCM-SHA256',
-  'ECDHE-RSA-AES128-GCM-SHA256',
-  'ECDHE-ECDSA-AES256-GCM-SHA384',
-  'ECDHE-RSA-AES256-GCM-SHA384',
-].join(':');
-
-const chromeHttpsAgent = new https.Agent({
-  ciphers: MODERN_TLS_CIPHERS,
-  honorCipherOrder: true,
-  minVersion: 'TLSv1.2',
-});
-
-function getProxyAgent(proxyUrl?: string) {
-  if (!proxyUrl || typeof proxyUrl !== 'string') return chromeHttpsAgent;
-  const trimmed = proxyUrl.trim();
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    return chromeHttpsAgent;
-  }
-  try {
-    new URL(trimmed);
-    return new HttpsProxyAgent(trimmed);
-  } catch {
-    return chromeHttpsAgent;
-  }
-}
 
 const CHROME_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
@@ -95,11 +63,7 @@ export async function fetchJobDetails(jobId: string, proxyUrl?: string): Promise
   };
 
   const effectiveProxy = proxyUrl || process.env.PROXY_URL;
-  if (effectiveProxy) {
-    config.httpsAgent = new HttpsProxyAgent(effectiveProxy);
-  } else {
-    config.httpsAgent = chromeHttpsAgent;
-  }
+  config.httpsAgent = getProxyAgent(effectiveProxy);
 
   for (let attempt = 1; attempt <= DETAIL_FETCH_RETRIES; attempt++) {
     try {
