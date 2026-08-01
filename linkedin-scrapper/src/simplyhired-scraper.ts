@@ -23,6 +23,20 @@ const chromeHttpsAgent = new https.Agent({
   minVersion: 'TLSv1.2',
 });
 
+function getProxyAgent(proxyUrl?: string) {
+  if (!proxyUrl || typeof proxyUrl !== 'string') return chromeHttpsAgent;
+  const trimmed = proxyUrl.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return chromeHttpsAgent;
+  }
+  try {
+    new URL(trimmed);
+    return new HttpsProxyAgent(trimmed);
+  } catch {
+    return chromeHttpsAgent;
+  }
+}
+
 const getChromeHeaders = (): Record<string, string> => ({
   'User-Agent': UA,
   'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
@@ -246,7 +260,7 @@ export class SimplyHiredJobsQuery {
       const headers = getChromeHeaders();
 
       const proxyUrl = process.env.PROXY_URL;
-      const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : chromeHttpsAgent;
+      const agent = getProxyAgent(proxyUrl);
 
       const response = await axios.get(url, {
         headers,

@@ -8,9 +8,9 @@ Parameters:
     Description: CloudWatch Log retention in days
     Default: 7
   ProxyUrl:
-    Type: "AWS::SSM::Parameter::Value<String>"
+    Type: String
     Description: Optional Rotating Proxy URL (e.g. http://user:pass@proxy-host:port)
-    Default: /scraper/PROXY_URL
+    Default: ""
   S3BucketName:
     Type: String
     Description: Name of S3 Bucket to store raw scraped jobs

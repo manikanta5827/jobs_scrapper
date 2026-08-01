@@ -32,6 +32,20 @@ const chromeHttpsAgent = new https.Agent({
   minVersion: 'TLSv1.2',
 });
 
+function getProxyAgent(proxyUrl?: string) {
+  if (!proxyUrl || typeof proxyUrl !== 'string') return chromeHttpsAgent;
+  const trimmed = proxyUrl.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return chromeHttpsAgent;
+  }
+  try {
+    new URL(trimmed);
+    return new HttpsProxyAgent(trimmed);
+  } catch {
+    return chromeHttpsAgent;
+  }
+}
+
 const CHROME_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
 
@@ -330,11 +344,7 @@ export class LinkedInJobsQuery {
     };
 
     const effectiveProxy = this.options.proxyUrl || process.env.PROXY_URL;
-    if (effectiveProxy) {
-      config.httpsAgent = new HttpsProxyAgent(effectiveProxy);
-    } else {
-      config.httpsAgent = chromeHttpsAgent;
-    }
+    config.httpsAgent = getProxyAgent(effectiveProxy);
 
     const response = await axios.get(targetUrl, config);
     return this.parseHtml(response.data);

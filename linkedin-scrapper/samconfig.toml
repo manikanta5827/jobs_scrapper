@@ -6,7 +6,7 @@ resolve_s3 = true
 s3_prefix = "scrapper"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "LogRetentionDays=\"7\" ProxyUrl=\"/scraper/PROXY_URL\" S3BucketName=\"job-scraper-raw-jobs-379322108250\""
+parameter_overrides = "LogRetentionDays=\"7\" ProxyUrl=\"\" S3BucketName=\"job-scraper-raw-jobs-379322108250\""
 image_repositories = []
 
 [default.global.parameters]
