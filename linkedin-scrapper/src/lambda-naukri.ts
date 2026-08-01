@@ -41,6 +41,11 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     };
   }
 
+  console.log(`[Naukri Lambda] Processing ${queries.length} queries for User ID ${userId}`);
+  for (const query of queries) {
+    console.log(`[Naukri Lambda] Query: ${query.keyword} in ${query.location}`);
+  }
+
   const allJobs: any[] = [];
   const seenIds = new Set<string>();
 
@@ -69,6 +74,8 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
         await getRandomJitter(1000, 2000);
       }
     }
+
+    console.log(`[Naukri Lambda] Uploaded ${allJobs.length} jobs to S3 for User ID ${userId}`);
 
     const s3Key = await uploadScrapedJobsToS3('naukri', userId, allJobs);
 

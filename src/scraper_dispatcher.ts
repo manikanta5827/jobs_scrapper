@@ -58,19 +58,13 @@ export const handler = async (
       continue;
     }
 
-    const queries = buildSearchQueriesFromProfile(user);
-    if (queries.length === 0) {
-      console.warn(`[ScraperDispatcher] No search queries could be generated for user ${user.id}`);
-      continue;
-    }
-
     // LinkedIn & SimplyHired: 10 queries per Lambda batch
-    await dispatchInBatches(LINKEDIN_SCRAPER_NAME, user.id, queries, 10);
-    await dispatchInBatches(SIMPLYHIRED_SCRAPER_NAME, user.id, queries, 10);
+    await dispatchInBatches(LINKEDIN_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'linkedin'), 10);
+    await dispatchInBatches(SIMPLYHIRED_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'simplyhired'), 10);
 
     // Naukri & Indeed (browser-based): 3 queries per Lambda batch
-    await dispatchInBatches(NAUKRI_SCRAPER_NAME, user.id, queries, 3);
-    await dispatchInBatches(INDEED_SCRAPER_NAME, user.id, queries, 3);
+    await dispatchInBatches(NAUKRI_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'naukri'), 3);
+    await dispatchInBatches(INDEED_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'indeed'), 3);
 
     totalDispatched++;
   }
@@ -87,6 +81,12 @@ async function dispatchInBatches(
   queries: Array<{ keyword: string; location: string; geoId?: string }>,
   batchSize: number
 ): Promise<void> {
+  if (queries.length === 0) {
+    console.warn(`[ScraperDispatcher] No search queries could be generated for user ${userId} for platform ${functionName}`);
+    return;
+  }
+  console.log(`[ScraperDispatcher] Dispatching ${functionName} for user ${userId} with ${queries.length} queries`);
+
   for (let i = 0; i < queries.length; i += batchSize) {
     const batch = queries.slice(i, i + batchSize);
     try {
@@ -102,6 +102,8 @@ async function dispatchInBatches(
           ),
         })
       );
+
+      console.log(`[ScraperDispatcher] Dispatched ${functionName} for User ID ${userId} in batch ${i / batchSize + 1} of ${Math.ceil(queries.length / batchSize)}`);
     } catch (err: unknown) {
       console.error(`Failed to dispatch ${functionName} for User ID ${userId}:`, err);
     }

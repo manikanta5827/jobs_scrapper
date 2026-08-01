@@ -38,83 +38,21 @@ const CITY_GEO_IDS: Record<string, string> = {
   'india': '102713980',
 };
 
-/**
- * Main entry point: Fetch jobs for a candidate user based on candidate profile.
- * Runs LinkedIn and Naukri scrapers in parallel via Lambda.
- */
-export async function fetchJobsForUser(
-  user: {
-    id?: string;
-    suggestedJobTitles?: string[] | null;
-    targetLocations?: string | null;
-    experienceYears?: number | null;
-    employmentType?: string | null;
-  },
-  lookbackHours: number = 12
-): Promise<Job[]> {
-  const queries = buildSearchQueriesFromProfile(user);
-
-  console.log(`[JobFetcher] Processing ${queries.length} queries for user ${user.id || 'unknown'}`);
-
-  if (queries.length === 0) {
-    console.warn(`[JobFetcher] No search queries could be generated for user ${user.id}`);
-    return [];
-  }
-
-  let jobs: Job[] = [];
-
-  // Fetch from all four Lambdas in parallel
-  const [linkedinJobs, naukriJobs, simplyhiredJobs, indeedJobs] = await Promise.allSettled([
-    fetchViaLambdaScraper(queries, user, lookbackHours),
-    fetchViaNaukriLambda(queries, user, lookbackHours),
-    fetchViaSimplyHiredLambda(queries, user, lookbackHours),
-    fetchViaIndeedLambda(queries, user, lookbackHours),
-  ]);
-
-  if (linkedinJobs.status === 'fulfilled') {
-    jobs.push(...linkedinJobs.value);
-  } else {
-    console.warn(`[JobFetcher] LinkedIn scraper failed: ${linkedinJobs.reason?.message}`);
-  }
-
-  if (naukriJobs.status === 'fulfilled') {
-    jobs.push(...naukriJobs.value);
-  } else {
-    console.warn(`[JobFetcher] Naukri scraper failed: ${naukriJobs.reason?.message}`);
-  }
-
-  if (simplyhiredJobs.status === 'fulfilled') {
-    jobs.push(...simplyhiredJobs.value);
-  } else {
-    console.warn(`[JobFetcher] SimplyHired scraper failed: ${simplyhiredJobs.reason?.message}`);
-  }
-
-  if (indeedJobs.status === 'fulfilled') {
-    jobs.push(...indeedJobs.value);
-  } else {
-    console.warn(`[JobFetcher] Indeed scraper failed: ${indeedJobs.reason?.message}`);
-  }
-
-  // Deduplicate by link across queries
-  const seen = new Set<string>();
-  const uniqueJobs = jobs.filter(j => {
-    if (!j.link || seen.has(j.link)) return false;
-    seen.add(j.link);
-    return true;
-  });
-
-  console.log(`[JobFetcher] Final count: ${jobs.length} raw → ${uniqueJobs.length} unique jobs`);
-  return uniqueJobs;
-}
-
 // ─── QUERY BUILDER ─────────────────────────────────────────────────────────
 
 export function buildSearchQueriesFromProfile(user: {
   suggestedJobTitles?: string[] | null;
   targetLocations?: string | null;
-}): SearchQuery[] {
+}, platform: 'linkedin' | 'naukri' | 'simplyhired' | 'indeed'): SearchQuery[] {
   const keywords = extractKeywords(user);
-  const locations = extractLocations(user);
+  let locations: Array<{ name: string; geoId?: string }> = [];
+
+  if(platform === 'naukri' || platform === 'indeed') {
+    locations = [{ name: 'India', geoId: CITY_GEO_IDS['india'] }];
+  }
+  else {
+    locations = extractLocations(user);
+  }
 
   if (keywords.length === 0 || locations.length === 0) return [];
 

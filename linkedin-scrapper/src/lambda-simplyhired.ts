@@ -39,6 +39,11 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     };
   }
 
+  console.log(`[SimplyHired Lambda] Processing ${queries.length} queries for User ID ${userId}`);
+  for (const query of queries) {
+    console.log(`[SimplyHired Lambda] Query: ${query.keyword} in ${query.location}`);
+  }
+
   const allJobs: any[] = [];
   const seenIds = new Set<string>();
 
@@ -68,6 +73,8 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
         await getRandomJitter(300, 800);
       }
     }
+
+    console.log(`[SimplyHired Lambda] Uploaded ${allJobs.length} jobs to S3 for User ID ${userId}`);
 
     const s3Key = await uploadScrapedJobsToS3('simplyhired', userId, allJobs);
 
