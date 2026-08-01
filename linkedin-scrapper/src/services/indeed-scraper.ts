@@ -300,7 +300,7 @@ export class IndeedJobsQuery {
       // Fetch full details for each job
       for (const cardJob of jobsToFetch) {
         const detailUrl = `${baseUrl}/viewjob?jk=${cardJob.jobKey}`;
-        let fullDescription = cardJob.snippet || '';
+        let fullDescription = '';
         let companyName = cardJob.company;
         let formattedLocation = cardJob.location;
         let salaryText = cardJob.salary;
@@ -373,7 +373,8 @@ export class IndeedJobsQuery {
       }
     }
 
-    return jobPostings;
+    // Drop jobs whose full detail description fetch failed — no arbitrary length check
+    return jobPostings.filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim());
   }
 }
 

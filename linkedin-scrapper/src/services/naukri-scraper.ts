@@ -227,7 +227,8 @@ export class NaukriJobsQuery {
         }
       }
 
-      return allJobs;
+      // Drop jobs whose full detail description fetch failed — no arbitrary length check
+      return allJobs.filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim());
     } finally {
       if (browserInstance) {
         try { await browserInstance.close(); } catch {}
@@ -279,14 +280,7 @@ export class NaukriJobsQuery {
           salary,
           jobUrl: jobUrl.startsWith('https://') ? jobUrl : 'https://www.naukri.com' + jobUrl,
           agoTime,
-          details: {
-            descriptionText: description,
-            employmentType: '',
-            seniorityLevel: '',
-            jobFunction: '',
-            industries: '',
-            numApplicants: '',
-          },
+          details: undefined,
           source: 'naukri' as const,
         };
       }).filter((j) => j.position && j.company);

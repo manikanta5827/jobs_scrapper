@@ -189,10 +189,6 @@ function mapToJobPosting(job: RawJob, viewJob: RawViewJob | null, index: number,
     details.employmentType = (viewJob.jobTypes || []).join(', ');
   }
 
-  if (!details.descriptionText && job.snippet) {
-    details.descriptionText = stripHtmlTags(job.snippet);
-  }
-
   return {
     id: job.jobKey,
     position: job.title,
@@ -283,7 +279,11 @@ export class SimplyHiredJobsQuery {
       await delay(500 + Math.random() * 300);
     }
 
-    return allJobs.slice(0, maxLimit).map((job) => ({ ...job, source: 'simplyhired' as const }));
+    // Drop jobs whose full detail description fetch failed — no arbitrary length check
+    return allJobs
+      .filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim())
+      .slice(0, maxLimit)
+      .map((job) => ({ ...job, source: 'simplyhired' as const }));
   }
 }
 

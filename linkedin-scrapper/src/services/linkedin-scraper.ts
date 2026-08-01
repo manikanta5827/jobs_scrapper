@@ -293,8 +293,10 @@ export class LinkedInJobsQuery {
       }
     }
 
-    // Drop jobs whose detail fetch failed — no description = no value to consumer
-    return allJobs.filter(job => !!job.details).map(job => ({ ...job, source: 'linkedin' as const }));
+    // Drop jobs whose detail fetch failed — no arbitrary length check
+    return allJobs
+      .filter(job => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim())
+      .map(job => ({ ...job, source: 'linkedin' as const }));
   }
 
   private async fetchBatch(start: number): Promise<JobPosting[]> {

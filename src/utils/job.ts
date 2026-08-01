@@ -66,7 +66,8 @@ export function getUniqueJobsFromBatch(rawJobs: Job[]): Job[] {
   const uniqueJobsMap = new Map<string, Job>();
   
   for (const job of rawJobs) {
-    if (!job.link || !job.title || !job.companyName) continue;
+    // Drop jobs missing basic fields or descriptionText (without arbitrary length check)
+    if (!job.link || !job.title || !job.companyName || !job.descriptionText || !job.descriptionText.trim()) continue;
     
     const normalizedLink = normalizeLink(job.link);
     const fingerprint = calculateFingerprint(job);
