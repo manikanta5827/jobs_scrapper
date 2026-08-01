@@ -194,6 +194,7 @@ export class IndeedJobsQuery {
 
     try {
       const page = await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       if (proxyAuth) {
         await page.authenticate(proxyAuth);
       }
@@ -225,8 +226,9 @@ export class IndeedJobsQuery {
       while (allRawCards.length < maxLimit && pageIndex < maxPages) {
         const searchUrl = buildSearchUrl({ ...this.options, page: pageIndex });
         try {
-          await page.goto(searchUrl, { waitUntil: 'commit', timeout: 12000 });
-          await delay(2000);
+          await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          await page.waitForSelector('div.job_seen_beacon, div.cardOutline, td.resultContent, div.jobsearch-ResultsList > li, li.css-5lfssm', { timeout: 4000 }).catch(() => {});
+          await delay(1000);
         } catch {
           // If search navigation fails or challenges, break and return cards found so far
           break;
@@ -245,7 +247,7 @@ export class IndeedJobsQuery {
           }> = [];
 
           const cardElements = document.querySelectorAll(
-            'div.cardOutline, div.job_seen_beacon, td.resultContent, div.jobsearch-ResultsList > li'
+            'div.cardOutline, div.job_seen_beacon, td.resultContent, div.jobsearch-ResultsList > li, li.css-5lfssm'
           );
 
           cardElements.forEach((card) => {
@@ -325,8 +327,9 @@ export class IndeedJobsQuery {
         let salaryText = cardJob.salary;
 
         try {
-          await page.goto(detailUrl, { waitUntil: 'commit', timeout: 8000 });
-          await delay(1000);
+          await page.goto(detailUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+          await page.waitForSelector('#jobDescriptionText, .jobsearch-JobComponent-description', { timeout: 3000 }).catch(() => {});
+          await delay(800);
 
           const detailData = await page.evaluate(() => {
             const descEl =

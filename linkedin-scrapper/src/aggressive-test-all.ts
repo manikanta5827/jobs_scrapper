@@ -50,15 +50,26 @@ const platforms: TestQuery[] = [
 ];
 
 async function runAggressiveTests() {
-  console.log('🔥 STARTING AGGRESSIVE MULTI-INPUT TEST SUITE ACROSS ALL 4 PLATFORMS 🔥\n');
+  const args = process.argv.slice(2);
+  const onlyArg = args.find((a) => a.startsWith('--only='))?.split('=')[1]?.toLowerCase();
+  const limitArg = args.find((a) => a.startsWith('--limit='))?.split('=')[1];
 
-  for (const platform of platforms) {
+  console.log('🔥 STARTING AGGRESSIVE MULTI-INPUT TEST SUITE 🔥\n');
+
+  const activePlatforms = onlyArg
+    ? platforms.filter((p) => p.name.toLowerCase() === onlyArg)
+    : platforms;
+
+  for (const platform of activePlatforms) {
     console.log(`==================================================================`);
     console.log(`📡 TESTING PLATFORM: ${platform.name}`);
     console.log(`==================================================================`);
 
     for (let i = 0; i < platform.queries.length; i++) {
-      const q = platform.queries[i];
+      const q = { ...platform.queries[i] };
+      if (limitArg) {
+        q.limit = limitArg;
+      }
       console.log(`\n--- Query ${i + 1}: keyword="${q.keyword}", location="${q.location}", limit=${q.limit} ---`);
       const startTime = Date.now();
 

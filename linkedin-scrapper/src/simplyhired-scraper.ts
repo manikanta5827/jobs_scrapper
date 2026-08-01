@@ -178,6 +178,23 @@ function extractSalary(job: RawJob, viewJob: RawViewJob | null): string {
   return 'Not specified';
 }
 
+function stripHtmlTags(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
+}
+
 function mapToJobPosting(job: RawJob, viewJob: RawViewJob | null, index: number, baseUrl: string): JobPosting {
   const jobUrl = job.encodedUrl
     ? `${baseUrl}${decodeURIComponent(job.encodedUrl)}`
@@ -186,12 +203,12 @@ function mapToJobPosting(job: RawJob, viewJob: RawViewJob | null, index: number,
   const details: JobDetails = {};
 
   if (viewJob && index === 0) {
-    details.descriptionText = viewJob.jobDescriptionHtml || '';
+    details.descriptionText = stripHtmlTags(viewJob.jobDescriptionHtml || '');
     details.employmentType = (viewJob.jobTypes || []).join(', ');
   }
 
   if (!details.descriptionText && job.snippet) {
-    details.descriptionText = job.snippet;
+    details.descriptionText = stripHtmlTags(job.snippet);
   }
 
   return {
