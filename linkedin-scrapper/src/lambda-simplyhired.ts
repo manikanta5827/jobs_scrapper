@@ -1,7 +1,7 @@
 import { SimplyHiredJobsQuery } from './simplyhired-scraper';
 import { validateSimplyHiredJobQueryOptions } from './simplyhired-validator';
 import type { LambdaEvent, LambdaResponse } from './lambda-types';
-import { uploadScrapedJobsToS3 } from '../../src/helper/s3_fetcher';
+import { uploadScrapedJobsToS3 } from './s3-uploader';
 
 const getRandomJitter = (minMs = 300, maxMs = 800) =>
   new Promise((resolve) =>
