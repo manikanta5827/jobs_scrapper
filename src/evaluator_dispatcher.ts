@@ -5,8 +5,8 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { getActiveUsersMinimal, getUserById } from './helper/db_helper';
-import { Tier } from './helper/constants';
+import { getActiveUsersMinimal, getUserById } from './services/db';
+import { Tier } from './constants';
 
 const lambdaClient = new LambdaClient({});
 

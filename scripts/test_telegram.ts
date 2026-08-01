@@ -1,4 +1,4 @@
-import { sendTelegramMessage } from '../src/helper/telegram_helper';
+import { sendTelegramMessage } from '../src/services/telegram';
 
 /**
  * Simple script to test Telegram integration.

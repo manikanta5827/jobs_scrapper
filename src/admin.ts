@@ -20,9 +20,9 @@ import {
   getJobsForUser,
   getJobById,
   updateJobResumeMd
-} from './helper/db_helper';
-import { analyzeResumeWithLLM, generateAtsResume } from './helper/llm';
-import { shutdownTelemetry } from './helper/telemetry';
+} from './services/db';
+import { analyzeResumeWithLLM, generateAtsResume } from './services/llm';
+import { shutdownTelemetry } from './services/telemetry';
 import { 
   UuidParamSchema, 
   NumericIdParamSchema, 
@@ -34,8 +34,8 @@ import {
   CreateApifyKeySchema, 
   UpdateApifyKeySchema, 
   formatZodError 
-} from './helper/validation';
-import { Tier } from './helper/constants';
+} from './utils/validation';
+import { Tier } from './constants';
 
 const lambdaClient = new LambdaClient({});
 const FREE_TRIAL_DAYS= 7 * 24 * 60 * 60 * 1000;

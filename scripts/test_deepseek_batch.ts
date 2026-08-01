@@ -11,9 +11,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { calculateCostUsd, extractJobFitFactsBatch } from '../src/helper/llm';
-import { yoePreFilter, extractYoeRange } from '../src/helper/filter';
-import type { Job, EnrichedJob, JobFitFacts, TokenUsage, UserPromptContext } from '../src/helper/types';
+import { calculateCostUsd, extractJobFitFactsBatch } from '../src/services/llm';
+import { yoePreFilter, extractYoeRange } from '../src/utils/filter';
+import type { Job, EnrichedJob, JobFitFacts, TokenUsage, UserPromptContext } from '../src/types';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -284,7 +284,7 @@ async function runPipeline(
   // Step 1: extraction
   const { facts, usage } = await extractJobFitFactsBatch(jobs, context, batchSize, 0, 1, modelId);
   // Step 2: deterministic evaluation
-  const { evaluateJobFit } = await import('../src/helper/fit_evaluator');
+  const { evaluateJobFit } = await import('../src/services/fit_evaluator');
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
   for (let i = 0; i < jobs.length; i++) {

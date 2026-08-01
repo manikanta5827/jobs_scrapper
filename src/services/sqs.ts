@@ -1,5 +1,5 @@
 import { SQSClient, SendMessageBatchCommand, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
-import type { EnrichedJob } from './types';
+import type { EnrichedJob } from '../types';
 
 const sqs = new SQSClient({});
 const QUEUE_URL = process.env.POST_QUEUE_URL!;

@@ -4,13 +4,13 @@
  * Migrated to Vercel AI SDK for robust JSON parsing.
  * Uses OpenRouter with DeepInfra provider for deepseek/deepseek-v4-flash.
  */
-import type { Job, EnrichedJob, JobFitFacts, BatchResult, TokenUsage, UserPromptContext } from "./types";
+import type { Job, EnrichedJob, JobFitFacts, BatchResult, TokenUsage, UserPromptContext } from "../types";
 import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
 import { wrapModelWithTelemetry } from './telemetry';
-import { MATCHED_CATEGORY_SET } from './constants';
+import { MATCHED_CATEGORY_SET } from '../constants';
 import { evaluateJobFit } from './fit_evaluator';
 
 // Disable verbose AI SDK compatibility warnings in production logs

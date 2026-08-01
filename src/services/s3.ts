@@ -4,7 +4,7 @@
  */
 
 import { S3Client, ListObjectsV2Command, GetObjectCommand, DeleteObjectsCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import type { Job } from './types';
+import type { Job } from '../types';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'ap-south-1' });
 

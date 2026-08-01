@@ -5,8 +5,8 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, checkAndHandleSubscriptionExpiry } from './helper/db_helper';
-import { buildSearchQueriesFromProfile } from './helper/job_fetcher';
+import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, checkAndHandleSubscriptionExpiry } from './services/db';
+import { buildSearchQueriesFromProfile } from './services/job_fetcher';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN || '';
 

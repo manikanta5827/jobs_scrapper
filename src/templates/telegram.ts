@@ -1,5 +1,5 @@
-import type { EnrichedJob, JobStats } from './types';
-import { HIGH_SCORE_THRESHOLD, APP_FALLBACK_URL } from './constants';
+import type { EnrichedJob, JobStats } from '../types';
+import { HIGH_SCORE_THRESHOLD, APP_FALLBACK_URL } from '../constants';
 
 // Candidate User info structure for failure alerts sent to Admin
 export interface CandidateUserInfo {

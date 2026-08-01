@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import type { Job } from './types';
+import type { Job } from '../types';
 
 /**
  * Calculates a unique fingerprint for a job based on its title, company, and description.

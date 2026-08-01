@@ -1,9 +1,9 @@
 import type { ScheduledEvent, Context } from 'aws-lambda';
-import { receiveJobFromQueue, deleteMessageFromQueue } from './helper/sqs_helper';
+import { receiveJobFromQueue, deleteMessageFromQueue } from './services/sqs';
 
-import { postToLinkedIn } from './helper/linkedin_post';
-import { formatJobPost } from './helper/linkedin_templates';
-import { getUserById } from './helper/db_helper';
+import { postToLinkedIn } from './services/linkedin';
+import { formatJobPost } from './templates/linkedin';
+import { getUserById } from './services/db';
 
 
 const IMAGE_WORKER_URL = process.env.CLOUDFLARE_IMAGE_WORKER_URL;

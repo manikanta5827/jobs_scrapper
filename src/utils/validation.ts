@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { Tier } from './constants';
+import { Tier } from '../constants';
 
 // UUID parameter validation schema
 export const UuidParamSchema = z.string().uuid({ message: "Invalid candidate UUID format" });

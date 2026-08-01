@@ -4,13 +4,13 @@
  * No AI-based judgment here — only the business rules.
  */
 
-import type { JobFitFacts, UserPromptContext } from "./types";
+import type { JobFitFacts, UserPromptContext } from "../types";
 import {
   CATEGORY_SCORES,
   MINOR_GAPS_THRESHOLD,
   STRONG_MATCH_THRESHOLD,
   PREFERRED_BONUS_THRESHOLD,
-} from "./constants";
+} from "../constants";
 
 export interface FitEvaluation {
   category: string;

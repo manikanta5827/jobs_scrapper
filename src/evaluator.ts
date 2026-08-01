@@ -4,26 +4,26 @@
  */
 
 import type { Context } from 'aws-lambda';
-import { fetchJobsFromS3, deleteS3JobsBatch } from './helper/s3_fetcher';
-import { checkRelevanceBatch, calculateCostUsd } from './helper/llm';
+import { fetchJobsFromS3, deleteS3JobsBatch } from './services/s3';
+import { checkRelevanceBatch, calculateCostUsd } from './services/llm';
 import { 
   getExistingJobsData, 
   trackJobs, 
   getUserById,
   recordUserRun
-} from './helper/db_helper';
-import { getUniqueJobsFromBatch } from './helper/job_utils';
-import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './helper/filter';
-import { sendTelegramMessage } from './helper/telegram_helper';
-import { pushToPostQueue } from './helper/sqs_helper';
-import { shutdownTelemetry } from './helper/telemetry';
+} from './services/db';
+import { getUniqueJobsFromBatch } from './utils/job';
+import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './utils/filter';
+import { sendTelegramMessage } from './services/telegram';
+import { pushToPostQueue } from './services/sqs';
+import { shutdownTelemetry } from './services/telemetry';
 import { 
   getSuccessHeader, 
   getMatchedJobMessage,
   getZeroMatchesMessage
-} from './helper/telegram_templates';
-import type { Job, EnrichedJob, JobStats } from './helper/types';
-import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './helper/constants';
+} from './templates/telegram';
+import type { Job, EnrichedJob, JobStats } from './types';
+import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './constants';
 
 const DEEPSEEK_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 3000;

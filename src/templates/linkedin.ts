@@ -1,4 +1,4 @@
-import type { EnrichedJob } from './types';
+import type { EnrichedJob } from '../types';
 
 export function formatJobPost(job: EnrichedJob): string {
   const title = job.title || 'Software Engineer';

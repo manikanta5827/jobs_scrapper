@@ -8,10 +8,10 @@ import {
   getUserById, 
   updateUser, 
   setUserActiveStatus 
-} from "./helper/db_helper";
-import { sendTelegramMessage } from "./helper/telegram_helper";
-import { TelegramWebhookMessageSchema } from "./helper/validation";
-import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from "./helper/constants";
+} from "./services/db";
+import { sendTelegramMessage } from "./services/telegram";
+import { TelegramWebhookMessageSchema } from "./utils/validation";
+import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from "./constants";
 
 // Handle incoming Telegram webhook updates
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {

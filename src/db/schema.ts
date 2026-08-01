@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, serial, doublePrecision, date, integer, boolean, jsonb, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { Tier } from '../helper/constants';
-import type { JobFitFacts } from '../helper/types';
+import { Tier } from '../constants';
+import type { JobFitFacts } from '../types';
 
 // Multi-tenant users table storing profile settings, credentials, and tier subscriptions
 export const users = pgTable("users", {

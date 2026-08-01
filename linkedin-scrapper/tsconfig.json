@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*", "../src/helper/s3_fetcher.ts", "../src/helper/types.ts"]
+  "include": ["src/**/*", "../src/services/s3.ts", "../src/types/index.ts"]
 }
