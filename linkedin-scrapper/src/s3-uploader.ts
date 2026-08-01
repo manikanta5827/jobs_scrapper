@@ -9,7 +9,8 @@ const s3Client = new S3Client({});
 export async function uploadScrapedJobsToS3(platform: string, userId: string | undefined, jobs: any[]): Promise<string> {
   const bucketName = process.env.S3_BUCKET_NAME;
   if (!bucketName) {
-    throw new Error('S3_BUCKET_NAME environment variable is not defined.');
+    console.warn('[S3Uploader] S3_BUCKET_NAME env variable is not defined. Skipping actual S3 upload (local test mode).');
+    return `local-test/${userId || 'anonymous'}/${platform}-${Date.now()}.json`;
   }
 
   const uid = userId || 'anonymous';

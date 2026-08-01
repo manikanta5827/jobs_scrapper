@@ -82,26 +82,12 @@ async function runAggressiveTests() {
         console.log(`Status Code: ${res.statusCode} (took ${elapsed}s)`);
 
         const body = JSON.parse(res.body);
-        if (body.success && body.data) {
-          const jobs = body.data;
-          const total = jobs.length;
-          const withDesc = jobs.filter(
-            (j: any) =>
-              (j.details && j.details.descriptionText && j.details.descriptionText.trim().length > 10) ||
-              (j.snippet && j.snippet.trim().length > 10)
-          ).length;
-          const hasLogo = jobs.filter((j: any) => 'companyLogo' in j).length;
-
+        if (body.success) {
+          const total = body.count || 0;
           console.log(`✅ Scraped Jobs: ${total} / Requested: ${q.limit}`);
-          console.log(`📝 Jobs with Description/Snippet: ${withDesc} / ${total}`);
-          console.log(`🚫 Jobs with companyLogo field: ${hasLogo} (Should be 0)`);
+          console.log(`📦 S3 Key: ${body.s3Key || 'N/A'}`);
 
-          if (total > 0) {
-            const first = jobs[0];
-            const descPreview = first.details?.descriptionText || first.snippet || 'NO DESCRIPTION';
-            console.log(`\nSample Job 1 -> Position: ${first.position} | Company: ${first.company} | Location: ${first.location}`);
-            console.log(`Preview: ${descPreview.substring(0, 150).replace(/\s+/g, ' ')}...`);
-          } else {
+          if (total === 0) {
             console.warn(`⚠️ WARNING: 0 jobs returned for query! Check if platform blocked or empty.`);
           }
         } else {
