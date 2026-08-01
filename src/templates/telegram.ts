@@ -33,7 +33,7 @@ export function getSuccessHeader(dateTimeStr: string, stats: JobStats): string {
  * Formats a SINGLE job match message for Telegram (HTML mode).
  */
 export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
-  const scoreEmoji = (j.ai_score ?? 0) >= HIGH_SCORE_THRESHOLD ? '✅' : '⚠️';
+  const scoreEmoji = (j.aiScore ?? 0) >= HIGH_SCORE_THRESHOLD ? '✅' : '⚠️';
   
   const rawSource = String(j.source || '').toLowerCase();
   let sourceLabel = 'LinkedIn';
@@ -51,26 +51,26 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
     msg += `💼 <b>Source:</b> <code>${sourceLabel}</code>\n`;
   }
   msg += `🏢 <b>Company:</b>  <code>${j.companyName}</code>\n`;
-  msg += `📍 <b>Location:</b> <code>${j.ai_job_location ?? 'Not specified'}</code>\n`;
+  msg += `📍 <b>Location:</b> <code>${j.aiJobLocation ?? 'Not specified'}</code>\n`;
   msg += `📅 <b>Posted:</b> <code>${j.postedAt ?? 'Unknown'}</code>\n`;
-  msg += `⏳ <b>Experience:</b> <code>${j.ai_yoe ?? 'Not specified'}</code>\n\n`;
+  msg += `⏳ <b>Experience:</b> <code>${j.aiYoe ?? 'Not specified'}</code>\n\n`;
   
-  msg += `${scoreEmoji} <b>Match Score:</b> <code>${j.ai_score}/10</code>\n`;
+  msg += `${scoreEmoji} <b>Match Score:</b> <code>${j.aiScore}/10</code>\n`;
   
-  if (j.ai_direct_apply) {
-    msg += `📩 <b>Direct Apply:</b> <i>${j.ai_direct_apply}</i>\n`;
+  if (j.aiDirectApply) {
+    msg += `📩 <b>Direct Apply:</b> <i>${j.aiDirectApply}</i>\n`;
   }
 
-  if (j.ai_matched_skills && j.ai_matched_skills.length > 0) {
-    msg += `✅ <b>Matched Skills:</b> <i>${j.ai_matched_skills.join(', ')}</i>\n\n`;
+  if (j.aiMatchedSkills && j.aiMatchedSkills.length > 0) {
+    msg += `✅ <b>Matched Skills:</b> <i>${j.aiMatchedSkills.join(', ')}</i>\n\n`;
   }
 
-  if (j.ai_missing_skills && j.ai_missing_skills.length > 0) {
-    msg += `❌ <b>Missing Skills:</b> <i>${j.ai_missing_skills.join(', ')}</i>\n\n`;
+  if (j.aiMissingSkills && j.aiMissingSkills.length > 0) {
+    msg += `❌ <b>Missing Skills:</b> <i>${j.aiMissingSkills.join(', ')}</i>\n\n`;
   }
 
-  if (j.ai_reason) {
-    msg += `📝 <b>AI Reason:</b> <i>${j.ai_reason}</i>\n\n`;
+  if (j.aiReason) {
+    msg += `📝 <b>AI Reason:</b> <i>${j.aiReason}</i>\n\n`;
   }
 
   const applyPlatform = sourceLabel.toUpperCase();

@@ -47,15 +47,15 @@ export interface JobFitFacts {
 // Job after DeepSeek enrichment
 export interface EnrichedJob extends Job {
   status:             'matched' | 'rejected' | 'binned';
-  ai_category?:       string;
-  ai_score?:          number;
-  ai_reason?:         string;
-  ai_matched_skills?: string[];
-  ai_missing_skills?: string[];
-  ai_job_location?:   string | null;
-  ai_yoe?:            string;
-  ai_direct_apply?:   string | null;
-  ai_facts?:          JobFitFacts | null;
+  aiCategory?:        string;
+  aiScore?:           number;
+  aiReason?:          string;
+  aiMatchedSkills?:   string[];
+  aiMissingSkills?:   string[];
+  aiJobLocation?:     string | null;
+  aiYoe?:             string;
+  aiDirectApply?:     string | null;
+  aiFacts?:           JobFitFacts | null;
 }
 
 // LLM token usage, accumulated across all batch calls

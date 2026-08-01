@@ -277,16 +277,16 @@ async function processUserWorker(
         fingerprint: j.fingerprint!,
         jobTitle: j.title || j.jobTitle,
         companyName: j.companyName,
-        location: j.location || m?.ai_job_location || undefined,
+        location: j.location || m?.aiJobLocation || undefined,
         postedAt: j.postedAt,
         salary: j.salary,
-        aiScore: m?.ai_score,
-        aiReason: m?.ai_reason,
-        matchedSkills: m?.ai_matched_skills || [],
-        missingSkills: m?.ai_missing_skills || [],
-        aiFacts: m?.ai_facts ?? null,
-        requiredYoe: m?.ai_yoe,
-        directApply: m?.ai_direct_apply || j.applyUrl || null,
+        aiScore: m?.aiScore,
+        aiReason: m?.aiReason,
+        matchedSkills: m?.aiMatchedSkills || [],
+        missingSkills: m?.aiMissingSkills || [],
+        aiFacts: m?.aiFacts ?? null,
+        requiredYoe: m?.aiYoe,
+        directApply: m?.aiDirectApply || j.applyUrl || null,
         applicantsCount: j.applicantsCount,
         descriptionText: j.descriptionText,
         source: j.source,
@@ -357,7 +357,7 @@ async function sendMatchedJobs(botToken: string, chatId: string, matched: Enrich
   if (!chatId) return;
 
   // Sort matched jobs by score descending so highest-rated appear first
-  matched.sort((a, b) => (Number(b.ai_score ?? 0)) - (Number(a.ai_score ?? 0)));
+  matched.sort((a, b) => (Number(b.aiScore ?? 0)) - (Number(a.aiScore ?? 0)));
 
   if (matched.length === 0) {
     await sendTelegramMessage(botToken, chatId, getZeroMatchesMessage(dateStr, stats));

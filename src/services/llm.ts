@@ -390,15 +390,15 @@ export async function checkRelevanceBatch(
     const enriched: EnrichedJob = {
       ...job,
       status: isGoodMatch ? "matched" : "rejected",
-      ai_category: category,
-      ai_score: evalResult.score,
-      ai_reason: evalResult.reason,
-      ai_matched_skills: evalResult.matched_skills,
-      ai_missing_skills: evalResult.missing_skills,
-      ai_job_location: evalResult.job_location,
-      ai_yoe: evalResult.years_of_experience,
-      ai_direct_apply: evalResult.direct_apply,
-      ai_facts: fact,
+      aiCategory: category,
+      aiScore: evalResult.score,
+      aiReason: evalResult.reason,
+      aiMatchedSkills: evalResult.matched_skills,
+      aiMissingSkills: evalResult.missing_skills,
+      aiJobLocation: evalResult.job_location,
+      aiYoe: evalResult.years_of_experience,
+      aiDirectApply: evalResult.direct_apply,
+      aiFacts: fact,
     };
     isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
   }

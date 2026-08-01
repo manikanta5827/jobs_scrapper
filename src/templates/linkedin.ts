@@ -3,13 +3,13 @@ import type { EnrichedJob } from '../types';
 export function formatJobPost(job: EnrichedJob): string {
   const title = job.title || 'Software Engineer';
   const company = job.companyName || 'a company';
-  const location = job.ai_job_location || job.location || 'India';
-  const experience = job.ai_yoe || '';
+  const location = job.aiJobLocation || job.location || 'India';
+  const experience = job.aiYoe || '';
   const employmentType = job.employmentType || '';
   const seniorityLevel = job.seniorityLevel || '';
   const salary = job.salary || '';
-  const directApply = job.ai_direct_apply || '';
-  const skills = job.ai_matched_skills || [];
+  const directApply = job.aiDirectApply || '';
+  const skills = job.aiMatchedSkills || [];
   const applyLink = job.link || '';
 
   let post = '#hiring #sde #freshers #jobs\n\n';
