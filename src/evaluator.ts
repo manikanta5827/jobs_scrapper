@@ -25,7 +25,7 @@ import {
 import type { Job, EnrichedJob, JobStats } from './types';
 import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './constants';
 
-const DEEPSEEK_BATCH_SIZE = 10;
+const DEEPSEEK_BATCH_SIZE = 5;
 const BATCH_DELAY_MS = 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 
@@ -129,6 +129,22 @@ async function processUserWorker(
     const batchDedupCount = jobsAfterBlock.length - uniqueCount;
 
     console.log(`User ${user.id}: Deduped ${batchDedupCount} duplicate jobs, final jobs count ${uniqueCount}`);
+
+    if (uniqueCount === 0) {
+      const stats: JobStats = { scraped: rawCount, duplicateRemoved: batchDedupCount, dbDeduplicated: 0, keywordFiltered: 0, aiRejected: 0, matched: 0 };
+      if (chatId) await sendMatchedJobs(TELEGRAM_BOT_TOKEN, chatId, [], dateStr, stats, user.tier);
+      await recordUserRun(user.id, {
+        status: 'SUCCESS',
+        exitStage: 'batch_dedup',
+        scrapedJobsCount: rawCount,
+        batchDedupCount,
+        dbDedupCount: 0,
+        keywordFilteredCount: 0,
+        ...ZERO_COST
+      });
+      await deleteS3JobsBatch(s3Keys);
+      return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
+    }
 
     // 5. Per-User Database deduplication (against candidate's personal seen jobs history — fingerprint only)
     const candidateFingerprints = uniqueRawJobs.map((j: Job) => j.fingerprint).filter((f): f is string => !!f);

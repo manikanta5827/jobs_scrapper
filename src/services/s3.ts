@@ -5,6 +5,7 @@
 
 import { S3Client, ListObjectsV2Command, GetObjectCommand, DeleteObjectsCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { Job } from '../types';
+import { normalizeJob } from '../utils/job';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'ap-south-1' });
 
@@ -82,7 +83,8 @@ export async function fetchJobsFromS3(userId: string): Promise<{ jobs: Job[]; s3
         });
         const res = await s3Client.send(getCmd);
         const jsonText = await res.Body!.transformToString();
-        return JSON.parse(jsonText) as Job[];
+        const parsed = JSON.parse(jsonText);
+        return (Array.isArray(parsed?.jobs) ? parsed.jobs : []) as Job[];
       } catch (err: unknown) {
         console.error(`[S3Fetcher] Failed to download or parse S3 key ${key}:`, err);
         return [] as Job[];
@@ -90,7 +92,7 @@ export async function fetchJobsFromS3(userId: string): Promise<{ jobs: Job[]; s3
     })
   );
 
-  const jobs = allBatches.flat();
+  const jobs = allBatches.flat().map(normalizeJob);
   console.log(`[S3Fetcher] Downloaded ${jobs.length} total jobs across ${s3Keys.length} S3 files for user ${userId}`);
 
   return { jobs, s3Keys };

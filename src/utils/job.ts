@@ -2,16 +2,38 @@ import { createHash } from 'crypto';
 import type { Job } from '../types';
 
 /**
+ * Normalizes different scraper output formats (e.g. custom JobPosting or Apify Job)
+ * into a standard Job interface with link, title, companyName, etc.
+ * ponytail: one-pass coalescing to support all scraper formats without extra dependencies.
+ */
+export function normalizeJob(job: any): Job {
+  if (!job || typeof job !== 'object') return {} as Job;
+  return {
+    ...job,
+    title: job.title || job.position || '',
+    companyName: job.companyName || job.company || '',
+    link: job.link || job.jobUrl || '',
+    descriptionText: job.descriptionText || job.details?.descriptionText || '',
+    seniorityLevel: job.seniorityLevel || job.details?.seniorityLevel || '',
+    employmentType: job.employmentType || job.details?.employmentType || '',
+    jobFunction: job.jobFunction || job.details?.jobFunction || '',
+    industries: job.industries || job.details?.industries || '',
+    postedAt: job.postedAt || job.date || '',
+  };
+}
+
+/**
  * Calculates a unique fingerprint for a job based on its title, company, and description.
  * Normalizes text by collapsing all whitespace to handle minor formatting differences.
  */
 export const calculateFingerprint = (job: Job): string => {
-  const normalize = (text: string) => 
-    (text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const normalize = (text: unknown) => 
+    (typeof text === 'string' ? text : String(text || '')).toLowerCase().replace(/\s+/g, ' ').trim();
 
-  const title = normalize(job.title || '');
-  const company = normalize(job.companyName || '');
-  const description = normalize(job.descriptionText || '');
+  const details = job.details as Record<string, unknown> | undefined;
+  const title = normalize(job.title || job.position || '');
+  const company = normalize(job.companyName || job.company || '');
+  const description = normalize(job.descriptionText || details?.descriptionText || '');
   
   return createHash('sha256')
     .update(`${title}|${company}|${description}`)
