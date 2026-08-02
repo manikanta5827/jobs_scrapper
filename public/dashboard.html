@@ -783,9 +783,14 @@
           </tbody>
         </table>
 
-        <!-- Jobs Table Footer: count only, no pagination -->
-        <div id="paginationBar" class="pagination-bar" style="display: none;">
+        <!-- Jobs Table Footer: Pagination controls -->
+        <div id="paginationBar" class="pagination-bar" style="display: none; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-surface); border-top: 1px solid var(--border-color); font-size: 13px;">
           <span id="paginationInfo">Showing 0 jobs</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btnPrevPage" onclick="changePage(-1)" class="btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main); cursor: pointer; border-radius: 6px;" disabled>&larr; Previous</button>
+            <span id="pageIndicator" style="font-weight: 600; color: var(--text-main); font-size: 12px; margin: 0 4px;">Page 1 of 1</span>
+            <button id="btnNextPage" onclick="changePage(1)" class="btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main); cursor: pointer; border-radius: 6px;" disabled>Next &rarr;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -794,6 +799,10 @@
   <script>
     let allJobs = [];
     let filteredJobs = [];
+    let currentPage = 1;
+    let currentLimit = 20;
+    let totalServerJobs = 0;
+    let totalPages = 1;
 
     const todayStr = new Date().toISOString().split('T')[0];
     const urlParams = new URLSearchParams(window.location.search);
@@ -802,7 +811,7 @@
     const datePicker = document.getElementById('datePicker');
     datePicker.value = defaultDate;
     datePicker.setAttribute('max', todayStr);
-    datePicker.onchange = () => loadUserJobs();
+    datePicker.onchange = () => loadUserJobs(1);
 
     // ── BACKEND API BASE URL ────────────────────────────────────────────────
     // Direct backend API Gateway URL
@@ -813,19 +822,16 @@
 
     function getCandidateEmail() {
       const currentParams = new URLSearchParams(window.location.search);
-      // 1. Query parameter ?email=... or ?id=... or ?userId=...
       if (currentParams.get('email')) return currentParams.get('email').trim();
       if (currentParams.get('id')) return currentParams.get('id').trim();
       if (currentParams.get('userId')) return currentParams.get('userId').trim();
       
-      // 2. Read from localStorage
       const storedEmail = localStorage.getItem('CANDIDATE_USER_EMAIL');
       if (storedEmail) return storedEmail.trim();
 
       const storedId = localStorage.getItem('CANDIDATE_USER_ID');
       if (storedId) return storedId.trim();
 
-      // 3. Path parameter fallback e.g. /dashboard/{id}
       const pathParts = window.location.pathname.split('/').filter(Boolean);
       const dashIdx = pathParts.indexOf('dashboard');
       if (dashIdx !== -1 && pathParts[dashIdx + 1]) return pathParts[dashIdx + 1];
@@ -879,7 +885,6 @@
 
       if (errorAlert) errorAlert.style.display = 'none';
 
-      // 1. Frontend Email Regex Validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!inputVal || !emailRegex.test(inputVal)) {
         if (errorMsg) errorMsg.innerText = 'Please enter a valid email address (e.g. candidate@example.com).';
@@ -888,7 +893,6 @@
         return;
       }
 
-      // 2. Preflight API Verification Request
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = `<span>Verifying email...</span>`;
@@ -908,15 +912,13 @@
           throw new Error('No candidate account found for this email address.');
         }
 
-        // 3. Success (200 OK & user exists) -> Store in localStorage & show dashboard
         localStorage.setItem('CANDIDATE_USER_EMAIL', inputVal);
         userId = inputVal;
         updateUIState();
-        loadUserJobs();
+        loadUserJobs(1);
       } catch (err) {
         if (errorMsg) errorMsg.innerText = err.message || 'Candidate email address not found. Please try again.';
         if (errorAlert) errorAlert.style.display = 'block';
-        // User remains on login card!
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -964,11 +966,12 @@
       }
     }
 
-    async function loadUserJobs() {
+    async function loadUserJobs(page = 1) {
       if (!userId) {
         updateUIState();
         return;
       }
+      currentPage = page;
 
       document.getElementById('jobsTable').style.display = 'table';
       renderSkeletonRows();
@@ -978,11 +981,11 @@
 
       try {
         const selectedDate = document.getElementById('datePicker').value;
-        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs`;
+        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs?page=${currentPage}&limit=${currentLimit}`;
         if (selectedDate) {
-          url += `?fromDate=${encodeURIComponent(selectedDate)}&toDate=${encodeURIComponent(selectedDate)}`;
+          url += `&fromDate=${encodeURIComponent(selectedDate)}&toDate=${encodeURIComponent(selectedDate)}`;
         } else {
-          url += `?fromDate=${encodeURIComponent(todayStr)}&toDate=${encodeURIComponent(todayStr)}`;
+          url += `&fromDate=${encodeURIComponent(todayStr)}&toDate=${encodeURIComponent(todayStr)}`;
         }
 
         const response = await fetch(url, {
@@ -999,6 +1002,10 @@
           renderUserProfile(data.user);
         }
 
+        totalServerJobs = data.total || 0;
+        totalPages = data.totalPages || Math.ceil(totalServerJobs / currentLimit) || 1;
+        currentPage = data.page || page;
+
         allJobs = (data.jobs || []).sort((a, b) => {
           const scoreA = Number(a.aiScore ?? a.ai_score ?? 0);
           const scoreB = Number(b.aiScore ?? b.ai_score ?? 0);
@@ -1014,6 +1021,13 @@
       }
     }
 
+    function changePage(delta) {
+      const newPage = currentPage + delta;
+      if (newPage >= 1 && newPage <= totalPages) {
+        loadUserJobs(newPage);
+      }
+    }
+
     function applyClientFilter() {
       const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 6;
       filteredJobs = allJobs.filter(j => {
@@ -1021,7 +1035,7 @@
         return score >= minScore;
       });
 
-      if (filteredJobs.length === 0) {
+      if (filteredJobs.length === 0 && allJobs.length === 0) {
         document.getElementById('jobsTable').style.display = 'none';
         document.getElementById('emptyState').style.display = 'block';
         document.getElementById('paginationBar').style.display = 'none';
@@ -1029,11 +1043,18 @@
         document.getElementById('jobsTable').style.display = 'table';
         document.getElementById('emptyState').style.display = 'none';
         document.getElementById('paginationBar').style.display = 'flex';
-        document.getElementById('paginationInfo').innerText = `Showing ${filteredJobs.length} of ${allJobs.length} jobs`;
+        
+        document.getElementById('paginationInfo').innerText = `Showing ${filteredJobs.length} of ${allJobs.length} on this page (${totalServerJobs} total jobs for date)`;
+        document.getElementById('pageIndicator').innerText = `Page ${currentPage} of ${totalPages}`;
+        
+        const prevBtn = document.getElementById('btnPrevPage');
+        const nextBtn = document.getElementById('btnNextPage');
+        if (prevBtn) prevBtn.disabled = (currentPage <= 1);
+        if (nextBtn) nextBtn.disabled = (currentPage >= totalPages);
       }
 
-      document.getElementById('statTotalJobs').innerText = allJobs.length.toLocaleString();
-      document.getElementById('statPageCount').innerText = filteredJobs.length.toLocaleString();
+      document.getElementById('statTotalJobs').innerText = totalServerJobs.toLocaleString();
+      document.getElementById('statPageCount').innerText = `${currentPage} / ${totalPages}`;
       renderTable(filteredJobs);
     }
 

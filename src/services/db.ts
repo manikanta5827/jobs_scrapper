@@ -126,9 +126,15 @@ export async function getJobsForUser(
   options: {
     fromDate?: string;
     toDate?: string;
+    page?: number;
+    limit?: number;
   } = {}
 ) {
   await initDb();
+
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.max(1, options.limit || 20);
+  const offset = (page - 1) * limit;
 
   // Resolve identifier (email or UUID) to target user ID
   let targetUserId = identifier.trim();
@@ -144,6 +150,9 @@ export async function getJobsForUser(
       return {
         jobs: [],
         total: 0,
+        page,
+        limit,
+        totalPages: 0,
         user: null
       };
     }
@@ -164,16 +173,21 @@ export async function getJobsForUser(
 
   const whereClause = and(...conditions);
 
-  // Fetch all matching jobs for the date, ordered by score (highest first)
-  const jobsList = await db.select()
-    .from(jobs)
-    .where(whereClause)
-    .orderBy(desc(jobs.aiScore));
-
   // Fetch total count
   const countResult = await db.select({ count: sql<number>`count(*)` })
     .from(jobs)
     .where(whereClause);
+
+  const total = Number(countResult[0]?.count || 0);
+  const totalPages = Math.ceil(total / limit);
+
+  // Fetch paginated jobs for the date, ordered by score (highest first)
+  const jobsList = await db.select()
+    .from(jobs)
+    .where(whereClause)
+    .orderBy(desc(jobs.aiScore))
+    .limit(limit)
+    .offset(offset);
 
   // Fetch candidate profile details for dashboard display
   const userResult = await db.select({
@@ -190,11 +204,12 @@ export async function getJobsForUser(
     telegramChatId: users.telegramChatId,
   }).from(users).where(eq(users.id, targetUserId)).limit(1);
 
-  const total = Number(countResult[0]?.count || 0);
-
   return {
     jobs: jobsList,
     total,
+    page,
+    limit,
+    totalPages,
     user: userResult[0] || null
   };
 }

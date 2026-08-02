@@ -116,8 +116,10 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     const qp = event.queryStringParameters || {};
     const fromDate = qp.fromDate || undefined;
     const toDate = qp.toDate || undefined;
+    const page = parseInt(qp.page || '1', 10) || 1;
+    const limit = parseInt(qp.limit || '20', 10) || 20;
 
-    const result = await getJobsForUser(identifier, { fromDate, toDate });
+    const result = await getJobsForUser(identifier, { fromDate, toDate, page, limit });
     return response(200, result);
   }
 
