@@ -14,11 +14,9 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-so
 
 const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper';
 const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-jobs-scraper';
-const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper';
-const INDEED_SCRAPER_NAME = process.env.INDEED_SCRAPER_FUNCTION_NAME || 'indeed-jobs-scraper';
 
 export interface GroupedSearchQuery extends SearchQuery {
-  platform: 'linkedin' | 'naukri' | 'simplyhired' | 'indeed';
+  platform: 'linkedin' | 'naukri';
   userIds: string[];
 }
 
@@ -78,9 +76,7 @@ export const handler = async (
 
   const batchSizes: Record<string, number> = {
     linkedin: 10,
-    simplyhired: 10,
     naukri: 3,
-    indeed: 3,
   };
 
   let totalTasksCount = 0;

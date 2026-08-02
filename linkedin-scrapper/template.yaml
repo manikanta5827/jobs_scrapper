@@ -20,6 +20,9 @@ Globals:
     Timeout: 600
     MemorySize: 256
     Runtime: nodejs22.x
+    EventInvokeConfig:
+      MaximumRetryAttempts: 0
+      MaximumEventAgeInSeconds: 3600
     Environment:
       Variables:
         PROXY_URL: !Ref ProxyUrl
@@ -36,7 +39,7 @@ Resources:
       CompatibleRuntimes:
         - nodejs22.x
       CompatibleArchitectures:
-        - x86_64
+        - arm64
     Metadata:
       BuildMethod: nodejs22.x
 
@@ -92,7 +95,7 @@ Resources:
       Timeout: 800
       MemorySize: 512
       Architectures:
-        - x86_64
+        - arm64
       ReservedConcurrentExecutions: 15
       Layers:
         - !Ref PuppeteerLayer
@@ -185,7 +188,7 @@ Resources:
       MemorySize: 512
       Timeout: 800
       Architectures:
-        - x86_64
+        - arm64
       ReservedConcurrentExecutions: 15
       Layers:
         - !Ref PuppeteerLayer

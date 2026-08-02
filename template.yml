@@ -45,6 +45,12 @@ Parameters:
     Description: PostHog Host URL for AI Observability
     Default: "https://us.i.posthog.com"
 
+Globals:
+  Function:
+    EventInvokeConfig:
+      MaximumRetryAttempts: 0
+      MaximumEventAgeInSeconds: 3600
+
 Resources:
 
   # ─── AWS S3 RAW JOBS STORAGE (7-day retention) ─────────────────────────────
@@ -184,6 +190,10 @@ Resources:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
 
+    EventInvokeConfig:
+      MaximumRetryAttempts: 1
+      MaximumEventAgeInSeconds: 3600
+
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -252,6 +262,11 @@ Resources:
             RetryPolicy:
               MaximumRetryAttempts: 0
               MaximumEventAgeInSeconds: 3600
+
+    EventInvokeConfig:
+      MaximumRetryAttempts: 1
+      MaximumEventAgeInSeconds: 3600
+
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
