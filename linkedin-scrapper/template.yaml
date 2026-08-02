@@ -39,10 +39,10 @@ Resources:
       CompatibleRuntimes:
         - nodejs22.x
       CompatibleArchitectures:
-        - arm64
+        - x86_64
     Metadata:
       BuildMethod: nodejs22.x
-      BuildArchitecture: arm64
+      BuildArchitecture: x86_64
 
   # --- LINKEDIN LAMBDA (lightweight HTTP scraper) ---
   LinkedInScraperFunction:
@@ -96,7 +96,7 @@ Resources:
       Timeout: 300
       MemorySize: 512
       Architectures:
-        - arm64
+        - x86_64
       ReservedConcurrentExecutions: 15
       Layers:
         - !Ref PuppeteerLayer
@@ -189,7 +189,7 @@ Resources:
       MemorySize: 512
       Timeout: 300
       Architectures:
-        - arm64
+        - x86_64
       ReservedConcurrentExecutions: 15
       Layers:
         - !Ref PuppeteerLayer

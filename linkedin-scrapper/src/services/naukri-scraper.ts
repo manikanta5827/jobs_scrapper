@@ -106,11 +106,7 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
 
     if (chromium) {
       try {
-        // v149+ uses inflate() to set up then headless shell
-        if (typeof chromium.inflate === 'function') {
-          await chromium.inflate();
-        }
-        const execPath = await chromium.executablePath();
+        const execPath = await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v133.0.0/chromium-v133.0.0-pack.tar');
         browser = await puppeteer.launch({
           args: chromium.args ? [...chromium.args, ...extraArgs] : extraArgs,
           defaultViewport: chromium.defaultViewport,
@@ -118,7 +114,7 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
           headless: chromium.headless ?? true,
         });
       } catch (e) {
-        console.warn('[Naukri Scraper] Lambda chromium launch failed, attempting fallback browser launch:', e instanceof Error ? e.message : String(e));
+        console.warn('[Naukri Scraper] Lambda chromium launch failed:', e instanceof Error ? e.message : String(e));
         browser = null;
       }
     }
