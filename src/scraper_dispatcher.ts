@@ -1,15 +1,15 @@
 /**
  * scraper_dispatcher.ts — ScraperDispatcherLambda Handler
- * Flow: Triggered by EventBridge cron at 11:00, 16:00, 20:00 -> Purges old unmatched -> Fetches Active Users -> Asynchronously Fan-Out 4 Scraper Lambdas per user
+ * Flow: Triggered by EventBridge cron at 11:00, 16:00, 20:00 -> Purges old unmatched -> Fetches Active Users
+ * -> Deduplicates search queries across users -> Dispatches Scraper Lambdas asynchronously with userIds[] payload
  */
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, checkAndHandleSubscriptionExpiry } from './services/db';
-import { buildSearchQueriesFromProfile } from './services/job_fetcher';
+import { buildSearchQueriesFromProfile, type SearchQuery } from './services/job_fetcher';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN || '';
-
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-south-1' });
 
 const LINKEDIN_SCRAPER_NAME = process.env.LINKEDIN_SCRAPER_FUNCTION_NAME || 'linkedin-jobs-scraper';
@@ -17,8 +17,13 @@ const NAUKRI_SCRAPER_NAME = process.env.NAUKRI_SCRAPER_FUNCTION_NAME || 'naukri-
 const SIMPLYHIRED_SCRAPER_NAME = process.env.SIMPLYHIRED_SCRAPER_FUNCTION_NAME || 'simplyhired-jobs-scraper';
 const INDEED_SCRAPER_NAME = process.env.INDEED_SCRAPER_FUNCTION_NAME || 'indeed-jobs-scraper';
 
+export interface GroupedSearchQuery extends SearchQuery {
+  platform: 'linkedin' | 'naukri' | 'simplyhired' | 'indeed';
+  userIds: string[];
+}
+
 export const handler = async (
-  event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string; includeFreeTier?: boolean } & ScheduledEvent,
+  event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string; includeFreeTier?: boolean } & Partial<ScheduledEvent>,
   _context: Context
 ): Promise<APIGatewayProxyResult> => {
   // Security check: verify admin API key matches configured secret when invoked via API
@@ -46,49 +51,90 @@ export const handler = async (
     return response(200, { message: 'No active users to process.' });
   }
 
-  console.log(`Dispatching scrapers for ${usersToProcess.length} active users.`);
+  console.log(`Processing scraper dispatch for ${usersToProcess.length} active users.`);
 
-  let totalDispatched = 0;
-
+  // Filter valid active users (check subscription expiry)
+  const validUsers: any[] = [];
   for (const user of usersToProcess) {
-    // 1. Subscription Expiry Check — auto-downgrade expired premium users to free tier and skip dispatching for this run
     const isExpired = await checkAndHandleSubscriptionExpiry(user, TELEGRAM_BOT_TOKEN);
     if (isExpired) {
       console.log(`[ScraperDispatcher] Skipping scraper dispatch for user ${user.id} as premium subscription just expired.`);
       continue;
     }
+    validUsers.push(user);
+  }
 
-    // LinkedIn & SimplyHired: 10 queries per Lambda batch
-    await dispatchInBatches(LINKEDIN_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'linkedin'), 10);
-    await dispatchInBatches(SIMPLYHIRED_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'simplyhired'), 10);
+  if (validUsers.length === 0) {
+    console.log('No valid active users after subscription checks.');
+    return response(200, { message: 'No valid active users after subscription checks.' });
+  }
 
-    // Naukri & Indeed (browser-based): 3 queries per Lambda batch
-    await dispatchInBatches(NAUKRI_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'naukri'), 3);
-    await dispatchInBatches(INDEED_SCRAPER_NAME, user.id, buildSearchQueriesFromProfile(user, 'indeed'), 3);
+  // 3. Deduplicate queries across all valid users per platform
+  const platforms = ['linkedin', 'simplyhired', 'naukri', 'indeed'] as const;
+  const functionNames: Record<string, string> = {
+    linkedin: LINKEDIN_SCRAPER_NAME,
+    simplyhired: SIMPLYHIRED_SCRAPER_NAME,
+    naukri: NAUKRI_SCRAPER_NAME,
+    indeed: INDEED_SCRAPER_NAME,
+  };
 
-    totalDispatched++;
+  const batchSizes: Record<string, number> = {
+    linkedin: 10,
+    simplyhired: 10,
+    naukri: 3,
+    indeed: 3,
+  };
+
+  let totalTasksCount = 0;
+
+  for (const platform of platforms) {
+    const groupedMap = new Map<string, GroupedSearchQuery>();
+
+    for (const user of validUsers) {
+      const userQueries = buildSearchQueriesFromProfile(user, platform);
+      for (const q of userQueries) {
+        const key = `${q.keyword.toLowerCase().trim()}:${q.location.toLowerCase().trim()}`;
+        if (!groupedMap.has(key)) {
+          groupedMap.set(key, {
+            platform,
+            keyword: q.keyword,
+            location: q.location,
+            geoId: q.geoId,
+            userIds: [user.id],
+          });
+        } else {
+          groupedMap.get(key)!.userIds.push(user.id);
+        }
+      }
+    }
+
+    const uniquePlatformTasks = Array.from(groupedMap.values());
+    totalTasksCount += uniquePlatformTasks.length;
+
+    console.log(`[ScraperDispatcher] Platform ${platform}: Grouped ${validUsers.length} users into ${uniquePlatformTasks.length} deduplicated queries`);
+
+    const functionName = functionNames[platform];
+    const batchSize = batchSizes[platform];
+
+    await dispatchInBatches(functionName, uniquePlatformTasks, batchSize);
   }
 
   return response(200, {
-    message: `Dispatched scraper Lambdas for ${totalDispatched} active users successfully`,
-    totalUsers: usersToProcess.length,
+    message: `Dispatched deduplicated scraper tasks for ${validUsers.length} active users successfully`,
+    totalUsers: validUsers.length,
+    totalDeduplicatedTasks: totalTasksCount,
   });
 };
 
 async function dispatchInBatches(
   functionName: string,
-  userId: string,
-  queries: Array<{ keyword: string; location: string; geoId?: string }>,
+  tasks: GroupedSearchQuery[],
   batchSize: number
 ): Promise<void> {
-  if (queries.length === 0) {
-    console.warn(`[ScraperDispatcher] No search queries could be generated for user ${userId} for platform ${functionName}`);
-    return;
-  }
-  console.log(`[ScraperDispatcher] Dispatching ${functionName} for user ${userId} with ${queries.length} queries`);
+  if (tasks.length === 0) return;
 
-  for (let i = 0; i < queries.length; i += batchSize) {
-    const batch = queries.slice(i, i + batchSize);
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize);
     try {
       await lambdaClient.send(
         new InvokeCommand({
@@ -96,16 +142,20 @@ async function dispatchInBatches(
           InvocationType: 'Event', // Asynchronous execution
           Payload: Buffer.from(
             JSON.stringify({
-              userId,
-              queries: batch,
+              queries: batch.map(t => ({
+                keyword: t.keyword,
+                location: t.location,
+                geoId: t.geoId,
+                userIds: t.userIds,
+              })),
             })
           ),
         })
       );
 
-      console.log(`[ScraperDispatcher] Dispatched ${functionName} for User ID ${userId} in batch ${i / batchSize + 1} of ${Math.ceil(queries.length / batchSize)}`);
+      console.log(`[ScraperDispatcher] Dispatched ${functionName} batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(tasks.length / batchSize)} (${batch.length} queries)`);
     } catch (err: unknown) {
-      console.error(`Failed to dispatch ${functionName} for User ID ${userId}:`, err);
+      console.error(`Failed to dispatch ${functionName}:`, err);
     }
   }
 }

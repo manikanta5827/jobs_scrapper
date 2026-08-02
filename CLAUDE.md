@@ -1,34 +1,41 @@
 # CLAUDE.md
 
-Multi-Tenant Automated LinkedIn Job Scraper & AI Evaluator on AWS Lambda. Scrapes via Apify, filters dynamically per candidate, scores with DeepSeek, and notifies via Telegram.
+Multi-Tenant Automated Multi-Platform Job Scraper & AI Evaluator on AWS Lambda. Scrapes via Apify (LinkedIn, Naukri, SimplyHired, Indeed), filters dynamically per candidate, scores via OpenRouter LLM, and notifies via Telegram & LinkedIn.
 
 ## Architecture Pipeline
 
-Dispatcher Orchestrator (`src/lambda.ts`) → Per-Candidate Workers (`src/user_worker.ts`) → SQS Posting Queue (`src/post_scheduler.ts`).
+`ScraperDispatcherLambda` (`src/scraper_dispatcher.ts`) → S3 Bucket (`RawJobsBucket`) → `EvaluatorDispatcherLambda` (`src/evaluator_dispatcher.ts`) → `EvaluatorLambda` (`src/evaluator.ts`) → SQS Posting Queue (`src/post_scheduler.ts`) → Telegram / LinkedIn Delivery.
 
-1. **Dispatcher** — `src/lambda.ts` queries active candidates in `users` table and dispatches `UserWorkerLambda` invocations asynchronously.
-2. **Worker** — `src/user_worker.ts` handles scraping, per-candidate job deduplication, candidate-specific keyword filtering, and DeepSeek AI evaluation.
-3. **Scrape** — `src/helper/apify.ts` uses a rotated pool of Apify API keys (`key_rotation` table) to scrape candidate-configured search URLs.
-4. **Per-Candidate Dedup** — `getExistingJobsData(userId)` checks job link and fingerprint against `jobs` table strictly per candidate (`(user_id, job_link)` unique index).
-5. **Keyword Filter** — `keywordFilter(jobs, user.excludeTitleKeywords)` filters title keywords dynamically configured per candidate in their `users` DB row (no hardcoded static arrays).
-6. **DeepSeek AI Match** — `checkRelevanceBatch` extracts structured job facts (`required_skills`, `min/max_yoe`, `domain`, etc.) from each job description using a stateless, minimized system prompt. `fit_evaluator.ts` then applies deterministic business rules to produce categorical labels (`strong_match`, `minor_gaps`, `experience_mismatch`, `skills_mismatch`, `no_match`). `strong_match` and `minor_gaps` pass; the rest are rejected. Extracted facts are stored in `jobs.ai_facts` as JSONB.
-7. **Telegram Onboarding & Delivery**:
-   - Admin creates candidate via Admin Dashboard (`AdminLambda` / `GET /admin.html`).
-   - Candidate links their Telegram account by sending `/register <ID>` (e.g. `/register 12`) to the Telegram bot (`src/telegram_webhook.ts`).
-   - Matched jobs are sent to candidate's Telegram Chat ID. Technical errors route strictly to Admin Telegram (`process.env.TELEGRAM_MATCHED_JOBS_CHAT_ID`).
+1. **Scraper Dispatcher** — `src/scraper_dispatcher.ts` (triggered 3x daily: 11:00, 16:00, 20:00 IST) queries active candidate search profiles, triggers scrapers via Apify key rotation (`key_rotation` table), and stores raw job payloads in S3 (`raw-jobs/` prefix with 7-day retention).
+2. **Evaluator Dispatcher** — `src/evaluator_dispatcher.ts` (triggered 30 mins after scrapers: 11:30, 16:30, 20:30 IST) finds active candidates and dispatches `EvaluatorLambda` invocations asynchronously.
+3. **Per-User Evaluator** — `src/evaluator.ts` processes candidate jobs:
+   - **Per-Candidate Dedup**: `getExistingJobsData(userId)` checks link and fingerprint against `jobs` table strictly per candidate (`(user_id, job_link)` unique index).
+   - **Title Keyword Filter**: `keywordFilter(jobs, user.excludeTitleKeywords)` filters title keywords dynamically configured in candidate's `users` row.
+   - **LLM AI Match**: `checkRelevanceBatch` (`src/services/llm.ts`) extracts structured job facts (`required_skills`, `min/max_yoe`, `domain`, etc.) using OpenRouter AI SDK. `fit_evaluator.ts` applies deterministic business rules (`strong_match`, `minor_gaps`, `experience_mismatch`, `skills_mismatch`, `no_match`). Extracted facts are stored in `jobs.ai_facts` JSONB.
+   - **PostHog Observability**: `src/services/telemetry.ts` logs evaluation metrics to PostHog (`@posthog/ai`).
+   - **Queue Matched Jobs**: Relevant jobs (`strong_match`, `minor_gaps`) are enqueued into SQS `PostQueue`.
+4. **Post Scheduler Queue Consumer** — `src/post_scheduler.ts` consumes SQS `PostQueue` messages with concurrency limit = 1 (rate limiting):
+   - Sends notification cards to candidate Telegram chats (`src/services/telegram.ts`).
+   - Posts updates to candidate LinkedIn profiles (`src/services/linkedin.ts`).
+5. **Admin Dashboard API** — `src/admin.ts` provides REST endpoints for candidate CRUD, manual trigger runs, and statistics backend for `public/admin.html`.
+6. **Telegram Webhook & Onboarding** — `src/telegram_webhook.ts` handles Telegram bot commands (`/start`, `/stop`, `/register`, `/balance`). Candidates link accounts via `/register <ID>`.
 
 ## Stack
 
-- Node 24 / TypeScript / ESM, AWS Lambda via SAM.
+- Node 24 / TypeScript / ESM, AWS Lambda via SAM (arm64, esbuild).
 - Neon Serverless Postgres + Drizzle ORM (`src/db/`).
-- DeepSeek API (AI scoring), Apify (Scraping), Telegram Bot API (Alerts & Webhook).
+- Storage & Messaging: AWS S3 (`RawJobsBucket`), AWS SQS (`PostQueue`).
+- AI & Observability: OpenRouter AI SDK (`@openrouter/ai-sdk-provider`, `ai`), PostHog AI (`@posthog/ai`).
+- Integrations: Apify (multi-platform job scraping), Telegram Bot API, LinkedIn API.
 
 ## Commands
 
 ```bash
 npm run typecheck          # tsc --noEmit
 npm run sam:build          # sam validate --lint && sam build --parallel
-npm run sam:deploy         # sam deploy --no-confirm-changeset
-npm run db:generate        # drizzle-kit generate
+npm run sam:deploy         # npm run sam:build && sam deploy --no-confirm-changeset
+npm run sam:sync           # sam sync --watch --config-env prod --stack-name job-scrapper
+npm run db:generate        # npx drizzle-kit generate
 npm run db:migrate         # npx tsx scripts/migrate.ts
+npm run lambda             # sam local invoke ScraperDispatcherLambda --env-vars env.json -e event.json
 ```

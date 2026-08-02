@@ -1,7 +1,7 @@
 import { LinkedInJobsQuery } from './services/linkedin-scraper';
 import { validateJobQueryOptions } from './services/linkedin-validator';
 import type { LambdaEvent, LambdaResponse } from './types/lambda-types';
-import { uploadScrapedJobsToS3 } from './services/s3-uploader';
+import { uploadScrapedJobsForUsers } from './services/s3-uploader';
 
 const getRandomJitter = (minMs = 300, maxMs = 800) =>
   new Promise((resolve) =>
@@ -9,48 +9,25 @@ const getRandomJitter = (minMs = 300, maxMs = 800) =>
   );
 
 export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
-  let queries: Record<string, string>[] = [];
-  let userId = event.userId;
+  const queries = event.queries;
 
-  if (event.queries && Array.isArray(event.queries)) {
-    queries = event.queries;
-  } else if (event.body) {
-    try {
-      const parsed = JSON.parse(event.body);
-      if (Array.isArray(parsed.queries)) queries = parsed.queries;
-      if (parsed.userId) userId = parsed.userId;
-    } catch {
-      // Ignore JSON parse errors
-    }
-  }
-
-  if (queries.length === 0 && event.queryStringParameters) {
-    queries = [event.queryStringParameters];
-    if (event.queryStringParameters.userId) {
-      userId = event.queryStringParameters.userId;
-    }
-  }
-
-  if (queries.length === 0) {
+  if (!queries || !Array.isArray(queries) || queries.length === 0) {
     return {
       statusCode: 400,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: false, error: 'No valid query parameters or batch queries provided' }),
+      body: JSON.stringify({ success: false, error: 'No valid queries array provided' }),
     };
   }
 
-  console.log(`[LinkedIn Lambda] Processing ${queries.length} queries for User ID ${userId}`);
-  for (const query of queries) {
-    console.log(`[LinkedIn Lambda] Query: ${query.keyword} in ${query.location}`);
-  }
+  console.log(`[LinkedIn Lambda] Processing ${queries.length} query tasks`);
 
-  const allJobs: any[] = [];
-  const seenIds = new Set<string>();
+  let totalJobsFetched = 0;
+  const uploadedKeys: string[] = [];
 
   try {
     for (let i = 0; i < queries.length; i++) {
-      const queryParams = queries[i];
-      const validation = validateJobQueryOptions(queryParams);
+      const task = queries[i];
+      const validation = validateJobQueryOptions(task as unknown as Record<string, string>);
 
       if (!validation.valid || !validation.sanitizedOptions) {
         console.warn(`[LinkedIn Lambda] Skipping invalid query at index ${i}:`, validation.error);
@@ -59,37 +36,28 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
 
       const query = new LinkedInJobsQuery(validation.sanitizedOptions);
       const jobs = await query.getJobs();
+      totalJobsFetched += jobs.length;
 
-      for (const job of jobs) {
-        const jobId = job.id || job.jobUrl;
-        if (jobId && !seenIds.has(jobId)) {
-          seenIds.add(jobId);
-          allJobs.push(job);
-        }
-      }
+      const keys = await uploadScrapedJobsForUsers('linkedin', task.keyword, task.location, task.userIds, jobs);
+      uploadedKeys.push(...keys);
 
-      // Apply randomized jitter delay between sequential requests to prevent rate limits
       if (i < queries.length - 1) {
         await getRandomJitter(300, 800);
       }
     }
-    
-    const s3Key = await uploadScrapedJobsToS3('linkedin', userId, allJobs);
-
-    console.log(`[LinkedIn Lambda] Uploaded ${allJobs.length} jobs to S3 for User ID ${userId} at S3 Key ${s3Key ?? 'null'}`);
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, count: allJobs.length, s3Key: s3Key ?? 'null' }),
+      body: JSON.stringify({ success: true, count: totalJobsFetched, uploadedKeysCount: uploadedKeys.length }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     console.error(`[LinkedIn Lambda] Error:`, errorMessage);
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: false, error: 'Internal Server Error' }),
+      body: JSON.stringify({ success: false, error: errorMessage }),
     };
   }
 };

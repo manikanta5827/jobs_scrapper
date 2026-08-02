@@ -60,7 +60,7 @@ Resources:
           - Id: DeleteRawJobsAfter7Days
             Status: Enabled
             Prefix: raw-jobs/
-            ExpirationInDays: 7
+            ExpirationInDays: 1
       BucketName: !Sub 'job-scraper-raw-jobs-${AWS::AccountId}'
 
   # ─── API GATEWAY WITH CUSTOM RESPONSES & NATIVE CORS ───────────────────────
@@ -460,8 +460,6 @@ Resources:
             RestApiId: !Ref APIGateway
             Path: /users/{id}/subscription
             Method: POST
-
-
 
     Metadata:
       BuildMethod: esbuild
