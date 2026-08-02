@@ -742,11 +742,12 @@
 
           <div class="filter-group">
             <label for="minScoreSelect">Match Quality:</label>
-            <select id="minScoreSelect" class="select-input" onchange="applyClientFilter()">
+            <select id="minScoreSelect" class="select-input" onchange="loadUserJobs(1)">
               <option value="6" selected>&ge; 6/10 (Decent Matches)</option>
               <option value="7">&ge; 7/10 (Good Matches)</option>
               <option value="8">&ge; 8/10 (Great Matches)</option>
               <option value="9">&ge; 9/10 (Top Matches)</option>
+              <option value="0">All Jobs (Including Unscored)</option>
             </select>
           </div>
         </div>
@@ -981,7 +982,8 @@
 
       try {
         const selectedDate = document.getElementById('datePicker').value;
-        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs?page=${currentPage}&limit=${currentLimit}`;
+        const minScore = document.getElementById('minScoreSelect').value || '6';
+        let url = `${API_BASE_URL.replace(/\/+$/, '')}/users/${encodeURIComponent(userId)}/jobs?page=${currentPage}&limit=${currentLimit}&minScore=${minScore}`;
         if (selectedDate) {
           url += `&fromDate=${encodeURIComponent(selectedDate)}&toDate=${encodeURIComponent(selectedDate)}`;
         } else {
@@ -1029,13 +1031,16 @@
     }
 
     function applyClientFilter() {
-      const minScore = parseInt(document.getElementById('minScoreSelect').value, 10) || 6;
+      const minScoreVal = document.getElementById('minScoreSelect').value;
+      const minScore = parseInt(minScoreVal, 10);
+
       filteredJobs = allJobs.filter(j => {
+        if (minScore === 0) return true; // Show all jobs if minScore is 0 (Unscored)
         const score = Number(j.aiScore ?? j.ai_score ?? 0);
         return score >= minScore;
       });
 
-      if (filteredJobs.length === 0 && allJobs.length === 0) {
+      if (filteredJobs.length === 0 && totalServerJobs === 0) {
         document.getElementById('jobsTable').style.display = 'none';
         document.getElementById('emptyState').style.display = 'block';
         document.getElementById('paginationBar').style.display = 'none';

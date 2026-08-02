@@ -1,6 +1,6 @@
 import { db, initDb } from "../db/index";
 import { jobs, users, userRuns } from "../db/schema";
-import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
+import { sql, lt, desc, and, eq, gte, lte, or, isNull, isNotNull, inArray, SQL } from "drizzle-orm";
 import { Tier, MIN_MATCH_SCORE, TIER_CONFIG } from '../constants';
 import type { JobFitFacts } from '../types';
 import { sendTelegramMessage } from './telegram';
@@ -128,6 +128,7 @@ export async function getJobsForUser(
     toDate?: string;
     page?: number;
     limit?: number;
+    minScore?: number;
   } = {}
 ) {
   await initDb();
@@ -135,6 +136,7 @@ export async function getJobsForUser(
   const page = Math.max(1, options.page || 1);
   const limit = Math.max(1, options.limit || 20);
   const offset = (page - 1) * limit;
+  const minScore = options.minScore !== undefined ? options.minScore : 6;
 
   // Resolve identifier (email or UUID) to target user ID
   let targetUserId = identifier.trim();
@@ -161,6 +163,11 @@ export async function getJobsForUser(
   const conditions: SQL[] = [
     eq(jobs.userId, targetUserId)
   ];
+
+  if (minScore > 0) {
+    conditions.push(isNotNull(jobs.aiScore));
+    conditions.push(gte(jobs.aiScore, minScore));
+  }
 
   if (options.fromDate) {
     conditions.push(gte(jobs.createdAt, new Date(options.fromDate)));
