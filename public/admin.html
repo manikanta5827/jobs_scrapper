@@ -342,11 +342,6 @@
       color: #b45309;
       border: 1px solid #fde68a;
     }
-    .source-apify {
-      background: #fce7f3;
-      color: #be185d;
-      border: 1px solid #fbcfe8;
-    }
     .source-unknown {
       background: var(--surface-secondary);
       color: var(--text-tertiary);
@@ -638,10 +633,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
       Profit Analytics
     </button>
-    <button class="tab-btn" onclick="switchTab('apifyTab', this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-      Apify Key Rotation
-    </button>
   </div>
 
   <!-- TAB 1: Candidates Management -->
@@ -763,33 +754,6 @@
     </div>
   </div>
 
-  <!-- TAB 3: Apify Key Rotation Manager -->
-  <div id="apifyTab" class="tab-content">
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Apify Token Rotation Pool</div>
-        <button class="btn btn-primary" onclick="openAddKeyModal()">+ Add Apify Token</button>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Token Name</th>
-              <th>API Key</th>
-              <th>Subscription Renewal</th>
-              <th>Accumulated Usage ($)</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="apifyTableBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading Apify key rotation pool...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
   <!-- MODAL: Add / Edit Candidate -->
   <div class="modal-overlay" id="userModal" onclick="handleBackdropClick(event, 'userModal')">
@@ -1012,33 +976,7 @@
     </div>
   </div>
 
-  <!-- MODAL: Add Apify Key -->
-  <div class="modal-overlay" id="apifyModal" onclick="handleBackdropClick(event, 'apifyModal')">
-    <div class="modal" style="max-width: 480px;">
-      <div class="modal-header">
-        <span>Add Apify Token</span>
-        <span class="close-btn" onclick="closeModal('apifyModal')">&times;</span>
-      </div>
-      <form onsubmit="handleAddKeySubmit(event)">
-        <div class="form-group">
-          <label>Token Label / Account Name *</label>
-          <input type="text" id="apifyLabel" required maxlength="100" placeholder="e.g. Account-01-FreeTier">
-        </div>
-        <div class="form-group">
-          <label>Apify API Token (apify_api_xxxxx) *</label>
-          <input type="password" id="apifyToken" required maxlength="255" placeholder="apify_api_xxxxxxxxxxxxxxxx">
-        </div>
-        <div class="form-group">
-          <label>Subscription Start Date (YYYY-MM-DD) *</label>
-          <input type="date" id="apifyDate" required>
-        </div>
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-          <button type="button" class="btn" onclick="closeModal('apifyModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="btnSubmitApify">Add Token</button>
-        </div>
-      </form>
-    </div>
-  </div>
+
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1207,7 +1145,7 @@
       const refBtn = document.getElementById('btnRefreshCandidates');
       if (refBtn) refBtn.innerHTML = '<span class="spinner"></span> Loading...';
       try {
-        await Promise.all([loadStats(), loadUsers(), loadApifyKeys()]);
+        await Promise.all([loadStats(), loadUsers()]);
       } catch (err) {
         console.error('Load error:', err);
         showToast(`Error: ${err.message}`);
@@ -1295,7 +1233,7 @@
           sBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-tertiary)">No jobs delivered yet</td></tr>';
         } else {
           const total = s.jobsBySource.reduce((sum, item) => sum + item.count, 0);
-          const sourceEmojis = { linkedin: '💼', naukri: '🇮🇳', apify: '🤖', unknown: '❓' };
+          const sourceEmojis = { linkedin: '💼', naukri: '🇮🇳', unknown: '❓' };
           sBody.innerHTML = s.jobsBySource.map(item => {
             const emoji = sourceEmojis[item.source] || '';
             const pct = total > 0 ? ((item.count / total) * 100).toFixed(1) : '0';
@@ -1381,41 +1319,7 @@
       }
     }
 
-    async function loadApifyKeys() {
-      const tbody = document.getElementById('apifyTableBody');
-      try {
-        const data = await apiRequest('/apify-keys');
-        const keys = data.keys || data.apifyKeys || [];
-        if (keys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-tertiary)">No Apify tokens in rotation pool. Click + Add Apify Token.</td></tr>';
-          return;
-        }
 
-        tbody.innerHTML = keys.map(k => {
-          const active = (Number(k.usageCost) || 0) < 5.00;
-          return `
-          <tr>
-            <td class="mono-cell">#${k.id}</td>
-            <td><b style="color: var(--text-main);">${k.name || 'Apify Token'}</b></td>
-            <td class="mono-cell"><code>${(k.apiKey || '').substring(0, 8)}...${(k.apiKey || '').substring((k.apiKey || '').length - 4)}</code></td>
-            <td>${k.subscriptionStartDate || 'N/A'}</td>
-            <td>$${(Number(k.usageCost) || 0).toFixed(4)} / $5.00</td>
-            <td>
-              <span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Depleted'}</span>
-            </td>
-            <td>
-              <div style="display: flex; gap: 6px;">
-                <button class="btn btn-sm" onclick="resetApifyUsage(${k.id})">Reset $0</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteApifyKey(${k.id})">Remove</button>
-              </div>
-            </td>
-          </tr>
-        `;
-        }).join('');
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--danger)">Failed to load Apify keys: ${err.message}</td></tr>`;
-      }
-    }
 
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -1672,58 +1576,7 @@
       }
     }
 
-    function openAddKeyModal() {
-      document.getElementById('apifyLabel').value = '';
-      document.getElementById('apifyToken').value = '';
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('apifyDate').value = today;
-      openModal('apifyModal');
-    }
 
-    async function handleAddKeySubmit(e) {
-      e.preventDefault();
-      const submitBtn = document.getElementById('btnSubmitApify');
-      const origText = submitBtn.innerText;
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner"></span> Adding Token...';
-
-      const accountLabel = document.getElementById('apifyLabel').value.trim();
-      const apiKeyVal = document.getElementById('apifyToken').value.trim();
-      const subscriptionStartDate = document.getElementById('apifyDate').value;
-
-      try {
-        await apiRequest('/apify-keys', 'POST', { name: accountLabel, apiKey: apiKeyVal, subscriptionStartDate });
-        showToast('Apify token added to rotation pool');
-        closeModal('apifyModal');
-        loadDashboardData();
-      } catch (err) {
-        alert('Failed to add Apify key: ' + err.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerText = origText;
-      }
-    }
-
-    async function resetApifyUsage(id) {
-      try {
-        await apiRequest('/apify-keys/' + id, 'PUT', { usageCost: 0 });
-        showToast('Usage cost reset to $0!');
-        loadDashboardData();
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    }
-
-    async function deleteApifyKey(id) {
-      if (!confirm('Remove this Apify token from rotation pool?')) return;
-      try {
-        await apiRequest('/apify-keys/' + id, 'DELETE');
-        showToast('Apify key removed');
-        loadDashboardData();
-      } catch (err) {
-        alert('Delete failed: ' + err.message);
-      }
-    }
 
     async function triggerScraperRun(userId) {
       try {

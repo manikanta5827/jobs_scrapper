@@ -110,20 +110,6 @@ export const UpdateSubscriptionSchema = z.object({
   subscriptionExpiresAt: z.string().datetime({ message: "Must be a valid ISO 8601 datetime string" })
 });
 
-// POST /apify-keys request body schema
-export const CreateApifyKeySchema = z.object({
-  apiKey: z.string().trim().min(5, { message: "API key must be at least 5 characters" }).max(255),
-  subscriptionStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date must be in YYYY-MM-DD format" }),
-  name: z.string().trim().max(100).optional()
-});
-
-// PUT /apify-keys/{id} request body schema
-export const UpdateApifyKeySchema = z.object({
-  apiKey: z.string().trim().min(5).max(255).optional(),
-  subscriptionStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  name: z.string().trim().max(100).optional(),
-  usageCost: z.number().min(0).max(100).optional()
-});
 
 // ─── Telegram Webhook Payload Schema ──────────────────────────────────────────
 

@@ -34,7 +34,6 @@ const ZERO_COST = {
   matchedJobsCount: 0,
   rejectedJobsCount: 0,
   actualLlmCostUsd: 0,
-  actualApifyCostUsd: 0,
   llmInputTokens: 0,
   llmInputCacheHitTokens: 0,
   llmOutputTokens: 0,
@@ -304,7 +303,6 @@ async function processUserWorker(
       matchedJobsCount: matchedCount,
       rejectedJobsCount: aiRejectedCount,
       actualLlmCostUsd,
-      actualApifyCostUsd: 0,
       llmInputTokens: usage.promptCacheHitTokens + usage.promptCacheMissTokens,
       llmInputCacheHitTokens: usage.promptCacheHitTokens,
       llmOutputTokens: usage.completionTokens

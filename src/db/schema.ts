@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, serial, doublePrecision, date, integer, boolean, jsonb, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, serial, doublePrecision, integer, boolean, jsonb, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { Tier } from '../constants';
 import type { JobFitFacts } from '../types';
 
@@ -87,20 +87,6 @@ export const jobs = pgTable("jobs", {
   index("jobs_user_id_created_at_idx").on(table.userId, table.createdAt)
 ]);
 
-// Shared key rotation table for rotating Apify API tokens across accounts
-export const keyRotation = pgTable("key_rotation", {
-  id: serial("id").primaryKey(),
-  apiKey: text("api_key").notNull().unique(),
-  usageCost: doublePrecision("usage_cost").default(0), // Accumulated cost in $
-  name: text("name"), // Friendly name for the account token
-  subscriptionStartDate: date("subscription_start_date").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-}, (table) => [
-  // Index on usage_cost to speed up active token selection (WHERE usage_cost < 5.00 ORDER BY usage_cost DESC)
-  index("key_rotation_usage_cost_idx").on(table.usageCost)
-]);
-
 // Per-run audit log recording stats and exact costs for every execution turn
 export const userRuns = pgTable("user_runs", {
   id: serial("id").primaryKey(),
@@ -118,7 +104,6 @@ export const userRuns = pgTable("user_runs", {
   
   // Financial audit metrics
   actualLlmCostUsd: doublePrecision("actual_llm_cost_usd").default(0).notNull(), // Actual DeepSeek API cost incurred
-  actualApifyCostUsd: doublePrecision("actual_apify_cost_usd").default(0).notNull(), // Actual Apify API cost incurred
   billedRunCostUsd: doublePrecision("billed_run_cost_usd").default(0).notNull(), // Deprecated: kept for historical data
 
   // LLM token usage per run
@@ -140,5 +125,4 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type JobRecord = typeof jobs.$inferSelect;
 export type NewJobRecord = typeof jobs.$inferInsert;
-export type KeyRotationRecord = typeof keyRotation.$inferSelect;
 export type UserRunRecord = typeof userRuns.$inferSelect;

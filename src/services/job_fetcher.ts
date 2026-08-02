@@ -5,9 +5,6 @@
  * Fetches jobs from LinkedIn and Naukri in parallel via self-hosted Lambda microservices.
  */
 
-// import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
-// import type { Job } from './types';
-// const APIFY_ACTOR_ID = 'hKByXkMQaC5Qt9UMN';
 
 
 /** Single search query sent to the scraper engine */
@@ -95,71 +92,5 @@ function extractLocations(user: {
   ];
 }
 
-
-
-// ─── APIFY PROVIDER (DEPRECATED) ───────────────────────────────────────────
-// No longer in use — both LinkedIn and Naukri scrapers are served via self-hosted Lambdas.
-// Keeping this code commented in case Apify is ever needed as a fallback again.
-// Re-enable by:
-//   - Uncommenting the import: import { getValidApifyToken, updateApifyTokenUsage, markApifyTokenExpired } from './db_helper';
-//   - Uncommenting APIFY_ACTOR_ID constant above
-//   - Uncommenting the fallback block in fetchJobsForUser below the Naukri result check
-
-// async function fetchViaApify(
-//   queries: SearchQuery[],
-//   lookbackHours: number
-// ): Promise<Job[]> {
-//   const urls = queries.map(q => {
-//     const kw = encodeURIComponent(q.keyword);
-//     const loc = encodeURIComponent(q.location);
-//     const geoParam = q.geoId ? `&geoId=${q.geoId}` : '';
-//     const lookbackSeconds = Math.floor(lookbackHours * 3600);
-//     return `https://www.linkedin.com/jobs/search/?keywords=${kw}&location=${loc}${geoParam}&f_TPR=r${lookbackSeconds}`;
-//   });
-//
-//   const tokenData = await getValidApifyToken();
-//   if (!tokenData) throw new Error("No valid Apify token available.");
-//
-//   const endpoint = `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/run-sync-get-dataset-items?token=${tokenData.apiKey}&format=json&clean=true&memory=1024`;
-//   const body = JSON.stringify({
-//     urls,
-//     scrapeCompany: false,
-//     count: 25,
-//     useIncognitoMode: false
-//   });
-//
-//   const controller = new AbortController();
-//   const timer = setTimeout(() => controller.abort(), 180000);
-//
-//   try {
-//     const res = await fetch(endpoint, {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       body,
-//       signal: controller.signal,
-//     });
-//
-//     clearTimeout(timer);
-//
-//     if (!res.ok) {
-//       const text = await res.text();
-//       if (res.status === 401 || res.status === 403) {
-//         await markApifyTokenExpired(tokenData.id);
-//       }
-//       throw new Error(`Apify HTTP ${res.status}: ${text}`);
-//     }
-//
-//     const items = await res.json();
-//     if (!Array.isArray(items)) throw new Error('Apify returned non-array response');
-//
-//     await updateApifyTokenUsage(tokenData.id, items.length);
-//     const jobs = items as Job[];
-//     jobs.forEach(j => { j.source = 'apify'; });
-//     return jobs;
-//   } catch (err) {
-//     clearTimeout(timer);
-//     throw err;
-//   }
-// }
 
 

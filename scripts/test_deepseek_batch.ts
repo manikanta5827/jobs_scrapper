@@ -1,7 +1,5 @@
 /**
  * scripts/test_deepseek_batch.ts
- * YOE pre-filter test using 20 real LinkedIn jobs sourced from Apify results.
- * Jobs are NOT crafted around the regex — they are verbatim from test_apify_results.json.
  *
  * Usage:
  *   npx tsx scripts/test_deepseek_batch.ts --prefilter-only    (no API key needed)

@@ -12,10 +12,6 @@ Parameters:
     Type: Number
     Description: CloudWatch Log retention in days
     Default: 3
-  ApifyApiKey:
-    Type: "AWS::SSM::Parameter::Value<String>"
-    Description: API Key for Apify service to fetch job listings
-    Default: /job-scraper/APIFY_API_KEY
   LlmApiKey:
     Type: "AWS::SSM::Parameter::Value<String>"
     Description: API Key for LLM service (OpenRouter) to evaluate job relevance
@@ -312,7 +308,6 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref RawJobsBucket
-          APIFY_API_KEY: !Ref ApifyApiKey
           LLM_API_KEY: !Ref LlmApiKey
           DATABASE_URL: !Ref DatabaseUrl
           MIN_MATCH_SCORE: !Ref MinMatchScore
@@ -466,33 +461,8 @@ Resources:
             Path: /users/{id}/subscription
             Method: POST
 
-        # GET /apify-keys & POST /apify-keys
-        GetApifyKeys:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /apify-keys
-            Method: GET
-        CreateApifyKey:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /apify-keys
-            Method: POST
 
-        # PUT /apify-keys/{id} & DELETE /apify-keys/{id}
-        UpdateApifyKey:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /apify-keys/{id}
-            Method: PUT
-        DeleteApifyKey:
-          Type: Api
-          Properties:
-            RestApiId: !Ref APIGateway
-            Path: /apify-keys/{id}
-            Method: DELETE
+
     Metadata:
       BuildMethod: esbuild
       BuildProperties:

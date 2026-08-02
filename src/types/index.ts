@@ -2,7 +2,7 @@
  * types.ts — Shared types across all modules
  */
 
-// Raw job object returned by Apify LinkedIn scraper
+// Raw job object returned by LinkedIn/Naukri scraper
 export interface Job {
   id?:               string;
   link?:             string;
@@ -24,7 +24,7 @@ export interface Job {
   fingerprint?:      string;
   jobTitle?:         string;
   extractedYoeText?: string | null;
-  source?:           'linkedin' | 'naukri' | 'simplyhired' | 'indeed' | 'apify';
+  source?:           'linkedin' | 'naukri' | 'simplyhired' | 'indeed';
   [key: string]:      unknown; // Still allow other fields but they won't be explicitly typed
 }
 

@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import type { Job } from '../types';
 
 /**
- * Normalizes different scraper output formats (e.g. custom JobPosting or Apify Job)
+ * Normalizes different scraper output formats (e.g. LinkedIn or Naukri JobPosting)
  * into a standard Job interface with link, title, companyName, etc.
  * ponytail: one-pass coalescing to support all scraper formats without extra dependencies.
  */

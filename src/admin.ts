@@ -1,6 +1,6 @@
 /**
  * admin.ts — Admin Lambda Handler
- * Provides a RESTful JSON API with strict Zod validation for triggering runs, candidate CRUD, Apify key management, and financial analytics dashboard.
+ * Provides a RESTful JSON API with strict Zod validation for triggering runs, candidate CRUD, and financial analytics dashboard.
  */
 
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
@@ -12,10 +12,6 @@ import {
   updateUser, 
   deleteUser, 
   updateUserSubscription,
-  getAllApifyTokens,
-  addApifyToken,
-  updateApifyToken,
-  deleteApifyToken,
   getAnalyticsStats,
   getJobsForUser,
   getJobById,
@@ -25,14 +21,11 @@ import { analyzeResumeWithLLM, generateAtsResume } from './services/llm';
 import { shutdownTelemetry } from './services/telemetry';
 import { 
   UuidParamSchema, 
-  NumericIdParamSchema, 
   TriggerRunSchema, 
   CreateUserSchema, 
   UpdateUserSchema,
   UpdateSubscriptionSchema, 
   AnalyzeResumeSchema,
-  CreateApifyKeySchema, 
-  UpdateApifyKeySchema, 
   formatZodError 
 } from './utils/validation';
 import { Tier } from './constants';
@@ -326,48 +319,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
       });
     }
 
-    // ─── Route: /apify-keys (Apify Key Rotation CRUD) ─────────────────────────
-    if (path === '/apify-keys') {
-      if (method === 'GET') {
-        const keys = await getAllApifyTokens();
-        return response(200, { keys });
-      }
 
-      if (method === 'POST') {
-        const parseResult = CreateApifyKeySchema.safeParse(body);
-        if (!parseResult.success) {
-          return response(400, { error: `Validation Error: ${formatZodError(parseResult.error)}` });
-        }
-
-        const { apiKey, subscriptionStartDate, name } = parseResult.data;
-        const created = await addApifyToken(apiKey, subscriptionStartDate, name);
-        return response(201, { message: 'Apify token added', key: created[0] });
-      }
-    }
-
-    // ─── Route: /apify-keys/{id} (Update or Delete Apify Key) ──────────────────
-    if (path === '/apify-keys/{id}' && pathParameters.id) {
-      const paramParse = NumericIdParamSchema.safeParse(pathParameters.id);
-      if (!paramParse.success) {
-        return response(400, { error: `Validation Error: ${formatZodError(paramParse.error)}` });
-      }
-      const keyId = paramParse.data;
-
-      if (method === 'PUT') {
-        const parseResult = UpdateApifyKeySchema.safeParse(body);
-        if (!parseResult.success) {
-          return response(400, { error: `Validation Error: ${formatZodError(parseResult.error)}` });
-        }
-
-        const updated = await updateApifyToken(keyId, parseResult.data);
-        return response(200, { message: 'Apify token updated', key: updated[0] });
-      }
-
-      if (method === 'DELETE') {
-        await deleteApifyToken(keyId);
-        return response(200, { message: `Apify key ID ${keyId} deleted` });
-      }
-    }
 
     return response(404, { error: 'Not Found' });
   } catch (err: unknown) {

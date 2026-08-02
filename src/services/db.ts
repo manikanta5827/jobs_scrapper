@@ -1,75 +1,9 @@
 import { db, initDb } from "../db/index";
-import { jobs, keyRotation, users, userRuns } from "../db/schema";
+import { jobs, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, inArray, SQL } from "drizzle-orm";
 import { Tier, MIN_MATCH_SCORE, TIER_CONFIG } from '../constants';
 import type { JobFitFacts } from '../types';
 import { sendTelegramMessage } from './telegram';
-
-// ─── Key Rotation Helpers ────────────────────────────────────────────────────
-
-// Fetch all API tokens and current costs for key rotation dashboard
-export async function getAllApifyTokens() {
-  await initDb();
-  return await db.select().from(keyRotation).orderBy(keyRotation.id);
-}
-
-// Add a new Apify API token into the shared rotation pool
-export async function addApifyToken(apiKey: string, subscriptionStartDate: string, name?: string) {
-  await initDb();
-  return await db.insert(keyRotation).values({
-    apiKey,
-    subscriptionStartDate,
-    name: name || "Apify Token",
-    usageCost: 0
-  }).returning();
-}
-
-// Remove an Apify token from the rotation pool
-export async function deleteApifyToken(id: number) {
-  await initDb();
-  return await db.delete(keyRotation).where(eq(keyRotation.id, id));
-}
-
-// Update token details such as usage cost or renewal date
-export async function updateApifyToken(id: number, data: Partial<{ apiKey: string; name: string; usageCost: number; subscriptionStartDate: string }>) {
-  await initDb();
-  return await db.update(keyRotation)
-    .set({ ...data, updatedAt: new Date() })
-    .where(eq(keyRotation.id, id))
-    .returning();
-}
-
-// Retrieve an active Apify token with usage cost under $5.00 limit
-export async function getValidApifyToken(): Promise<{ id: number; apiKey: string } | null> {
-  await initDb();
-  const result = await db.select()
-    .from(keyRotation)
-    .where(lt(keyRotation.usageCost, 5.00))
-    .orderBy(desc(keyRotation.usageCost))
-    .limit(1);
-
-  return result.length > 0 ? { id: result[0].id, apiKey: result[0].apiKey } : null;
-}
-
-// Atomically increment usage cost on the Apify token after scraping jobs
-export async function updateApifyTokenUsage(tokenId: number, jobsCount: number): Promise<void> {
-  const incrementalCost = Number((jobsCount * 0.001).toFixed(2));
-  await initDb();
-  await db.update(keyRotation)
-    .set({ 
-      usageCost: sql`${keyRotation.usageCost} + ${incrementalCost}`,
-      updatedAt: new Date()
-    })
-    .where(eq(keyRotation.id, tokenId));
-}
-
-// Mark token as exhausted when rate limited or monthly quota exceeded
-export async function markApifyTokenExpired(tokenId: number): Promise<void> {
-  await initDb();
-  await db.update(keyRotation)
-    .set({ usageCost: 5, updatedAt: new Date() })
-    .where(eq(keyRotation.id, tokenId));
-}
 
 
 
@@ -481,7 +415,6 @@ export async function recordUserRun(
     matchedJobsCount: number;
     rejectedJobsCount: number;
     actualLlmCostUsd: number;
-    actualApifyCostUsd: number;
     llmInputTokens?: number;
     llmInputCacheHitTokens?: number;
     llmOutputTokens?: number;
@@ -502,7 +435,6 @@ export async function recordUserRun(
       matchedJobsCount: runData.matchedJobsCount,
       rejectedJobsCount: runData.rejectedJobsCount,
       actualLlmCostUsd: runData.actualLlmCostUsd,
-      actualApifyCostUsd: runData.actualApifyCostUsd,
       llmInputTokens: runData.llmInputTokens ?? 0,
       llmInputCacheHitTokens: runData.llmInputCacheHitTokens ?? 0,
       llmOutputTokens: runData.llmOutputTokens ?? 0,
@@ -552,25 +484,23 @@ export async function getAnalyticsStats() {
   const runsStats = await db.select({
     totalRuns: sql<number>`COUNT(*)`,
     successfulRuns: sql<number>`COUNT(*) FILTER (WHERE ${userRuns.status} = 'SUCCESS')`,
-    totalActualLlmCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd}), 0)`,
-    totalActualApifyCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualApifyCostUsd}), 0)`
+    totalActualLlmCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd}), 0)`
   }).from(userRuns);
 
   const stats = runsStats[0] || {
     totalRuns: 0,
     successfulRuns: 0,
-    totalActualLlmCostUsd: 0,
-    totalActualApifyCostUsd: 0
+    totalActualLlmCostUsd: 0
   };
 
-  const totalActualCostUsd = Number(stats.totalActualLlmCostUsd) + Number(stats.totalActualApifyCostUsd);
+  const totalActualCostUsd = Number(stats.totalActualLlmCostUsd);
   const totalProfitUsd = mrr - totalActualCostUsd;
 
   // Monthly breakdown of actual costs
   const monthlyStats = await db.select({
     month: sql<string>`TO_CHAR(${userRuns.runAt}, 'YYYY-MM')`,
     runsCount: sql<number>`COUNT(*)`,
-    actualCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}), 0)`
+    actualCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd}), 0)`
   })
   .from(userRuns)
   .groupBy(sql`TO_CHAR(${userRuns.runAt}, 'YYYY-MM')`)
@@ -591,9 +521,9 @@ export async function getAnalyticsStats() {
   const dailyStats = await db.select({
     day: sql<string>`TO_CHAR(${userRuns.runAt} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`,
     runsCount: sql<number>`COUNT(*)`,
-    totalCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}), 0)`,
-    minCostUsd: sql<number>`COALESCE(MIN(NULLIF(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}, 0)), 0)`,
-    maxCostUsd: sql<number>`COALESCE(MAX(${userRuns.actualLlmCostUsd} + ${userRuns.actualApifyCostUsd}), 0)`
+    totalCostUsd: sql<number>`COALESCE(SUM(${userRuns.actualLlmCostUsd}), 0)`,
+    minCostUsd: sql<number>`COALESCE(MIN(NULLIF(${userRuns.actualLlmCostUsd}, 0)), 0)`,
+    maxCostUsd: sql<number>`COALESCE(MAX(${userRuns.actualLlmCostUsd}), 0)`
   })
   .from(userRuns)
   .where(gte(userRuns.runAt, sql`CURRENT_DATE - INTERVAL '3 days'`))
