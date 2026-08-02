@@ -85,7 +85,9 @@ export const jobs = pgTable("jobs", {
   // Index on created_at for fast purging of old unmatched jobs
   index("jobs_created_at_idx").on(table.createdAt),
   // Composite index on user_id and created_at for fast paginated retrieval per user
-  index("jobs_user_id_created_at_idx").on(table.userId, table.createdAt)
+  index("jobs_user_id_created_at_idx").on(table.userId, table.createdAt),
+  // Composite index on user_id and ai_score for fast match queries
+  index("jobs_user_id_ai_score_idx").on(table.userId, table.aiScore)
 ]);
 
 // Per-run audit log recording stats and exact costs for every execution turn

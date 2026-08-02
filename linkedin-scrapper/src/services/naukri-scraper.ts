@@ -87,6 +87,10 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
     '--disable-blink-features=AutomationControlled',
     '--window-size=1920,1080',
     '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--no-zygote',
+    '--single-process',
+    '--disable-background-networking',
   ];
 
   if (proxyServer) {
