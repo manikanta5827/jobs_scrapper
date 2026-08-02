@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "linkedin_post_template" text;

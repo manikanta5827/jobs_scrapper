@@ -15,6 +15,7 @@ export const users = pgTable("users", {
     refreshToken?: string;
     personUrn?: string;
   }>(), // Optional LinkedIn OAuth details for automated posting
+  linkedinPostTemplate: text("linkedin_post_template"), // Optional custom LinkedIn post template with {placeholders}
   
   // Subscription tier and billing
   tier: text("tier").default(Tier.PREMIUM).notNull(), // See Tier enum

@@ -42,6 +42,33 @@
       --font-mono: 'JetBrains Mono', monospace;
     }
 
+    .placeholder-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .placeholder-badge.missing {
+      background-color: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
+    }
+    .placeholder-badge.missing:hover {
+      background-color: #fee2e2;
+    }
+    .placeholder-badge.added {
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
     
     body {
@@ -908,6 +935,20 @@
             <label>LinkedIn Access Token (Optional for auto-posting)</label>
             <input type="password" id="userLinkedinAccessToken" maxlength="1000" placeholder="LinkedIn OAuth Access Token">
           </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>LinkedIn Post Template (Custom {placeholders})</span>
+              <span style="font-size: 11px; color: var(--text-tertiary);">Leave blank to use default format</span>
+            </label>
+            <textarea id="userLinkedinPostTemplate" style="height: 110px; font-family: var(--font-mono); font-size: 13px;" placeholder="e.g. 🚀 {companyName} is hiring for {title}!&#10;&#10;📍 Location: {location}&#10;🔗 Apply: {applyLink}"></textarea>
+            
+            <div style="margin-top: 8px;">
+              <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+                Available Placeholders (Red = Missing, Green = Added):
+              </div>
+              <div id="templatePlaceholdersContainer" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+            </div>
+          </div>
           <div class="form-section-title">Subscription & Billing</div>
           <div class="form-group" id="tierGroup">
             <label>Subscription Tier *</label>
@@ -1321,6 +1362,49 @@
 
 
 
+    const ALL_TEMPLATE_PLACEHOLDERS = [
+      '{title}',
+      '{companyName}',
+      '{location}',
+      '{experience}',
+      '{salary}',
+      '{employmentType}',
+      '{skills}',
+      '{applyLink}',
+      '{directApply}'
+    ];
+
+    function updatePlaceholderBadges() {
+      const textarea = document.getElementById('userLinkedinPostTemplate');
+      const container = document.getElementById('templatePlaceholdersContainer');
+      if (!textarea || !container) return;
+
+      const text = textarea.value || '';
+      container.innerHTML = '';
+
+      ALL_TEMPLATE_PLACEHOLDERS.forEach(tag => {
+        const isAdded = text.includes(tag);
+        const badge = document.createElement('span');
+        badge.className = `placeholder-badge ${isAdded ? 'added' : 'missing'}`;
+        badge.innerHTML = `${isAdded ? '✓' : '✖'} ${tag}`;
+        badge.title = isAdded ? 'Added to template' : 'Click to insert into template';
+
+        badge.onclick = () => {
+          if (!isAdded) {
+            const start = textarea.selectionStart || textarea.value.length;
+            const end = textarea.selectionEnd || textarea.value.length;
+            const val = textarea.value;
+            textarea.value = val.substring(0, start) + tag + val.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+            textarea.focus();
+            updatePlaceholderBadges();
+          }
+        };
+
+        container.appendChild(badge);
+      });
+    }
+
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
@@ -1331,6 +1415,8 @@
       document.getElementById('userTier').value = 'premium';
       document.getElementById('userSubscriptionAmount').value = '0';
       document.getElementById('userSubscriptionExpiresAt').value = '';
+      document.getElementById('userLinkedinPostTemplate').value = '';
+      updatePlaceholderBadges();
       document.getElementById('analyzeAiStatus').innerText = '';
       document.getElementById('resumeCharCounter').innerText = '0 / 15,000 characters';
       currentProfileFields = null;
@@ -1354,6 +1440,8 @@
         document.getElementById('userTelegramChatId').value = u.telegramChatId || '';
         document.getElementById('userResumeText').value = u.resumeText || '';
         document.getElementById('userExperienceYears').value = u.experienceYears ?? 0;
+        document.getElementById('userLinkedinPostTemplate').value = u.linkedinPostTemplate || '';
+        updatePlaceholderBadges();
         const savedTargetLocations = (u.targetLocations || '').toLowerCase();
         const chkRemote = document.getElementById('chkRemoteOnly');
         if (savedTargetLocations === 'remote') {
@@ -1504,6 +1592,11 @@
         payload.linkedinCredentials = { personUrn, accessToken };
       }
 
+      const linkedinPostTemplate = document.getElementById('userLinkedinPostTemplate').value.trim();
+      if (linkedinPostTemplate) {
+        payload.linkedinPostTemplate = linkedinPostTemplate;
+      }
+
       try {
         if (editId) {
           await apiRequest('/users/' + editId, 'PUT', payload);
@@ -1576,8 +1669,6 @@
       }
     }
 
-
-
     async function triggerScraperRun(userId) {
       try {
         const payload = userId ? { targetUserId: userId, lookbackHours: 12 } : { lookbackHours: 12 };
@@ -1617,6 +1708,13 @@
     function clearCities() {
       document.querySelectorAll('.city-chk').forEach(cb => cb.checked = false);
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const tmplTextarea = document.getElementById('userLinkedinPostTemplate');
+      if (tmplTextarea) {
+        tmplTextarea.addEventListener('input', updatePlaceholderBadges);
+      }
+    });
   </script>
 </body>
 </html>

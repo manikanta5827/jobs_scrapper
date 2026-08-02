@@ -1,6 +1,33 @@
 import type { EnrichedJob } from '../types';
 
-export function formatJobPost(job: EnrichedJob): string {
+export function formatJobPost(job: EnrichedJob, customTemplate?: string | null): string {
+  if (customTemplate && customTemplate.trim().length > 0) {
+    return formatCustomJobPost(job, customTemplate);
+  }
+  return formatDefaultJobPost(job);
+}
+
+function formatCustomJobPost(job: EnrichedJob, template: string): string {
+  const variables: Record<string, string> = {
+    title: job.title || 'Software Engineer',
+    companyName: job.companyName || 'a company',
+    location: job.aiJobLocation || job.location || 'India',
+    experience: job.aiYoe || '',
+    employmentType: job.employmentType || '',
+    seniorityLevel: job.seniorityLevel || '',
+    salary: job.salary || '',
+    applyLink: job.link || '',
+    directApply: job.aiDirectApply || '',
+    skills: (job.aiMatchedSkills || []).map(s => `- ${s}`).join('\n'),
+  };
+
+  // Replace {variableName} placeholders dynamically
+  return template.replace(/\{(\w+)\}/g, (match, key) => {
+    return key in variables ? variables[key] : match;
+  });
+}
+
+function formatDefaultJobPost(job: EnrichedJob): string {
   const title = job.title || 'Software Engineer';
   const company = job.companyName || 'a company';
   const location = job.aiJobLocation || job.location || 'India';

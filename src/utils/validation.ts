@@ -41,6 +41,7 @@ export const CreateUserSchema = z.object({
     refreshToken: z.string().trim().max(1000, { message: "Refresh token too long" }).optional(),
     personUrn: z.string().trim().max(100, { message: "Person URN cannot exceed 100 characters" }).optional()
   }).optional(),
+  linkedinPostTemplate: z.string().trim().max(4000, { message: "LinkedIn post template cannot exceed 4000 characters" }).optional(),
   tier: z.nativeEnum(Tier).optional().default(Tier.PREMIUM),
   subscriptionAmount: z.number().min(0).max(10000).optional().default(0),
   subscriptionExpiresAt: z.string().datetime().optional(),
@@ -80,6 +81,7 @@ export const UpdateUserSchema = z.object({
     refreshToken: z.string().trim().max(1000).optional(),
     personUrn: z.string().trim().max(100).optional()
   }).optional(),
+  linkedinPostTemplate: z.string().trim().max(4000).optional(),
   tier: z.nativeEnum(Tier).optional(),
   subscriptionAmount: z.number().min(0).max(10000).optional(),
   subscriptionExpiresAt: z.string().datetime().optional(),
