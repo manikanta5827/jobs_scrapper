@@ -70,12 +70,10 @@ export const handler = async (
   }
 
   // 3. Deduplicate queries across all valid users per platform
-  const platforms = ['linkedin', 'simplyhired', 'naukri', 'indeed'] as const;
+  const platforms = ['linkedin', 'naukri'] as const;
   const functionNames: Record<string, string> = {
     linkedin: LINKEDIN_SCRAPER_NAME,
-    simplyhired: SIMPLYHIRED_SCRAPER_NAME,
     naukri: NAUKRI_SCRAPER_NAME,
-    indeed: INDEED_SCRAPER_NAME,
   };
 
   const batchSizes: Record<string, number> = {
