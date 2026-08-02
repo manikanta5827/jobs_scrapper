@@ -90,7 +90,7 @@ Resources:
       CodeUri: ./
       Handler: src/lambda-naukri.handler
       Timeout: 800
-      MemorySize: 1024
+      MemorySize: 512
       Architectures:
         - x86_64
       ReservedConcurrentExecutions: 15
@@ -182,7 +182,7 @@ Resources:
       CodeUri: ./
       Handler: src/lambda-indeed.handler
       Description: Scrapes Indeed.com job listings & full descriptions via Puppeteer browser automation
-      MemorySize: 1024
+      MemorySize: 512
       Timeout: 800
       Architectures:
         - x86_64
