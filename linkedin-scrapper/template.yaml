@@ -17,7 +17,7 @@ Parameters:
 
 Globals:
   Function:
-    Timeout: 600
+    Timeout: 300
     MemorySize: 256
     Runtime: nodejs22.x
     EventInvokeConfig:
@@ -92,7 +92,7 @@ Resources:
       FunctionName: naukri-jobs-scraper
       CodeUri: ./
       Handler: src/lambda-naukri.handler
-      Timeout: 800
+      Timeout: 300
       MemorySize: 512
       Architectures:
         - arm64
@@ -186,7 +186,7 @@ Resources:
       Handler: src/lambda-indeed.handler
       Description: Scrapes Indeed.com job listings & full descriptions via Puppeteer browser automation
       MemorySize: 512
-      Timeout: 800
+      Timeout: 300
       Architectures:
         - arm64
       ReservedConcurrentExecutions: 15

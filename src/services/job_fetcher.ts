@@ -34,6 +34,7 @@ export function buildSearchQueriesFromProfile(user: {
   const keywords = extractKeywords(user);
   let locations: Array<{ name: string; geoId?: string }> = [];
 
+  // if platforms are naukri or indeed retur onyl single big location
   if(platform === 'naukri' || platform === 'indeed') {
     locations = [{ name: 'India', geoId: CITY_GEO_IDS['india'] }];
   }

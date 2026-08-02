@@ -41,6 +41,27 @@ const BLOCKED_DOMAINS = [
   'hs-scripts.com',
 ];
 
+export async function isBotBlocked(page: any): Promise<boolean> {
+  try {
+    const title = (await page.title()).toLowerCase();
+    const blockedKeywords = [
+      'just a moment...',
+      'cloudflare',
+      'attention required',
+      'access denied',
+      'security check',
+      'captcha',
+      'pardon our interruption',
+      'are you a human',
+      'validate your request',
+      'unusual traffic',
+    ];
+    return blockedKeywords.some((kw) => title.includes(kw));
+  } catch {
+    return false;
+  }
+}
+
 // Dynamic imports to keep puppeteer optional at module load time
 // (only loaded when Naukri source is selected)
 let puppeteer: any;
@@ -180,8 +201,14 @@ export class NaukriJobsQuery {
             }
           });
 
-          await browserPage.setDefaultNavigationTimeout(15000);
+          await browserPage.setDefaultNavigationTimeout(10000);
           await browserPage.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
+          if (await isBotBlocked(browserPage)) {
+            console.warn(`[Naukri Scraper] Bot protection / Cloudflare detected on page ${currentPage}. Aborting search early.`);
+            break;
+          }
+
           const pageJobs = await this.extractJobCards(browserPage);
 
           if (!pageJobs || pageJobs.length === 0) break;
@@ -345,5 +372,12 @@ export class NaukriJobsQuery {
 
 export function queryNaukriJobs(options: NaukriJobQueryOptions): Promise<JobPosting[]> {
   const query = new NaukriJobsQuery(options);
-  return query.getJobs();
+  const scrapePromise = query.getJobs();
+  const timeoutPromise = new Promise<JobPosting[]>((resolve) =>
+    setTimeout(() => {
+      console.warn('[Naukri Scraper] Hard per-query timeout reached (90s). Returning results collected so far.');
+      resolve([]);
+    }, 90000)
+  );
+  return Promise.race([scrapePromise, timeoutPromise]);
 }

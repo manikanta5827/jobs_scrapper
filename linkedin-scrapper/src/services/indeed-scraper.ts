@@ -39,6 +39,27 @@ const BLOCKED_DOMAINS = [
   'hs-scripts.com',
 ];
 
+export async function isBotBlocked(page: any): Promise<boolean> {
+  try {
+    const title = (await page.title()).toLowerCase();
+    const blockedKeywords = [
+      'just a moment...',
+      'cloudflare',
+      'attention required',
+      'access denied',
+      'security check',
+      'captcha',
+      'pardon our interruption',
+      'are you a human',
+      'validate your request',
+      'unusual traffic',
+    ];
+    return blockedKeywords.some((kw) => title.includes(kw));
+  } catch {
+    return false;
+  }
+}
+
 let puppeteer: any;
 let StealthPlugin: any;
 
@@ -161,7 +182,10 @@ export class IndeedJobsQuery {
     const maxLimit = this.options.limit || 25;
     const scrapePromise = this._scrapeJobs(maxLimit);
     const timeoutPromise = new Promise<JobPosting[]>((resolve) =>
-      setTimeout(() => resolve([]), 35000)
+      setTimeout(() => {
+        console.warn('[Indeed Scraper] Hard per-query timeout reached (90s). Returning results collected so far.');
+        resolve([]);
+      }, 90000)
     );
     return Promise.race([scrapePromise, timeoutPromise]);
   }
@@ -205,7 +229,11 @@ export class IndeedJobsQuery {
       while (allRawCards.length < maxLimit && pageIndex < maxPages) {
         const searchUrl = buildSearchUrl({ ...this.options, page: pageIndex });
         try {
-          await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+          if (await isBotBlocked(page)) {
+            console.warn(`[Indeed Scraper] Anti-bot / Cloudflare challenge detected on page ${pageIndex}. Aborting search early.`);
+            break;
+          }
           await page.waitForSelector('div.job_seen_beacon, div.cardOutline, td.resultContent, div.jobsearch-ResultsList > li, li.css-5lfssm', { timeout: 4000 }).catch(() => {});
           await delay(1000);
         } catch {
