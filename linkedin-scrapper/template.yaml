@@ -42,6 +42,7 @@ Resources:
         - arm64
     Metadata:
       BuildMethod: nodejs22.x
+      BuildArchitecture: arm64
 
   # --- LINKEDIN LAMBDA (lightweight HTTP scraper) ---
   LinkedInScraperFunction:

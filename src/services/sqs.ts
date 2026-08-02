@@ -71,8 +71,6 @@ export async function receiveJobBatchFromQueue(
         }
       }
     }
-
-    if (res.Messages.length < batchSize) break;
   }
 
   return allMessages;

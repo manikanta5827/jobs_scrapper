@@ -105,16 +105,22 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
     })();
 
     if (chromium) {
-      // v149+ uses inflate() to set up then headless shell
-      if (typeof chromium.inflate === 'function') {
-        await chromium.inflate();
+      try {
+        // v149+ uses inflate() to set up then headless shell
+        if (typeof chromium.inflate === 'function') {
+          await chromium.inflate();
+        }
+        const execPath = await chromium.executablePath();
+        browser = await puppeteer.launch({
+          args: chromium.args ? [...chromium.args, ...extraArgs] : extraArgs,
+          defaultViewport: chromium.defaultViewport,
+          executablePath: execPath,
+          headless: chromium.headless ?? true,
+        });
+      } catch (e) {
+        console.warn('[Naukri Scraper] Lambda chromium launch failed, attempting fallback browser launch:', e instanceof Error ? e.message : String(e));
+        browser = null;
       }
-      browser = await puppeteer.launch({
-        args: chromium.args ? [...chromium.args, ...extraArgs] : extraArgs,
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless ?? true,
-      });
     }
   }
 

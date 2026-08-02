@@ -33,6 +33,12 @@ async function main() {
       { keyword: 'React Developer', location: 'Mumbai', userIds: ['test-user-1'] },
       { keyword: 'Node.js Developer', location: 'Mumbai', userIds: ['test-user-1'] }
     ]);
+  } else if (testMode === '3') {
+    await runTest('TEST 3 (3 Keywords)', [
+      { keyword: 'React Developer', location: 'Mumbai', userIds: ['test-user-1'] },
+      { keyword: 'Node.js Developer', location: 'Mumbai', userIds: ['test-user-1'] },
+      { keyword: 'Full Stack Engineer', location: 'Mumbai', userIds: ['test-user-1'] }
+    ]);
   } else {
     await runTest('TEST BOTH (1 & 2 Keywords)', [
       { keyword: 'React Developer', location: 'Mumbai', userIds: ['test-user-1'] }
