@@ -19,7 +19,7 @@ import * as readline from 'node:readline';
 import { exec } from 'node:child_process';
 
 const REDIRECT_URI = 'http://localhost:8080/callback';
-const SCOPES = ['w_member_social', 'w_organization_social', 'openid', 'profile'];
+const SCOPES = ['w_member_social', 'openid', 'profile', 'email'];
 const LINKEDIN_OAUTH_BASE = 'https://www.linkedin.com/oauth/v2';
 
 function prompt(question: string): Promise<string> {
@@ -29,6 +29,8 @@ function prompt(question: string): Promise<string> {
 
 function startCallbackServer(): Promise<string> {
   return new Promise((resolve, reject) => {
+    let resolved = false;
+
     const server = http.createServer((req, res) => {
       const url = new URL(req.url || '/', `http://${req.headers.host}`);
       if (url.pathname === '/callback') {
@@ -38,14 +40,14 @@ function startCallbackServer(): Promise<string> {
           res.writeHead(400, { 'Content-Type': 'text/html' });
           res.end(`<h1>Authorization Failed</h1><p>Error: ${error}</p><p>${url.searchParams.get('error_description') || ''}</p>`);
           server.close();
-          reject(new Error(`LinkedIn OAuth error: ${error} - ${url.searchParams.get('error_description') || ''}`));
+          if (!resolved) { resolved = true; reject(new Error(`LinkedIn OAuth error: ${error} - ${url.searchParams.get('error_description') || ''}`)); }
           return;
         }
         if (code) {
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end('<h1>Authorization Successful!</h1><p>You can close this window and return to the terminal.</p>');
           server.close();
-          resolve(code);
+          if (!resolved) { resolved = true; resolve(code); }
           return;
         }
         res.writeHead(400, { 'Content-Type': 'text/html' });
@@ -53,8 +55,27 @@ function startCallbackServer(): Promise<string> {
       }
     });
     server.listen(8080, () => console.log('Callback server listening on http://localhost:8080'));
-    setTimeout(() => { server.close(); reject(new Error('Timed out waiting (5 minutes)')); }, 5 * 60 * 1000);
+    setTimeout(() => { if (!resolved) { server.close(); } }, 5 * 60 * 1000);
   });
+}
+
+function extractCode(input: string): string {
+  let str = input.trim();
+  if (!str) return '';
+  if (str.includes('code=')) {
+    try {
+      const urlObj = new URL(str.startsWith('http') ? str : `http://localhost/${str.startsWith('?') ? str : '?' + str}`);
+      const code = urlObj.searchParams.get('code');
+      if (code) return code;
+    } catch {}
+  }
+  if (str.includes('&')) {
+    str = str.split('&')[0];
+  }
+  if (str.includes('code=')) {
+    str = str.split('code=')[1];
+  }
+  return str;
 }
 
 async function main() {
@@ -78,13 +99,31 @@ async function main() {
   authUrl.searchParams.set('scope', SCOPES.join(' '));
   authUrl.searchParams.set('state', Math.random().toString(36).substring(7));
 
-  console.log('\n📋 Opening browser for LinkedIn authorization...\n');
-  console.log(`If the browser doesn't open, visit:\n${authUrl.toString()}\n`);
+  console.log('\n📋 LinkedIn Authorization URL:\n');
+  console.log(authUrl.toString());
+  console.log('\n------------------------------------------------------------');
+  console.log('💡 IF YOUR FRIEND IS ON A DIFFERENT LAPTOP:');
+  console.log('1. Send them the link above.');
+  console.log('2. After they authorize, their browser will redirect to a page like:');
+  console.log('   http://localhost:8080/callback?code=AQXXXXXXXXXX&state=...');
+  console.log('3. Ask them to copy that full URL (or code) from their address bar and send it back to you.');
+  console.log('4. Paste that code/URL below!');
+  console.log('------------------------------------------------------------\n');
 
-  exec(`open "${authUrl.toString()}"`);
+  try {
+    exec(`open "${authUrl.toString()}"`);
+  } catch {}
 
-  console.log('⏳ Waiting for authorization callback...\n');
-  const code = await startCallbackServer();
+  console.log('⏳ Listening for local callback OR enter code/URL below...\n');
+
+  const serverPromise = startCallbackServer();
+  const manualPromise = prompt('Or paste the redirected URL / authorization code here (press Enter to wait for local browser): ').then(ans => {
+    const code = extractCode(ans);
+    if (!code) return new Promise<string>(() => {}); // wait for server
+    return code;
+  });
+
+  const code = await Promise.race([serverPromise, manualPromise]);
 
   console.log('✅ Authorization code received. Exchanging for tokens...\n');
 
