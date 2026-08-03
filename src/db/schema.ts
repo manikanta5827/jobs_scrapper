@@ -45,6 +45,13 @@ export const users = pgTable("users", {
   source: text("source"), // Acquisition source: 'linkedin' | 'whatsapp' | 'other'
   totalRunsCount: integer("total_runs_count").default(0).notNull(), // Lifetime completed runs count
   lastRunAt: timestamp("last_run_at", { withTimezone: true }), // Timestamp of last run
+
+  // Analytics: Per-user button click metrics (Telegram vs Dashboard, Apply vs Resume)
+  telegramApplyClicks: integer("telegram_apply_clicks").default(0).notNull(),
+  telegramResumeClicks: integer("telegram_resume_clicks").default(0).notNull(),
+  dashboardApplyClicks: integer("dashboard_apply_clicks").default(0).notNull(),
+  dashboardResumeClicks: integer("dashboard_resume_clicks").default(0).notNull(),
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [

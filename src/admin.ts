@@ -15,7 +15,8 @@ import {
   getAnalyticsStats,
   getJobsForUser,
   getJobById,
-  updateJobResumeMd
+  updateJobResumeMd,
+  recordClickEvent
 } from './services/db';
 import { analyzeResumeWithLLM, generateAtsResume } from './services/llm';
 import { shutdownTelemetry } from './services/telemetry';
@@ -46,6 +47,21 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
   const path = event.resource || event.path;
   const body = event.body ? JSON.parse(event.body) : {};
   const pathParameters = event.pathParameters || {};
+
+  // Public endpoint: POST /analytics/click — Record candidate button click metrics
+  if (path === '/analytics/click' && method === 'POST') {
+    const jobId = body.jobId;
+    const userId = body.userId;
+    const source = body.source;
+    const type = body.type;
+
+    if (!source || !type || (!jobId && !userId)) {
+      return response(400, { error: 'Missing required click tracking parameters (source, type, and jobId or userId)' });
+    }
+
+    const recorded = await recordClickEvent({ jobId, userId, source, type });
+    return response(200, { success: recorded });
+  }
 
   // 1a. Public endpoint: GET /jobs/{id}/resume — Retrieve or generate (On-Demand) candidate ATS-optimized resume Markdown for a job
   if ((path === '/jobs/{id}/resume' || path.endsWith('/resume')) && method === 'GET') {

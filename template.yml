@@ -402,6 +402,14 @@ Resources:
             Path: /users/{id}/jobs
             Method: GET
 
+        # POST /analytics/click — Record candidate button click metrics
+        RecordClick:
+          Type: Api
+          Properties:
+            RestApiId: !Ref APIGateway
+            Path: /analytics/click
+            Method: POST
+
         # GET /stats — Financial analytics & profit dashboard
         GetStats:
           Type: Api

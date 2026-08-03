@@ -589,3 +589,52 @@ export async function getAnalyticsStats() {
     jobsBySource: formattedJobsBySource
   };
 }
+
+// ─── User Click Analytics Tracker ──────────────────────────────────────────────
+export async function recordClickEvent(params: {
+  jobId?: string;
+  userId?: string;
+  source: string;
+  type: string;
+}): Promise<boolean> {
+  await initDb();
+
+  let targetUserId = params.userId;
+
+  if (!targetUserId && params.jobId) {
+    const job = await getJobById(params.jobId);
+    if (job) targetUserId = job.userId;
+  }
+
+  if (!targetUserId) return false;
+
+  const key = `${params.source?.toLowerCase()}_${params.type?.toLowerCase()}`;
+
+  switch (key) {
+    case 'telegram_apply':
+      await db.update(users)
+        .set({ telegramApplyClicks: sql`${users.telegramApplyClicks} + 1` })
+        .where(eq(users.id, targetUserId));
+      break;
+    case 'telegram_resume':
+      await db.update(users)
+        .set({ telegramResumeClicks: sql`${users.telegramResumeClicks} + 1` })
+        .where(eq(users.id, targetUserId));
+      break;
+    case 'dashboard_apply':
+      await db.update(users)
+        .set({ dashboardApplyClicks: sql`${users.dashboardApplyClicks} + 1` })
+        .where(eq(users.id, targetUserId));
+      break;
+    case 'dashboard_resume':
+      await db.update(users)
+        .set({ dashboardResumeClicks: sql`${users.dashboardResumeClicks} + 1` })
+        .where(eq(users.id, targetUserId));
+      break;
+    default:
+      return false;
+  }
+
+  return true;
+}
+

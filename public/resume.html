@@ -13,6 +13,8 @@
   
   <!-- Marked.js Markdown Parser from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Analytics Helper Script -->
+  <script src="/js/analytics.js"></script>
 
   <style>
     :root {
@@ -506,6 +508,15 @@
         errorDiv.style.display = 'block';
         errorDiv.innerText = '⚠️ No Job ID provided in URL.';
         return;
+      }
+
+      // Track resume view click if source parameter is present
+      const urlParams = new URLSearchParams(window.location.search);
+      const source = urlParams.get('source') || urlParams.get('src');
+      const type = urlParams.get('type') || 'resume';
+      const userId = urlParams.get('userId');
+      if (source && typeof JobAnalytics !== 'undefined') {
+        JobAnalytics.trackClick({ jobId, userId, source, type });
       }
 
       let progressIdx = 0;

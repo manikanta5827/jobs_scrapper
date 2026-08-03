@@ -12,6 +12,8 @@ export function formatJobPost(
 }
 
 function formatCustomJobPost(job: EnrichedJob, template: string, userPhone?: string | null): string {
+
+  //prepare variables
   const phone = userPhone || '8309497947';
   const variables: Record<string, string> = {
     title: job.title || 'Software Engineer',

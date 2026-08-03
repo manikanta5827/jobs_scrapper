@@ -689,11 +689,12 @@
               <th>Subscription</th>
               <th>Status</th>
               <th>Runs</th>
+              <th>Button Clicks</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
-            <tr><td colspan="9" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
+            <tr><td colspan="10" style="text-align: center; color: var(--text-tertiary)"><div class="skeleton-line"></div>Loading candidate records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1341,6 +1342,12 @@
               </span>
             </td>
             <td><b style="color: var(--text-main);">${u.totalRunsCount || 0}</b></td>
+            <td>
+              <div style="font-size: 11px; line-height: 1.4;">
+                <div title="Telegram: Apply clicks / Resume clicks"><b>TG:</b> 🚀 ${u.telegramApplyClicks || 0} | 📄 ${u.telegramResumeClicks || 0}</div>
+                <div title="Dashboard: Apply clicks / Resume clicks"><b>Dash:</b> 🚀 ${u.dashboardApplyClicks || 0} | 📄 ${u.dashboardResumeClicks || 0}</div>
+              </div>
+            </td>
             <td>
               <div style="display: flex; gap: 6px;">
                 <button class="btn btn-sm" onclick="triggerScraperRun('${u.id}')" title="Trigger Scraper Lambda">▶ Scrape</button>

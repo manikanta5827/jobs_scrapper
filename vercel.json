@@ -8,6 +8,8 @@
     { "source": "/admin.html", "destination": "/public/admin.html" },
     { "source": "/resume", "destination": "/public/resume.html" },
     { "source": "/resume/:id", "destination": "/public/resume.html" },
-    { "source": "/resume.html", "destination": "/public/resume.html" }
+    { "source": "/resume.html", "destination": "/public/resume.html" },
+    { "source": "/redirect", "destination": "/public/redirect.html" },
+    { "source": "/redirect.html", "destination": "/public/redirect.html" }
   ]
 }

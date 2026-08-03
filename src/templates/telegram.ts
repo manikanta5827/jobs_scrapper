@@ -74,9 +74,10 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   }
 
   const applyPlatform = sourceLabel.toUpperCase();
-  msg += `\n🚀 <a href="${j.link}"><b>APPLY ON ${applyPlatform}</b></a>\n`;
   const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || APP_FALLBACK_URL;
-  const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.id || '')}`;
+  const applyRedirectUrl = `${appUrl}/redirect.html?jobId=${encodeURIComponent(j.id || '')}&source=telegram&type=apply&target=${encodeURIComponent(j.link || '')}`;
+  msg += `\n🚀 <a href="${applyRedirectUrl}"><b>APPLY ON ${applyPlatform}</b></a>\n`;
+  const resumeUrl = `${appUrl}/resume.html?id=${encodeURIComponent(j.id || '')}&jobId=${encodeURIComponent(j.id || '')}&source=telegram&type=resume`;
   msg += `\n📄 <a href="${resumeUrl}"><b>VIEW & PRINT ATS RESUME</b></a>`;
   return msg;
 }

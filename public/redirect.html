@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redirecting to Job Post...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-left-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    p {
+      margin-top: 16px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+  </style>
+  <script src="/js/analytics.js"></script>
+</head>
+<body>
+  <div class="spinner"></div>
+  <p>Redirecting to job application...</p>
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const targetUrl = params.get('target') || params.get('url');
+      const jobId = params.get('jobId') || params.get('id');
+      const userId = params.get('userId');
+      const source = params.get('source') || params.get('src') || 'telegram';
+      const type = params.get('type') || 'apply';
+
+      if (jobId || userId) {
+        JobAnalytics.trackClick({ jobId, userId, source, type });
+      }
+
+      if (targetUrl) {
+        window.location.replace(targetUrl);
+      } else {
+        window.location.replace('/');
+      }
+    })();
+  </script>
+</body>
+</html>
