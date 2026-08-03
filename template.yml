@@ -296,7 +296,7 @@ Resources:
       CodeUri: src/
       Handler: evaluator.handler
       Timeout: 900
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: 25
       Policies:
         - AWSLambdaBasicExecutionRole
         - SSMParameterReadPolicy:
