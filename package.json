@@ -11,7 +11,8 @@
         "sam:sync": "sam sync --watch --config-env prod --stack-name job-scrapper",
         "typecheck": "tsc --noEmit",
         "db:generate": "npx drizzle-kit generate",
-        "db:migrate": "npx tsx scripts/migrate.ts",
+        "db:migrate:script": "npx tsx scripts/migrate.ts",
+        "db:migrate": "npx drizzle-kit migrate",
         "lambda": "sam local invoke ScraperDispatcherLambda --env-vars env.json -e event.json --container-host-interface 0.0.0.0"
     },
     "dependencies": {

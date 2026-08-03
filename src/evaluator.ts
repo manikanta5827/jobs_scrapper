@@ -269,7 +269,7 @@ async function processUserWorker(
     // 9. Persist all LLM-evaluated jobs into candidate's personal seen jobs ledger
     //    Both matched and rejected jobs are stored with full AI data for dedup and analytics.
     const evaluatedMap = new Map([...matched, ...rejected].map(j => [j.link, j]));
-    await trackJobs(user.id, newJobs.map(j => {
+    const jobIdMap = await trackJobs(user.id, newJobs.map(j => {
       const m = evaluatedMap.get(j.link);
       return {
         link: j.link!,
@@ -291,6 +291,14 @@ async function processUserWorker(
         source: j.source,
       };
     }));
+
+    // ponytail: Assign the persisted DB UUID to each evaluated job so Telegram buttons use UUIDs instead of scraper numeric IDs
+    for (const j of [...matched, ...rejected]) {
+      const dbUuid = (j.link && jobIdMap.get(j.link)) || (j.fingerprint && jobIdMap.get(j.fingerprint));
+      if (dbUuid) {
+        j.id = dbUuid;
+      }
+    }
 
     // 10. Audit log
     await recordUserRun(user.id, {

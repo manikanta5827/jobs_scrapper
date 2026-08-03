@@ -55,14 +55,15 @@ export async function trackJobs(
     descriptionText?: string;
     source?: string;
   }[]
-): Promise<void> {
-  if (jobsToTrack.length === 0) return;
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (jobsToTrack.length === 0) return map;
   const deduped = [...new Map(jobsToTrack.map(j => [j.link, j])).values()];
   await initDb();
 
   try {
     await db.transaction(async (tx) => {
-      await tx.insert(jobs)
+      const inserted = await tx.insert(jobs)
         .values(deduped.map(j => ({ 
           userId, 
           jobLink: j.link, 
@@ -84,12 +85,38 @@ export async function trackJobs(
           descriptionText: j.descriptionText,
           source: j.source,
         })))
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ id: jobs.id, jobLink: jobs.jobLink, fingerprint: jobs.fingerprint });
+
+      for (const row of inserted) {
+        if (row.id && row.jobLink) {
+          map.set(row.jobLink, row.id);
+        }
+        if (row.id && row.fingerprint) {
+          map.set(row.fingerprint, row.id);
+        }
+      }
     });
+
+    const missingLinks = deduped.map(j => j.link).filter(link => !map.has(link));
+    if (missingLinks.length > 0) {
+      const existing = await db.select({ id: jobs.id, jobLink: jobs.jobLink, fingerprint: jobs.fingerprint })
+        .from(jobs)
+        .where(and(eq(jobs.userId, userId), inArray(jobs.jobLink, missingLinks)));
+      for (const row of existing) {
+        if (row.id && row.jobLink) {
+          map.set(row.jobLink, row.id);
+        }
+        if (row.id && row.fingerprint) {
+          map.set(row.fingerprint, row.id);
+        }
+      }
+    }
   } catch (err) {
     console.error(`Transaction failed in trackJobs for user ID ${userId}:`, err);
     throw err;
   }
+  return map;
 }
 
 // Automatically delete unmatched/rejected jobs older than N days (default 7 days) to keep DB lean using an atomic transaction

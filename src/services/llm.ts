@@ -205,7 +205,7 @@ export async function extractJobFitFactsBatch(
   candidateContext: UserPromptContext | string,
   batchSize: number = 2,  // How many jobs per single LLM API call (e.g. 2 jobs in 1 prompt)
   delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
-  concurrency: number = 3,  // How many batches (LLM API calls) to execute simultaneously in parallel
+  concurrency: number = 15,  // How many batches (LLM API calls) to execute simultaneously in parallel
   modelId?: string,
 ): Promise<{ facts: JobFitFacts[]; usage: TokenUsage }> {
   const candidateCtx = normalizeCandidateContext(candidateContext);
@@ -277,7 +277,8 @@ export async function extractJobFitFactsBatch(
             const reason = err instanceof Error ? err.message : String(err);
             console.warn(`[LLM Retry] Batch ${batchNum}/${totalBatches} (attempt ${attempt}/${MAX_BATCH_RETRIES}) failed: ${reason}`);
             if (attempt < MAX_BATCH_RETRIES) {
-              await sleep(1500 * attempt); // Backoff 1.5s, 3s before retrying
+              const jitterMs = Math.floor(Math.random() * 1000);
+              await sleep(1500 * attempt + jitterMs); // Backoff with jitter before retrying
             }
           }
         }
@@ -372,7 +373,7 @@ export async function checkRelevanceBatch(
   candidateContext: UserPromptContext | string,
   batchSize: number = 5,
   delayMs: number = 1000,
-  concurrency: number = 3,
+  concurrency: number = 15,
   modelId?: string,
 ): Promise<BatchResult> {
   const candidateCtx = normalizeCandidateContext(candidateContext);
