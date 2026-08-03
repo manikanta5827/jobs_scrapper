@@ -11,7 +11,7 @@
 import { z } from 'zod';
 import { executellmCall } from '../src/services/llm';
 
-const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
+const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash-0731';
 const CONCURRENCY_LEVELS = [20, 30, 50];
 
 const TestResponseSchema = z.object({

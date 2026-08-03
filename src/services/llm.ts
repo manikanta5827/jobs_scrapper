@@ -61,7 +61,7 @@ export async function executellmCall<T>(
   }
 
   const model = wrapModelWithTelemetry(
-    openrouter(modelId ?? 'deepseek/deepseek-v4-flash', openRouterConfig),
+    openrouter(modelId ?? 'deepseek/deepseek-v4-flash-0731', openRouterConfig),
     {
       functionId: telemetryOptions?.functionId ?? 'llm-call',
       metadata: telemetryOptions?.metadata ?? {},

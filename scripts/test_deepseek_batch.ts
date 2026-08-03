@@ -221,7 +221,7 @@ function printUsageSummary(usage: TokenUsage, preFilterTotal: number, yoeRejecte
 function parseModelFlag(): string {
   const idx = process.argv.indexOf('--model');
   if (idx !== -1 && process.argv[idx + 1]) return process.argv[idx + 1];
-  return process.env.MODEL_ID ?? 'deepseek/deepseek-v4-flash';
+  return process.env.MODEL_ID ?? 'deepseek/deepseek-v4-flash-0731';
 }
 
 function parseBatchSizeFlag(): number {
