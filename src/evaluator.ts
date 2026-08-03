@@ -284,38 +284,34 @@ async function processUserWorker(
     // 8. Calculate actual DeepSeek LLM cost
     const actualLlmCostUsd = calculateCostUsd(usage);
 
-    // 9. Persist all LLM-evaluated jobs into candidate's personal seen jobs ledger
-    //    Both matched and rejected jobs are stored with full AI data for dedup and analytics.
-    const evaluatedMap = new Map([...matched, ...rejected].map(j => [j.link, j]));
-    const jobIdMap = await trackJobs(user.id, newJobs.map(j => {
-      const m = evaluatedMap.get(j.link);
-      return {
-        link: j.link!,
-        fingerprint: j.fingerprint!,
-        jobTitle: j.title || j.jobTitle,
-        companyName: j.companyName,
-        location: j.location ?? m?.aiJobLocation ?? undefined,
-        postedAt: j.postedAt,
-        salary: j.salary,
-        aiScore: m?.aiScore,
-        aiReason: m?.aiReason,
-        jobDomain: m?.jobDomain ?? null,
-        minRequiredYoe: m?.minRequiredYoe ?? null,
-        maxRequiredYoe: m?.maxRequiredYoe ?? null,
-        requiredSkills: m?.requiredSkills || [],
-        preferredSkills: m?.preferredSkills || [],
-        candidateMatchedRequiredSkills: m?.candidateMatchedRequiredSkills || [],
-        candidateMatchedPreferredSkills: m?.candidateMatchedPreferredSkills || [],
-        candidateMissingRequiredSkills: m?.candidateMissingRequiredSkills || [],
-        candidateMissingPreferredSkills: m?.candidateMissingPreferredSkills || [],
-        domainMatchesCandidate: m?.domainMatchesCandidate ?? false,
-        aiJobLocation: m?.aiJobLocation ?? null,
-        directApply: m?.aiDirectApply || j.applyUrl || null,
-        applicantsCount: j.applicantsCount,
-        descriptionText: j.descriptionText,
-        source: j.source,
-      };
-    }));
+    // 9. Persist LLM-evaluated jobs (matched + rejected) with full AI data for dedup and analytics.
+    const evaluatedJobs = [...matched, ...rejected];
+    const jobIdMap = await trackJobs(user.id, evaluatedJobs.map(j => ({
+      link: j.link!,
+      fingerprint: j.fingerprint!,
+      jobTitle: j.title || j.jobTitle,
+      companyName: j.companyName,
+      location: j.location ?? j.aiJobLocation ?? undefined,
+      postedAt: j.postedAt,
+      salary: j.salary,
+      aiScore: j.aiScore,
+      aiReason: j.aiReason,
+      jobDomain: j.jobDomain ?? null,
+      minRequiredYoe: j.minRequiredYoe ?? null,
+      maxRequiredYoe: j.maxRequiredYoe ?? null,
+      requiredSkills: j.requiredSkills || [],
+      preferredSkills: j.preferredSkills || [],
+      candidateMatchedRequiredSkills: j.candidateMatchedRequiredSkills || [],
+      candidateMatchedPreferredSkills: j.candidateMatchedPreferredSkills || [],
+      candidateMissingRequiredSkills: j.candidateMissingRequiredSkills || [],
+      candidateMissingPreferredSkills: j.candidateMissingPreferredSkills || [],
+      domainMatchesCandidate: j.domainMatchesCandidate ?? false,
+      aiJobLocation: j.aiJobLocation ?? null,
+      directApply: j.aiDirectApply || j.applyUrl || null,
+      applicantsCount: j.applicantsCount,
+      descriptionText: j.descriptionText,
+      source: j.source,
+    })));
 
     // ponytail: Assign the persisted DB UUID to each evaluated job so Telegram buttons use UUIDs instead of scraper numeric IDs
     for (const j of [...matched, ...rejected]) {
