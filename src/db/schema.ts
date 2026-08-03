@@ -1,6 +1,5 @@
 import { pgTable, text, timestamp, serial, doublePrecision, integer, boolean, jsonb, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { Tier } from '../constants';
-import type { JobFitFacts } from '../types';
 
 // Multi-tenant users table storing profile settings, credentials, and tier subscriptions
 export const users = pgTable("users", {
@@ -75,10 +74,17 @@ export const jobs = pgTable("jobs", {
   salary: text("salary"),
   aiScore: integer("ai_score"),
   aiReason: text("ai_reason"),
-  matchedSkills: jsonb("matched_skills").$type<string[]>(),
-  missingSkills: jsonb("missing_skills").$type<string[]>(),
-  aiFacts: jsonb("ai_facts").$type<JobFitFacts>(),
-  requiredYoe: text("required_yoe"),
+  jobDomain: text("job_domain"),
+  minRequiredYoe: integer("min_required_yoe"),
+  maxRequiredYoe: integer("max_required_yoe"),
+  requiredSkills: jsonb("required_skills").$type<string[]>().default([]).notNull(),
+  preferredSkills: jsonb("preferred_skills").$type<string[]>().default([]).notNull(),
+  candidateMatchedRequiredSkills: jsonb("candidate_matched_required_skills").$type<string[]>().default([]).notNull(),
+  candidateMatchedPreferredSkills: jsonb("candidate_matched_preferred_skills").$type<string[]>().default([]).notNull(),
+  candidateMissingRequiredSkills: jsonb("candidate_missing_required_skills").$type<string[]>().default([]).notNull(),
+  candidateMissingPreferredSkills: jsonb("candidate_missing_preferred_skills").$type<string[]>().default([]).notNull(),
+  domainMatchesCandidate: boolean("domain_matches_candidate").default(false).notNull(),
+  aiJobLocation: text("ai_job_location"),
   directApply: text("direct_apply"),
   applicantsCount: text("applicants_count"),
   optimizedResumeMd: text("optimized_resume_md"),

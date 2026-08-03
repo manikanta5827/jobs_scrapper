@@ -9,6 +9,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
+import pLimit from 'p-limit';
 import { wrapModelWithTelemetry } from './telemetry';
 import { MATCHED_CATEGORY_SET } from '../constants';
 import { evaluateJobFit } from './fit_evaluator';
@@ -204,8 +205,8 @@ export async function extractJobFitFactsBatch(
   jobs: Job[],
   candidateContext: UserPromptContext | string,
   batchSize: number = 2,  // How many jobs per single LLM API call (e.g. 2 jobs in 1 prompt)
-  delayMs: number = 1000,   // Delay between parallel chunks to prevent LLM rate limiting
-  concurrency: number = 15,  // How many batches (LLM API calls) to execute simultaneously in parallel
+  delayMs: number = 150,   // Tiny pause between rolling calls to prevent instantaneous RPM burst spikes
+  concurrency: number = 25,  // How many batches (LLM API calls) to execute simultaneously in parallel
   modelId?: string,
 ): Promise<{ facts: JobFitFacts[]; usage: TokenUsage }> {
   const candidateCtx = normalizeCandidateContext(candidateContext);
@@ -221,18 +222,18 @@ export async function extractJobFitFactsBatch(
 
   const totalBatches = batches.length;
 
-  // STEP 2: Process batches in controlled concurrency groups (chunks)
-  // Instead of running 1 batch at a time (sequential) or all 15 at once (rate limit/memory risk),
-  // we pick `concurrency` (e.g. 3) batches at a time and run them in parallel.
-  for (let i = 0; i < batches.length; i += concurrency) {
-    // Slice out the current chunk of up to `concurrency` batches (e.g., batches 1, 2, and 3)
-    const chunk = batches.slice(i, i + concurrency);
+  // STEP 2: Process batches using `p-limit` for a continuous rolling concurrency pool
+  // Why use p-limit?
+  // - Rigid chunks (`Promise.all(chunk)`) force all 15 worker slots to sit idle waiting for the single slowest batch in the chunk to finish.
+  // - `p-limit(concurrency)` maintains up to `concurrency` (e.g. 25) active LLM requests in flight simultaneously.
+  // - As soon as ANY single batch finishes, the next pending batch starts immediately without waiting for other batches!
+  const limit = pLimit(concurrency);
 
-    // `Promise.all` fires off API calls for all batches in `chunk` simultaneously and waits until all complete.
-    await Promise.all(
-      chunk.map(async (batch, indexWithinChunk) => {
+  await Promise.all(
+    batches.map((batch, batchIndex) =>
+      limit(async () => {
         // Calculate 1-based index for logging (e.g. Batch 1, Batch 2...)
-        const batchNum = i + indexWithinChunk + 1;
+        const batchNum = batchIndex + 1;
         console.log(`OpenRouter extraction batch ${batchNum}/${totalBatches} (${batch.length} jobs)`);
 
         let results = new Map<number, JobFitFacts>();
@@ -333,7 +334,7 @@ export async function extractJobFitFactsBatch(
 
         // STEP 3: Map AI evaluations back to original job objects and classify as matched vs rejected
         for (let j = 0; j < batch.length; j++) {
-          const globalIndex = (i + indexWithinChunk) * batchSize + j;
+          const globalIndex = batchIndex * batchSize + j;
           const facts = results.get(j);
           if (facts) {
             allFacts[globalIndex] = facts;
@@ -355,14 +356,17 @@ export async function extractJobFitFactsBatch(
             };
           }
         }
-      })
-    );
 
-    // Pause briefly between chunk groups to avoid hitting provider Rate Limits (RPM)
-    if (i + concurrency < batches.length && delayMs > 0) {
-      await sleep(delayMs);
-    }
-  }
+        // Optional short pause with randomized jitter (0–150ms) after a batch finishes
+        // This tiny 150–300ms pause staggers requests so workers don't hit the API at the exact same millisecond,
+        // without slowing down throughput like a 1-second chunk delay would.
+        if (delayMs > 0) {
+          const jitterMs = Math.floor(Math.random() * 150);
+          await sleep(delayMs + jitterMs);
+        }
+      })
+    )
+  );
 
   return { facts: allFacts, usage };
 }
@@ -372,8 +376,8 @@ export async function checkRelevanceBatch(
   jobs: Job[],
   candidateContext: UserPromptContext | string,
   batchSize: number = 5,
-  delayMs: number = 1000,
-  concurrency: number = 15,
+  delayMs: number = 150,
+  concurrency: number = 25,
   modelId?: string,
 ): Promise<BatchResult> {
   const candidateCtx = normalizeCandidateContext(candidateContext);
@@ -388,18 +392,28 @@ export async function checkRelevanceBatch(
     const evalResult = evaluateJobFit(fact, candidateCtx);
     const category = evalResult.category;
     const isGoodMatch = MATCHED_CATEGORY_SET.has(category);
+    const matchedSkillsMerge = [...new Set([...(fact.candidate_matched_required_skills || []), ...(fact.candidate_matched_preferred_skills || [])])];
+    const missingSkillsMerge = [...new Set([...(fact.candidate_missing_required_skills || []), ...(fact.candidate_missing_preferred_skills || [])])];
     const enriched: EnrichedJob = {
       ...job,
       status: isGoodMatch ? "matched" : "rejected",
       aiCategory: category,
       aiScore: evalResult.score,
       aiReason: evalResult.reason,
-      aiMatchedSkills: evalResult.matched_skills,
-      aiMissingSkills: evalResult.missing_skills,
+      jobDomain: fact.job_domain,
+      minRequiredYoe: fact.min_required_yoe,
+      maxRequiredYoe: fact.max_required_yoe,
+      requiredSkills: fact.required_skills || [],
+      preferredSkills: fact.preferred_skills || [],
+      candidateMatchedRequiredSkills: fact.candidate_matched_required_skills || [],
+      candidateMatchedPreferredSkills: fact.candidate_matched_preferred_skills || [],
+      candidateMissingRequiredSkills: fact.candidate_missing_required_skills || [],
+      candidateMissingPreferredSkills: fact.candidate_missing_preferred_skills || [],
+      domainMatchesCandidate: fact.domain_matches_candidate ?? false,
       aiJobLocation: evalResult.job_location,
-      aiYoe: evalResult.years_of_experience,
       aiDirectApply: evalResult.direct_apply,
-      aiFacts: fact,
+      matchedSkills: matchedSkillsMerge,
+      missingSkills: missingSkillsMerge,
     };
     isGoodMatch ? matched.push(enriched) : rejected.push(enriched);
   }

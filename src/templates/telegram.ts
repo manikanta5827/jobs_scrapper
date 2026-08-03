@@ -53,7 +53,11 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
   msg += `🏢 <b>Company:</b>  <code>${j.companyName}</code>\n`;
   msg += `📍 <b>Location:</b> <code>${j.aiJobLocation ?? 'Not specified'}</code>\n`;
   msg += `📅 <b>Posted:</b> <code>${j.postedAt ?? 'Unknown'}</code>\n`;
-  msg += `⏳ <b>Experience:</b> <code>${j.aiYoe ?? 'Not specified'}</code>\n\n`;
+  const yoeLabel = j.minRequiredYoe != null && j.maxRequiredYoe != null
+    ? `${j.minRequiredYoe}-${j.maxRequiredYoe} YOE`
+    : j.minRequiredYoe != null ? `${j.minRequiredYoe} YOE`
+    : 'Not specified';
+  msg += `⏳ <b>Experience:</b> <code>${yoeLabel}</code>\n\n`;
   
   msg += `${scoreEmoji} <b>Match Score:</b> <code>${j.aiScore}/10</code>\n`;
   
@@ -61,12 +65,24 @@ export function getMatchedJobMessage(j: EnrichedJob, index: number): string {
     msg += `📩 <b>Direct Apply:</b> <i>${j.aiDirectApply}</i>\n`;
   }
 
-  if (j.aiMatchedSkills && j.aiMatchedSkills.length > 0) {
-    msg += `✅ <b>Matched Skills:</b> <i>${j.aiMatchedSkills.join(', ')}</i>\n\n`;
+  const matchedSkills = j.matchedSkills || [
+    ...new Set([
+      ...(j.candidateMatchedRequiredSkills || []),
+      ...(j.candidateMatchedPreferredSkills || []),
+    ]),
+  ];
+  if (matchedSkills.length > 0) {
+    msg += `✅ <b>Matched Skills:</b> <i>${matchedSkills.join(', ')}</i>\n\n`;
   }
 
-  if (j.aiMissingSkills && j.aiMissingSkills.length > 0) {
-    msg += `❌ <b>Missing Skills:</b> <i>${j.aiMissingSkills.join(', ')}</i>\n\n`;
+  const missingSkills = j.missingSkills || [
+    ...new Set([
+      ...(j.candidateMissingRequiredSkills || []),
+      ...(j.candidateMissingPreferredSkills || []),
+    ]),
+  ];
+  if (missingSkills.length > 0) {
+    msg += `❌ <b>Missing Skills:</b> <i>${missingSkills.join(', ')}</i>\n\n`;
   }
 
   if (j.aiReason) {

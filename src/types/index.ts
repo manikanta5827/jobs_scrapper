@@ -50,12 +50,21 @@ export interface EnrichedJob extends Job {
   aiCategory?:        string;
   aiScore?:           number;
   aiReason?:          string;
-  aiMatchedSkills?:   string[];
-  aiMissingSkills?:   string[];
-  aiJobLocation?:     string | null;
-  aiYoe?:             string;
   aiDirectApply?:     string | null;
-  aiFacts?:           JobFitFacts | null;
+  jobDomain?:         string | null;
+  minRequiredYoe?:    number | null;
+  maxRequiredYoe?:    number | null;
+  requiredSkills?:    string[];
+  preferredSkills?:   string[];
+  candidateMatchedRequiredSkills?: string[];
+  candidateMatchedPreferredSkills?: string[];
+  candidateMissingRequiredSkills?: string[];
+  candidateMissingPreferredSkills?: string[];
+  domainMatchesCandidate?: boolean;
+  aiJobLocation?:     string | null;
+  // Unified skill display helper arrays for ATS resume rendering
+  matchedSkills?:     string[];
+  missingSkills?:     string[];
 }
 
 // LLM token usage, accumulated across all batch calls

@@ -2,7 +2,6 @@ import { db, initDb } from "../db/index";
 import { jobs, users, userRuns } from "../db/schema";
 import { sql, lt, desc, and, eq, gte, lte, or, isNull, isNotNull, inArray, SQL } from "drizzle-orm";
 import { Tier, MIN_MATCH_SCORE, TIER_CONFIG } from '../constants';
-import type { JobFitFacts } from '../types';
 import { sendTelegramMessage } from './telegram';
 
 
@@ -45,10 +44,17 @@ export async function trackJobs(
     salary?: string;
     aiScore?: number;
     aiReason?: string;
-    matchedSkills?: string[];
-    missingSkills?: string[];
-    aiFacts?: JobFitFacts | null;
-    requiredYoe?: string;
+    jobDomain?: string | null;
+    minRequiredYoe?: number | null;
+    maxRequiredYoe?: number | null;
+    requiredSkills?: string[];
+    preferredSkills?: string[];
+    candidateMatchedRequiredSkills?: string[];
+    candidateMatchedPreferredSkills?: string[];
+    candidateMissingRequiredSkills?: string[];
+    candidateMissingPreferredSkills?: string[];
+    domainMatchesCandidate?: boolean;
+    aiJobLocation?: string | null;
     directApply?: string | null;
     applicantsCount?: string | number;
     optimizedResumeMd?: string;
@@ -75,10 +81,17 @@ export async function trackJobs(
           salary: j.salary,
           aiScore: j.aiScore,
           aiReason: j.aiReason,
-          matchedSkills: j.matchedSkills || [],
-          missingSkills: j.missingSkills || [],
-          aiFacts: j.aiFacts,
-          requiredYoe: j.requiredYoe,
+          jobDomain: j.jobDomain ?? null,
+          minRequiredYoe: j.minRequiredYoe ?? null,
+          maxRequiredYoe: j.maxRequiredYoe ?? null,
+          requiredSkills: j.requiredSkills || [],
+          preferredSkills: j.preferredSkills || [],
+          candidateMatchedRequiredSkills: j.candidateMatchedRequiredSkills || [],
+          candidateMatchedPreferredSkills: j.candidateMatchedPreferredSkills || [],
+          candidateMissingRequiredSkills: j.candidateMissingRequiredSkills || [],
+          candidateMissingPreferredSkills: j.candidateMissingPreferredSkills || [],
+          domainMatchesCandidate: j.domainMatchesCandidate ?? false,
+          aiJobLocation: j.aiJobLocation ?? null,
           directApply: j.directApply,
           applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
           optimizedResumeMd: j.optimizedResumeMd,

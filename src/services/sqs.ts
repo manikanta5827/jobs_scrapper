@@ -10,7 +10,7 @@ export type Platform = 'linkedin';
 export interface PostMessage {
   platform: Platform;
   userId: string;
-  job: Pick<EnrichedJob, 'title' | 'companyName' | 'link' | 'aiMatchedSkills' | 'aiJobLocation' | 'aiYoe' | 'location'>;
+  job: Pick<EnrichedJob, 'title' | 'companyName' | 'link' | 'aiJobLocation' | 'location' | 'requiredSkills' | 'preferredSkills' | 'minRequiredYoe' | 'maxRequiredYoe' | 'employmentType' | 'seniorityLevel' | 'salary' | 'aiDirectApply'>;
 }
 
 // Push matched jobs along with candidate string UUID userId to SQS queue
@@ -28,10 +28,16 @@ export async function pushToPostQueue(
         title: job.title,
         companyName: job.companyName,
         link: job.link,
-        aiMatchedSkills: job.aiMatchedSkills,
         aiJobLocation: job.aiJobLocation,
-        aiYoe: job.aiYoe,
         location: job.location,
+        requiredSkills: job.requiredSkills,
+        preferredSkills: job.preferredSkills,
+        minRequiredYoe: job.minRequiredYoe,
+        maxRequiredYoe: job.maxRequiredYoe,
+        employmentType: job.employmentType,
+        seniorityLevel: job.seniorityLevel,
+        salary: job.salary,
+        aiDirectApply: job.aiDirectApply,
       },
     }),
   }));

@@ -94,7 +94,12 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
             job.jobTitle || 'Job Role',
             job.companyName || 'Company',
             job.descriptionText || job.aiReason || '',
-            job.matchedSkills || [],
+            [
+              ...new Set([
+                ...(job.candidateMatchedRequiredSkills || []),
+                ...(job.candidateMatchedPreferredSkills || []),
+              ]),
+            ],
             user.name || undefined,
             user.email
           );

@@ -22,8 +22,6 @@ export async function sendTelegramMessage(token: string, chatId:string, message:
       const errorText = await response.text();
       throw new Error(`Telegram API Error: ${response.status} - ${errorText}`);
     }
-
-    console.log('Telegram message sent successfully');
   } catch (error) {
     console.error('Failed to send Telegram message:', error);
     throw error;

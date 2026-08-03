@@ -44,10 +44,12 @@ export function validateJobQueryOptions(rawInput: any): ValidationResult {
   // Validation Rule 2: Date Since Posted
   if (rawInput.dateSincePosted) {
     const val = String(rawInput.dateSincePosted).toLowerCase().trim();
-    if (!VALID_DATE_POSTED.includes(val)) {
+    const isHoursMatch = /^\d+h(r|ours?)?$/.test(val);
+    const isSecondsMatch = /^r\d+$/.test(val);
+    if (!VALID_DATE_POSTED.includes(val) && !isHoursMatch && !isSecondsMatch) {
       return {
         valid: false,
-        error: `Validation Error: Invalid dateSincePosted "${rawInput.dateSincePosted}". Allowed values: ${VALID_DATE_POSTED.join(', ')}`,
+        error: `Validation Error: Invalid dateSincePosted "${rawInput.dateSincePosted}". Allowed values: ${VALID_DATE_POSTED.join(', ')}, or dynamic hours e.g. "12hr", "6hr"`,
       };
     }
   }

@@ -137,17 +137,25 @@ export function yoePreFilter(
     const text = (job.descriptionText ?? '') + ' ' + (job.seniorityLevel ?? '');
     const { min: minRequired, max: maxRequired, fullText: yoeText } = extractYoeRange(text);
 
+    // Attach regex-extracted YOE directly to job object for database persistence even if rejected before LLM
+    const enrichedJob: Job = {
+      ...job,
+      minRequiredYoe: minRequired,
+      maxRequiredYoe: maxRequired,
+      extractedYoeText: yoeText,
+    };
+
     // Fresher-friendly listings — let LLM decide, don't YOE-reject
     const isFresherFriendly = FRESHER_SIGNAL.test(text);
 
     if (minRequired === null && maxRequired === null) {
-      passToLLM.push(job);
+      passToLLM.push(enrichedJob);
       continue;
     }
 
     if (minRequired !== null && minRequired > candidateYoe) {
       yoeRejected.push({
-        ...job,
+        ...enrichedJob,
         keywordBinReason: `YOE: requires ${minRequired}+ yr, candidate has ${candidateYoe} yr`,
       });
       continue;
@@ -156,13 +164,13 @@ export function yoePreFilter(
     // Overqualified: job's max YOE is below candidate's YOE
     if (maxRequired !== null && maxRequired < candidateYoe && !isFresherFriendly) {
       yoeRejected.push({
-        ...job,
+        ...enrichedJob,
         keywordBinReason: `YOE: requires ${maxRequired}- yr max, candidate has ${candidateYoe} yr`,
       });
       continue;
     }
 
-    passToLLM.push({ ...job, extractedYoeText: yoeText });
+    passToLLM.push(enrichedJob);
   }
 
   return { passToLLM, yoeRejected };
@@ -181,11 +189,17 @@ const SENIOR_TITLE_KEYWORDS = [
   'engineering manager', 'tech lead',
 ];
 
+const JUNIOR_TITLE_KEYWORDS = [
+  'fresher', 'intern ', 'internship', 'junior', 'jr.', 'jr ',
+  'graduate trainee', 'trainee', 'apprentice', 'entry level', 'entry-level',
+  'sde1', 'sde 1', 'sde i',
+];
+
 /**
- * Auto-filters jobs whose titles imply seniority beyond the candidate's level.
+ * Auto-filters jobs whose titles imply seniority beyond the candidate's level or junior roles for senior devs.
  * - Candidates with ≤3 YOE: exclude senior/lead/manager/director roles
  * - Candidates with ≤5 YOE: exclude director/VP/architect/staff roles only
- * - Candidates with >5 YOE: no auto-filtering (they can self-select)
+ * - Candidates with >5 YOE: exclude junior/entry-level/intern/trainee roles
  */
 export function seniorityKeywordFilter(
   jobs: Job[],
@@ -193,17 +207,16 @@ export function seniorityKeywordFilter(
 ): { relevant: Job[]; filtered: Job[] } {
   const relevant: Job[] = [];
   const filtered: Job[] = [];
-
-  if (candidateYoe > 5) return { relevant: jobs, filtered };
+  const isSeniorCandidate = candidateYoe > 5;
+  const keywords = isSeniorCandidate ? JUNIOR_TITLE_KEYWORDS : SENIOR_TITLE_KEYWORDS;
 
   for (const job of jobs) {
     const title = (job.title ?? '').toLowerCase();
-    const matched = SENIOR_TITLE_KEYWORDS.find(kw => title.includes(kw));
-
+    const matched = keywords.find(kw => title.includes(kw));
     if (matched) {
       filtered.push({
         ...job,
-        keywordBinReason: `Seniority: "${matched}" in title, candidate has ${candidateYoe} YOE`,
+        keywordBinReason: `Seniority: "${matched}"${isSeniorCandidate ? ' (junior role)' : ''} in title, candidate has ${candidateYoe} YOE`,
       });
     } else {
       relevant.push(job);

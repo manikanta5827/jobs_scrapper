@@ -119,13 +119,22 @@ export class LinkedInJobsQuery {
 
   private parseDateSincePosted(val?: DateSincePostedOption): string {
     if (!val) return '';
+    const trimmed = String(val).toLowerCase().trim();
+    if (/^r\d+$/.test(trimmed)) {
+      return trimmed;
+    }
+    const match = trimmed.match(/^(\d+)h(r|ours?)?$/);
+    if (match) {
+      const hours = Number(match[1]);
+      return `r${hours * 3600}`;
+    }
     const dateRangeMap: Record<string, string> = {
       'past month': 'r2592000',
       'past week': 'r604800',
       '24hr': 'r86400',
       'past 24 hours': 'r86400',
     };
-    return dateRangeMap[val.toLowerCase()] || '';
+    return dateRangeMap[trimmed] || '';
   }
 
   private parseExperienceLevel(val?: ExperienceLevelOption | ExperienceLevelOption[] | ''): string {

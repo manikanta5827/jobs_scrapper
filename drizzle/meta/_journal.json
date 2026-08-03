@@ -232,6 +232,20 @@
       "when": 1785731063511,
       "tag": "0032_rainy_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1785769715226,
+      "tag": "0033_brief_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785769738007,
+      "tag": "0034_optimal_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,12 @@ import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, checkAndHandleSubscriptionExpiry } from './services/db';
 import { buildSearchQueriesFromProfile, type SearchQuery } from './services/job_fetcher';
+import type { JobQueryOptions } from '../linkedin-scrapper/src/types/linkedin-types';
+import type { NaukriJobQueryOptions } from '../linkedin-scrapper/src/types/naukri-types';
+
+export type LinkedInDispatchedQuery = JobQueryOptions & { userIds: string[] };
+export type NaukriDispatchedQuery = NaukriJobQueryOptions & { userIds: string[] };
+export type DispatchedQuery = LinkedInDispatchedQuery | NaukriDispatchedQuery;
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN || '';
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'ap-south-1' });
@@ -83,9 +89,11 @@ export const handler = async (
 
   for (const platform of platforms) {
     const groupedMap = new Map<string, GroupedSearchQuery>();
+    let totalRawQueries = 0;
 
     for (const user of validUsers) {
       const userQueries = buildSearchQueriesFromProfile(user, platform);
+      totalRawQueries += userQueries.length;
       for (const q of userQueries) {
         const key = `${q.keyword.toLowerCase().trim()}:${q.location.toLowerCase().trim()}`;
         if (!groupedMap.has(key)) {
@@ -105,12 +113,13 @@ export const handler = async (
     const uniquePlatformTasks = Array.from(groupedMap.values());
     totalTasksCount += uniquePlatformTasks.length;
 
-    console.log(`[ScraperDispatcher] Platform ${platform}: Grouped ${validUsers.length} users into ${uniquePlatformTasks.length} deduplicated queries`);
+    logDeduplicationStats(platform, validUsers, totalRawQueries, uniquePlatformTasks);
 
     const functionName = functionNames[platform];
     const batchSize = batchSizes[platform];
 
-    await dispatchInBatches(functionName, uniquePlatformTasks, batchSize);
+    const lookbackHours = (event.lookbackHours && event.lookbackHours > 0) ? event.lookbackHours : 24;
+    await dispatchInBatches(functionName, platform, uniquePlatformTasks, batchSize, lookbackHours);
   }
 
   return response(200, {
@@ -120,12 +129,77 @@ export const handler = async (
   });
 };
 
+function logDeduplicationStats(
+  platform: string,
+  users: Array<{ id: string; suggestedJobTitles?: string[] | null }>,
+  totalRawQueries: number,
+  uniqueTasks: GroupedSearchQuery[],
+): void {
+  const SAMPLE_TITLES_PER_USER = 5;
+
+  // Per-user sample titles (capped at 5 — same limit as query builder)
+  const userTitleSamples = users.map((user) => ({
+    userId: user.id,
+    titles: (user.suggestedJobTitles ?? []).slice(0, SAMPLE_TITLES_PER_USER),
+  }));
+
+  // Keyword-level dedup (titles only, ignoring location)
+  const allKeywords: string[] = [];
+  for (const user of users) {
+    for (const title of (user.suggestedJobTitles ?? []).slice(0, SAMPLE_TITLES_PER_USER)) {
+      allKeywords.push(title.toLowerCase().trim());
+    }
+  }
+  const uniqueKeywords = new Set(allKeywords);
+  const duplicateKeywordCount = allKeywords.length - uniqueKeywords.size;
+
+  // Query-level dedup (keyword + location — what actually drives scraper invocations)
+  const uniqueQueryCount = uniqueTasks.length;
+  const duplicateQueryCount = totalRawQueries - uniqueQueryCount;
+  const mergedQueries = uniqueTasks
+    .filter((t) => t.userIds.length > 1)
+    .map((t) => ({
+      keyword: t.keyword,
+      location: t.location,
+      sharedByUsers: t.userIds.length,
+      userIds: t.userIds,
+    }))
+    .sort((a, b) => b.sharedByUsers - a.sharedByUsers);
+
+  console.log(JSON.stringify({
+    event: 'scraper_dedup_stats',
+    platform,
+    users: users.length,
+    perUserTitleSamples: userTitleSamples,
+    titles: {
+      totalAcrossUsers: allKeywords.length,
+      unique: uniqueKeywords.size,
+      duplicates: duplicateKeywordCount,
+      uniqueList: [...uniqueKeywords].sort(),
+    },
+    queries: {
+      totalRaw: totalRawQueries,
+      uniqueAfterDedup: uniqueQueryCount,
+      duplicatesMerged: duplicateQueryCount,
+      scraperCallsSaved: duplicateQueryCount,
+      wouldHaveBeenWithoutDedup: totalRawQueries,
+      actualScraperCalls: uniqueQueryCount,
+    },
+    mergedQueries: mergedQueries.slice(0, 20),
+    mergedQueriesTruncated: mergedQueries.length > 20,
+  }, null, 2));
+}
+
 async function dispatchInBatches(
   functionName: string,
+  platform: 'linkedin' | 'naukri',
   tasks: GroupedSearchQuery[],
-  batchSize: number
+  batchSize: number,
+  lookbackHours: number = 24
 ): Promise<void> {
   if (tasks.length === 0) return;
+
+  const naukriDays = Math.max(1, Math.ceil(lookbackHours / 24));
 
   for (let i = 0; i < tasks.length; i += batchSize) {
     const batch = tasks.slice(i, i + batchSize);
@@ -136,12 +210,28 @@ async function dispatchInBatches(
           InvocationType: 'Event', // Asynchronous execution
           Payload: Buffer.from(
             JSON.stringify({
-              queries: batch.map(t => ({
-                keyword: t.keyword,
-                location: t.location,
-                geoId: t.geoId,
-                userIds: t.userIds,
-              })),
+              queries: batch.map((t): DispatchedQuery => {
+                if (platform === 'linkedin') {
+                  const query: LinkedInDispatchedQuery = {
+                    keyword: t.keyword,
+                    location: t.location,
+                    geoId: t.geoId,
+                    userIds: t.userIds,
+                    sortBy: 'recent',
+                    dateSincePosted: `${lookbackHours}hr`, // Dynamic hour string (e.g. 12hr -> r43200)
+                  };
+                  return query;
+                } else {
+                  const query: NaukriDispatchedQuery = {
+                    keyword: t.keyword,
+                    location: t.location,
+                    userIds: t.userIds,
+                    sort: 'date',
+                    jobAge: naukriDays,                    // Converted to integer days for Naukri
+                  };
+                  return query;
+                }
+              }),
             })
           ),
         })

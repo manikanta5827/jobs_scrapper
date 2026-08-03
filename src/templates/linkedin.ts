@@ -11,6 +11,25 @@ export function formatJobPost(
   return formatDefaultJobPost(job, userPhone);
 }
 
+function getJobRequirements(job: EnrichedJob): string[] {
+  return [
+    ...new Set([
+      ...(job.requiredSkills || []),
+      ...(job.preferredSkills || []),
+    ]),
+  ];
+}
+
+function getJobExperienceLabel(job: EnrichedJob): string {
+  if (job.minRequiredYoe != null && job.maxRequiredYoe != null) {
+    return `${job.minRequiredYoe}-${job.maxRequiredYoe} YOE`;
+  }
+  if (job.minRequiredYoe != null) {
+    return `${job.minRequiredYoe} YOE`;
+  }
+  return '';
+}
+
 function formatCustomJobPost(job: EnrichedJob, template: string, userPhone?: string | null): string {
 
   //prepare variables
@@ -19,13 +38,13 @@ function formatCustomJobPost(job: EnrichedJob, template: string, userPhone?: str
     title: job.title || 'Software Engineer',
     companyName: job.companyName || 'a company',
     location: job.aiJobLocation || job.location || 'India',
-    experience: job.aiYoe || '',
+    experience: getJobExperienceLabel(job),
     employmentType: job.employmentType || '',
     seniorityLevel: job.seniorityLevel || '',
     salary: job.salary || '',
     applyLink: job.link || '',
     directApply: job.aiDirectApply || '',
-    skills: (job.aiMatchedSkills || []).map(s => `- ${s}`).join('\n'),
+    skills: getJobRequirements(job).map(s => `- ${s}`).join('\n'),
     userPhone: phone,
   };
 
@@ -40,12 +59,12 @@ function formatDefaultJobPost(job: EnrichedJob, userPhone?: string | null): stri
   const title = job.title || 'Software Engineer';
   const company = job.companyName || 'a company';
   const location = job.aiJobLocation || job.location || 'India';
-  const experience = job.aiYoe || '';
+  const experience = getJobExperienceLabel(job);
   const employmentType = job.employmentType || '';
   const seniorityLevel = job.seniorityLevel || '';
   const salary = job.salary || '';
   const directApply = job.aiDirectApply || '';
-  const skills = job.aiMatchedSkills || [];
+  const skills = getJobRequirements(job);
   const applyLink = job.link || '';
 
   let post = '#hiring #sde #freshers #jobs\n\n';

@@ -1,4 +1,4 @@
-export type DateSincePostedOption = 'past month' | 'past week' | '24hr' | 'past 24 hours' | '';
+export type DateSincePostedOption = 'past month' | 'past week' | '24hr' | 'past 24 hours' | '' | `${number}hr` | `r${number}` | string;
 
 export type ExperienceLevelOption =
   | 'internship'

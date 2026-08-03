@@ -15,6 +15,8 @@ import {
 import { getUniqueJobsFromBatch } from './utils/job';
 import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './utils/filter';
 import { sendTelegramMessage } from './services/telegram';
+import pLimit from 'p-limit';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { pushToPostQueue } from './services/sqs';
 import { shutdownTelemetry } from './services/telemetry';
 import { 
@@ -26,7 +28,8 @@ import type { Job, EnrichedJob, JobStats } from './types';
 import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './constants';
 
 const DEEPSEEK_BATCH_SIZE = 5;
-const BATCH_DELAY_MS = 3000;
+const BATCH_DELAY_MS = 150;
+const LLM_CONCURRENCY = 25;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_MATCHED_JOBS_BOT_TOKEN!;
 
 // Fields that are always zero when a run exits before AI evaluation
@@ -172,12 +175,27 @@ async function processUserWorker(
       return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: 0 }) };
     }
 
+    // 5.5. Filter out outdated jobs (older than 14 days)
+    const FRESHNESS_LIMIT_DAYS = 14;
+    const nowMs = Date.now();
+    const freshJobs = newJobs.filter((job: Job) => {
+      if (!job.postedAt) return true;
+      const postTime = new Date(job.postedAt).getTime();
+      if (isNaN(postTime)) return true;
+      const ageDays = (nowMs - postTime) / (1000 * 60 * 60 * 24);
+      return ageDays <= FRESHNESS_LIMIT_DAYS;
+    });
+    const outdatedCount = newJobs.length - freshJobs.length;
+    if (outdatedCount > 0) {
+      console.log(`User ${user.id}: Filtered out ${outdatedCount} outdated jobs (older than ${FRESHNESS_LIMIT_DAYS} days)`);
+    }
+
     // 6. Per-user Keyword Filtering (Exclude keywords)
     const excludeList = (user.excludeTitleKeywords as string[]) || [];
     console.log(`\n excluded keywords list :: ${excludeList} \n`);
-    const { relevant: toCheck } = keywordFilter(newJobs, excludeList);
+    const { relevant: toCheck } = keywordFilter(freshJobs, excludeList);
     const toCheckCount = toCheck.length;
-    const keywordFilteredCount = newCount - toCheckCount;
+    const keywordFilteredCount = freshJobs.length - toCheckCount;
 
     console.log(`User ${user.id}: Keyword Filtered ${keywordFilteredCount} irrelevant jobs, final jobs count ${toCheckCount}`)
 
@@ -205,14 +223,14 @@ async function processUserWorker(
     console.log(`User ${user.id}: YOE Filtered ${yoeFilteredCount} jobs (candidate has ${candidateYoe} yr), remaining ${afterYoe.length}`)
 
     // Print all the 'keywordBinReason' values inside the objects present in the yoeRejected array
-    console.log("YOE Rejected keywordBinReason(s):");
-    yoeRejected.forEach((job, idx) => {
-      if (job.keywordBinReason) {
-        console.log(`  [${idx}] keywordBinReason: ${job.keywordBinReason} for job title ${job.title} and link ${job.link}`);
-      } else {
-        console.log(`  [${idx}] No keywordBinReason present`);
-      }
-    });
+    // console.log("YOE Rejected keywordBinReason(s):");
+    // yoeRejected.forEach((job, idx) => {
+    //   if (job.keywordBinReason) {
+    //     console.log(`  [${idx}] keywordBinReason: ${job.keywordBinReason} for job title ${job.title} and link ${job.link}`);
+    //   } else {
+    //     console.log(`  [${idx}] No keywordBinReason present`);
+    //   }
+    // });
     
     if (afterYoe.length === 0) {
       const preLlmFiltered = keywordFilteredCount + yoeFilteredCount;
@@ -257,7 +275,7 @@ async function processUserWorker(
     const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount + seniorityFilteredCount;
 
     // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
-    const { matched, rejected, usage } = await checkRelevanceBatch(afterSeniority, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS);
+    const { matched, rejected, usage } = await checkRelevanceBatch(afterSeniority, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS, LLM_CONCURRENCY);
     const matchedCount = matched.length;
     const aiRejectedCount = rejected.length;
 
@@ -276,15 +294,22 @@ async function processUserWorker(
         fingerprint: j.fingerprint!,
         jobTitle: j.title || j.jobTitle,
         companyName: j.companyName,
-        location: j.location || m?.aiJobLocation || undefined,
+        location: j.location ?? m?.aiJobLocation ?? undefined,
         postedAt: j.postedAt,
         salary: j.salary,
         aiScore: m?.aiScore,
         aiReason: m?.aiReason,
-        matchedSkills: m?.aiMatchedSkills || [],
-        missingSkills: m?.aiMissingSkills || [],
-        aiFacts: m?.aiFacts ?? null,
-        requiredYoe: m?.aiYoe,
+        jobDomain: m?.jobDomain ?? null,
+        minRequiredYoe: m?.minRequiredYoe ?? null,
+        maxRequiredYoe: m?.maxRequiredYoe ?? null,
+        requiredSkills: m?.requiredSkills || [],
+        preferredSkills: m?.preferredSkills || [],
+        candidateMatchedRequiredSkills: m?.candidateMatchedRequiredSkills || [],
+        candidateMatchedPreferredSkills: m?.candidateMatchedPreferredSkills || [],
+        candidateMissingRequiredSkills: m?.candidateMissingRequiredSkills || [],
+        candidateMissingPreferredSkills: m?.candidateMissingPreferredSkills || [],
+        domainMatchesCandidate: m?.domainMatchesCandidate ?? false,
+        aiJobLocation: m?.aiJobLocation ?? null,
         directApply: m?.aiDirectApply || j.applyUrl || null,
         applicantsCount: j.applicantsCount,
         descriptionText: j.descriptionText,
@@ -380,10 +405,20 @@ async function sendMatchedJobs(botToken: string, chatId: string, matched: Enrich
   // Send header stats message
   await sendTelegramMessage(botToken, chatId, getSuccessHeader(dateStr, stats));
 
-  // Send individual job card messages
-  for (let i = 0; i < matched.length; i++) {
-    await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(matched[i], i + 1));
-  }
+  // Send individual job card messages in parallel using `p-limit`
+  // We limit concurrency to 8 and add randomized jitter (100–300ms) between calls
+  // to avoid hitting Telegram Bot API burst limits (429 Too Many Requests)
+  // while dropping notification time from ~39 seconds down to ~6 seconds.
+  const notifyLimit = pLimit(8);
+  await Promise.all(
+    matched.map((job, idx) =>
+      notifyLimit(async () => {
+        await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(job, idx + 1));
+        const jitterMs = 100 + Math.floor(Math.random() * 200);
+        await sleep(jitterMs);
+      })
+    )
+  );
 
   // Upgrade nudge for free tier users
   if (tier === Tier.FREE) {
