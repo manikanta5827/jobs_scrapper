@@ -15,7 +15,6 @@ import {
 import { getUniqueJobsFromBatch } from './utils/job';
 import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './utils/filter';
 import { sendTelegramMessage } from './services/telegram';
-import pLimit from 'p-limit';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { pushToPostQueue } from './services/sqs';
 import { shutdownTelemetry } from './services/telemetry';
@@ -401,20 +400,13 @@ async function sendMatchedJobs(botToken: string, chatId: string, matched: Enrich
   // Send header stats message
   await sendTelegramMessage(botToken, chatId, getSuccessHeader(dateStr, stats));
 
-  // Send individual job card messages in parallel using `p-limit`
-  // We limit concurrency to 8 and add randomized jitter (100–300ms) between calls
-  // to avoid hitting Telegram Bot API burst limits (429 Too Many Requests)
-  // while dropping notification time from ~39 seconds down to ~6 seconds.
-  const notifyLimit = pLimit(8);
-  await Promise.all(
-    matched.map((job, idx) =>
-      notifyLimit(async () => {
-        await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(job, idx + 1));
-        const jitterMs = 100 + Math.floor(Math.random() * 200);
-        await sleep(jitterMs);
-      })
-    )
-  );
+  // Send individual job card messages sequentially to guarantee chat order matches rank.
+  // A small randomized jitter (100–300ms) between sends avoids Telegram Bot API burst limits (429 Too Many Requests).
+  for (let idx = 0; idx < matched.length; idx++) {
+    await sendTelegramMessage(botToken, chatId, getMatchedJobMessage(matched[idx], idx + 1));
+    const jitterMs = 100 + Math.floor(Math.random() * 200);
+    await sleep(jitterMs);
+  }
 
   // Upgrade nudge for free tier users
   if (tier === Tier.FREE) {
