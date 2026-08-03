@@ -1,13 +1,18 @@
 import type { EnrichedJob } from '../types';
 
-export function formatJobPost(job: EnrichedJob, customTemplate?: string | null): string {
+export function formatJobPost(
+  job: EnrichedJob,
+  customTemplate?: string | null,
+  userPhone?: string | null
+): string {
   if (customTemplate && customTemplate.trim().length > 0) {
-    return formatCustomJobPost(job, customTemplate);
+    return formatCustomJobPost(job, customTemplate, userPhone);
   }
-  return formatDefaultJobPost(job);
+  return formatDefaultJobPost(job, userPhone);
 }
 
-function formatCustomJobPost(job: EnrichedJob, template: string): string {
+function formatCustomJobPost(job: EnrichedJob, template: string, userPhone?: string | null): string {
+  const phone = userPhone || '8309497947';
   const variables: Record<string, string> = {
     title: job.title || 'Software Engineer',
     companyName: job.companyName || 'a company',
@@ -19,6 +24,7 @@ function formatCustomJobPost(job: EnrichedJob, template: string): string {
     applyLink: job.link || '',
     directApply: job.aiDirectApply || '',
     skills: (job.aiMatchedSkills || []).map(s => `- ${s}`).join('\n'),
+    userPhone: phone,
   };
 
   // Replace {variableName} placeholders dynamically
@@ -27,7 +33,8 @@ function formatCustomJobPost(job: EnrichedJob, template: string): string {
   });
 }
 
-function formatDefaultJobPost(job: EnrichedJob): string {
+function formatDefaultJobPost(job: EnrichedJob, userPhone?: string | null): string {
+  const phone = userPhone || '8309497947';
   const title = job.title || 'Software Engineer';
   const company = job.companyName || 'a company';
   const location = job.aiJobLocation || job.location || 'India';
@@ -82,7 +89,8 @@ function formatDefaultJobPost(job: EnrichedJob): string {
   post += 'No more reading descriptions wondering "is this even for me?" Just apply.\n\n';
   post += '✅ Perfectly matched to your resume\n';
   post += '✅ No searching. No filtering. Jobs come to you.\n';
-  post += '📩 Whatsapp me if intrested : 8309497947 \n\n';
+
+  post += `📩 Whatsapp me if intrested : ${phone} \n\n`;
   post += '\n#career #jobupdates #tech #job #opportunity #bangalore #hyderabad';
   return post;
 }

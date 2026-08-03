@@ -78,7 +78,7 @@ async function processSingleJobPost(
         }
       }
 
-      const postText = formatJobPost(job as any, user?.linkedinPostTemplate);
+      const postText = formatJobPost(job as any, user?.linkedinPostTemplate, user?.phone);
       const result = await postToLinkedIn(postText, token, personUrn, imageBuffer);
       success = result.success;
       lastStatus = result.status;
