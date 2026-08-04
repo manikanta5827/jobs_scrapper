@@ -89,7 +89,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
     if (!resumeMd && job.userId) {
       const user = await getUserById(job.userId);
       if (user) {
-        const userResume = (user.resumeS3Key && await getUserResume(user.resumeS3Key)) || user.resumeText || '';
+        const userResume = (user.resumeS3Key && await getUserResume(user.resumeS3Key)) || '';
         if (userResume) {
         let descriptionText = (job.descriptionS3Key && await getJobDescription(job.descriptionS3Key));
 
