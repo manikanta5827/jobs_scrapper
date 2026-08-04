@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" RENAME COLUMN "resume_s3_key" TO "ats_resume_s3_key";

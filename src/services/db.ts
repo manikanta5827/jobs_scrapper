@@ -1,7 +1,7 @@
 import { db, initDb } from "../db/index";
 import { jobs, users, userRuns } from "../db/schema";
-import { sql, lt, desc, and, eq, gte, lte, or, isNull, isNotNull, inArray, SQL } from "drizzle-orm";
-import { Tier, MIN_MATCH_SCORE, TIER_CONFIG } from '../constants';
+import { sql, lt, desc, and, eq, gte, lte, isNotNull, inArray, SQL } from "drizzle-orm";
+import { Tier, TIER_CONFIG } from '../constants';
 import { sendTelegramMessage } from './telegram';
 
 
@@ -64,8 +64,6 @@ export async function trackJobs(
     aiJobLocation?: string | null;
     directApply?: string | null;
     applicantsCount?: string | number;
-    optimizedResumeMd?: string;
-    descriptionText?: string;
     source?: string;
   }[]
 ): Promise<Map<string, string>> {
@@ -84,7 +82,7 @@ export async function trackJobs(
     postedAt: j.postedAt,
     salary: j.salary,
     aiScore: sanitizeScore(j.aiScore),
-    aiReason: j.aiReason,
+    aiReason: j.aiReason ?? null,
     jobDomain: j.jobDomain ?? null,
     minRequiredYoe: sanitizeYoe(j.minRequiredYoe),
     maxRequiredYoe: sanitizeYoe(j.maxRequiredYoe),
@@ -98,8 +96,6 @@ export async function trackJobs(
     aiJobLocation: j.aiJobLocation ?? null,
     directApply: j.directApply,
     applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
-    optimizedResumeMd: j.optimizedResumeMd,
-    descriptionText: j.descriptionText,
     source: j.source,
   });
 
@@ -144,30 +140,22 @@ export async function trackJobs(
   return map;
 }
 
-// Automatically delete unmatched/rejected jobs older than N days (default 7 days) to keep DB lean using an atomic transaction
-export async function purgeOldUnmatchedJobs(days: number = 7): Promise<number> {
+// Automatically delete ALL jobs (matched + rejected) older than N days (default 14 days) to keep DB lean using an atomic transaction
+export async function purgeOldJobs(days: number = 14): Promise<number> {
   await initDb();
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   try {
     return await db.transaction(async (tx) => {
       const deleted = await tx.delete(jobs)
-        .where(
-          and(
-            lt(jobs.createdAt, cutoff),
-            or(
-              isNull(jobs.aiScore),
-              lt(jobs.aiScore, MIN_MATCH_SCORE)
-            )
-          )
-        )
+        .where(lt(jobs.createdAt, cutoff))
         .returning({ id: jobs.id });
 
-      console.log(`Purged ${deleted.length} unmatched jobs older than ${days} days.`);
+      console.log(`Purged ${deleted.length} jobs older than ${days} days.`);
       return deleted.length;
     });
   } catch (err) {
-    console.error(`Transaction failed in purgeOldUnmatchedJobs(${days}):`, err);
+    console.error(`Transaction failed in purgeOldJobs(${days}):`, err);
     throw err;
   }
 }
@@ -283,12 +271,25 @@ export async function getJobById(id: string) {
   return rows[0] || null;
 }
 
-// ponytail: Cache newly generated ATS resume Markdown for a job
-export async function updateJobResumeMd(jobId: string, resumeMd: string) {
+export async function updateJobAtsResumeS3Key(jobId: string, s3Key: string) {
   await initDb();
   await db.update(jobs)
-    .set({ optimizedResumeMd: resumeMd })
+    .set({ atsResumeS3Key: s3Key })
     .where(eq(jobs.id, jobId));
+}
+
+// upload all the jobs descriptions s3 keys to db
+export async function batchUpdateJobS3DescriptionKeys(entries: Array<{ jobId: string; s3Key: string }>) {
+  if (entries.length === 0) return;
+  await initDb();
+
+  await db.transaction(async (tx) => {
+    for (const { jobId, s3Key } of entries) {
+      await tx.update(jobs)
+        .set({ descriptionS3Key: s3Key })
+        .where(eq(jobs.id, jobId));
+    }
+  });
 }
 
 // ─── Multi-Tenant Users & Subscription Helpers ────────────────────────────────

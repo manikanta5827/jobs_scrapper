@@ -4,18 +4,20 @@
  */
 
 import type { Context } from 'aws-lambda';
-import { fetchJobsFromS3, deleteS3JobsBatch } from './services/s3';
+import { fetchJobsFromS3, deleteS3JobsBatch, uploadJobDescription } from './services/s3';
 import { checkRelevanceBatch, calculateCostUsd } from './services/llm';
 import { 
   getExistingJobsData, 
   trackJobs, 
   getUserById,
-  recordUserRun
+  recordUserRun,
+  batchUpdateJobS3DescriptionKeys
 } from './services/db';
 import { getUniqueJobsFromBatch } from './utils/job';
 import { keywordFilter, companyBlockFilter, yoePreFilter, seniorityKeywordFilter } from './utils/filter';
 import { sendTelegramMessage } from './services/telegram';
 import { setTimeout as sleep } from 'node:timers/promises';
+import pLimit from 'p-limit';
 import { pushToPostQueue } from './services/sqs';
 import { shutdownTelemetry } from './services/telemetry';
 import { 
@@ -308,7 +310,6 @@ async function processUserWorker(
       aiJobLocation: j.aiJobLocation ?? null,
       directApply: j.aiDirectApply || j.applyUrl || null,
       applicantsCount: j.applicantsCount,
-      descriptionText: j.descriptionText,
       source: j.source,
     })));
 
@@ -317,6 +318,28 @@ async function processUserWorker(
       const dbUuid = (j.link && jobIdMap.get(j.link)) || (j.fingerprint && jobIdMap.get(j.fingerprint));
       if (dbUuid) {
         j.id = dbUuid;
+      }
+    }
+
+    // Upload matched job descriptions to S3 in parallel, then batch-update DB
+    const toUpload = matched.filter((j): j is typeof j & { id: string; descriptionText: string } =>
+      !!j.descriptionText && !!j.id
+    );
+
+    // upload the descriptions to s3 and then upload to db
+    if (toUpload.length > 0) {
+      const s3UploadLimit = pLimit(10);
+      const results = await Promise.all(
+        toUpload.map(j =>
+          s3UploadLimit(async () => {
+            const s3Key = await uploadJobDescription(user.id, j.id, j.descriptionText);
+            return s3Key ? { jobId: j.id, s3Key } as const : null;
+          })
+        )
+      );
+      const s3Entries = results.filter((r): r is { jobId: string; s3Key: string } => r !== null);
+      if (s3Entries.length > 0) {
+        await batchUpdateJobS3DescriptionKeys(s3Entries);
       }
     }
 

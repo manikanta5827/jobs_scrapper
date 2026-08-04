@@ -15,10 +15,11 @@ import {
   getAnalyticsStats,
   getJobsForUser,
   getJobById,
-  updateJobResumeMd,
+  updateJobAtsResumeS3Key,
   recordClickEvent
 } from './services/db';
 import { analyzeResumeWithLLM, generateAtsResume } from './services/llm';
+import { getJobDescription, getJobAtsResume, uploadJobAtsResume } from './services/s3';
 import { shutdownTelemetry } from './services/telemetry';
 import { 
   UuidParamSchema, 
@@ -80,20 +81,27 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
       return response(404, { error: 'Job not found' });
     }
 
-    let resumeMd = job.optimizedResumeMd || null;
+    let resumeMd = (job.atsResumeS3Key && await getJobAtsResume(job.atsResumeS3Key)) || null;
     let changesMade: string[] = [];
     let keywordsUsed: string[] = [];
 
-    // ponytail: Lazy Evaluation — generate ATS resume On-Demand if it hasn't been generated yet
     if (!resumeMd && job.userId) {
       const user = await getUserById(job.userId);
       if (user && user.resumeText) {
+        let descriptionText = (job.descriptionS3Key && await getJobDescription(job.descriptionS3Key));
+
+        if(!descriptionText || descriptionText === '') {
+          return response(404, {
+            status: "error",
+            message: "description not found"
+          })
+        }
         try {
           const result = await generateAtsResume(
             user.resumeText,
             job.jobTitle || 'Job Role',
             job.companyName || 'Company',
-            job.descriptionText || job.aiReason || '',
+            descriptionText,
             [
               ...new Set([
                 ...(job.candidateMatchedRequiredSkills || []),
@@ -106,7 +114,10 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           resumeMd = result.resumeMd;
           changesMade = result.changesMade;
           keywordsUsed = result.keywordsUsed;
-          await updateJobResumeMd(job.id, resumeMd);
+          const s3Key = await uploadJobAtsResume(job.userId, job.id, resumeMd);
+          if (s3Key) {
+            await updateJobAtsResumeS3Key(job.id, s3Key);
+          }
         } catch (genErr) {
           console.error(`Failed on-demand ATS resume generation for job ${job.id}:`, genErr);
         }

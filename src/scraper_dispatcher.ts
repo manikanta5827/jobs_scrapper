@@ -6,7 +6,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, downgradeExpiredPremiumSubscriptions } from './services/db';
+import { purgeOldJobs, getActiveUsers, getUserById, downgradeExpiredPremiumSubscriptions } from './services/db';
 import { Tier } from './constants';
 import { buildSearchQueriesFromProfile, type SearchQuery } from './services/job_fetcher';
 import type { JobQueryOptions } from '../linkedin-scrapper/src/types/linkedin-types';
@@ -27,6 +27,8 @@ export interface GroupedSearchQuery extends SearchQuery {
   userIds: string[];
 }
 
+const DELETETION_DAYS = 14;
+
 export const handler = async (
   event: { lookbackHours?: number; adminApiKey?: string; targetUserId?: string; includeFreeTier?: boolean } & Partial<ScheduledEvent>,
   _context: Context
@@ -39,8 +41,8 @@ export const handler = async (
 
   console.log(`ScraperDispatcherLambda started at ${new Date().toISOString()}`);
 
-  // 1. Purge 7-day-old unmatched jobs
-  await purgeOldUnmatchedJobs(7);
+  // 1. Purge 14-day-old unmatched jobs
+  await purgeOldJobs(DELETETION_DAYS);
 
   // 2. Downgrade expired premium subscriptions first (single SQL statement + Telegram notice)
   const downgradedUsers = await downgradeExpiredPremiumSubscriptions(event.targetUserId, TELEGRAM_BOT_TOKEN);

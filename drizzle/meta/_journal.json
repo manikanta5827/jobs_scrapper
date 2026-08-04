@@ -253,6 +253,27 @@
       "when": 1785852383940,
       "tag": "0035_outstanding_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785853427378,
+      "tag": "0036_common_speed_demon",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785853783394,
+      "tag": "0037_easy_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785860327529,
+      "tag": "0038_mean_warhawk",
+      "breakpoints": true
     }
   ]
 }

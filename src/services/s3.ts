@@ -117,3 +117,95 @@ export async function deleteS3JobsBatch(s3Keys: string[]): Promise<void> {
     console.error(`[S3Fetcher] Failed to delete S3 batch files:`, err);
   }
 }
+
+export async function uploadJobDescription(
+  userId: string,
+  jobId: string,
+  text: string
+): Promise<string | null> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName) {
+    console.error('[S3] S3_BUCKET_NAME not set, cannot upload job description');
+    return null;
+  }
+  if (!text) return null;
+
+  // construct the key
+  const key = `job-descriptions/${userId}/${jobId}.txt`;
+  try {
+
+    // uplaod to s3
+    await s3Client.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: text,
+      ContentType: 'text/plain',
+    }));
+    return key;
+  } catch (err) {
+    console.error(`[S3] Failed to upload job description for ${jobId}:`, err);
+    return null;
+  }
+}
+
+export async function getJobDescription(key: string): Promise<string | null> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName || !key) return null;
+
+  try {
+    // get the description from s3
+    const res = await s3Client.send(new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    }));
+    return await res.Body!.transformToString();
+  } catch (err) {
+    console.error(`[S3] Failed to fetch job description for key ${key}:`, err);
+    return null;
+  }
+}
+
+export async function uploadJobAtsResume(
+  userId: string,
+  jobId: string,
+  markdown: string
+): Promise<string | null> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName) {
+    console.error('[S3] S3_BUCKET_NAME not set, cannot upload job resume');
+    return null;
+  }
+  if (!markdown) return null;
+
+  const key = `job-resumes/${userId}/${jobId}.txt`;
+  try {
+    // upload ats resume to s3
+    await s3Client.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: markdown,
+      ContentType: 'text/plain',
+    }));
+    return key;
+  } catch (err) {
+    console.error(`[S3] Failed to upload job resume for ${jobId}:`, err);
+    return null;
+  }
+}
+
+export async function getJobAtsResume(key: string): Promise<string | null> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName || !key) return null;
+
+  try {
+    // get the ats resume
+    const res = await s3Client.send(new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    }));
+    return await res.Body!.transformToString();
+  } catch (err) {
+    console.error(`[S3] Failed to fetch job resume for key ${key}:`, err);
+    return null;
+  }
+}

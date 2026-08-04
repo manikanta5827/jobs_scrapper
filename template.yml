@@ -67,6 +67,14 @@ Resources:
             Status: Enabled
             Prefix: raw-jobs/
             ExpirationInDays: 3
+          - Id: DeleteJobDescriptionsAfter14Days
+            Status: Enabled
+            Prefix: job-descriptions/
+            ExpirationInDays: 14
+          - Id: DeleteJobResumesAfter14Days
+            Status: Enabled
+            Prefix: job-resumes/
+            ExpirationInDays: 14
       BucketName: !Sub 'job-scraper-raw-jobs-${AWS::AccountId}'
 
   # ─── API GATEWAY WITH CUSTOM RESPONSES & NATIVE CORS ───────────────────────
@@ -317,6 +325,12 @@ Resources:
               Resource: !Sub "${RawJobsBucket.Arn}/raw-jobs/*"
             - Effect: Allow
               Action:
+                - s3:PutObject
+              Resource:
+                - !Sub "${RawJobsBucket.Arn}/job-descriptions/*"
+                - !Sub "${RawJobsBucket.Arn}/job-resumes/*"
+            - Effect: Allow
+              Action:
                 - sqs:SendMessage
                 - sqs:SendMessageBatch
               Resource: !GetAtt PostQueue.Arn
@@ -375,6 +389,13 @@ Resources:
             FunctionName: !Ref ScraperDispatcherLambda
         - LambdaInvokePolicy:
             FunctionName: !Ref EvaluatorDispatcherLambda
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "${RawJobsBucket.Arn}/job-descriptions/*"
+                - !Sub "${RawJobsBucket.Arn}/job-resumes/*"
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
@@ -385,6 +406,7 @@ Resources:
           EVALUATOR_DISPATCHER_FUNCTION_NAME: !Ref EvaluatorDispatcherLambda
           POSTHOG_PROJECT_TOKEN: !Ref PosthogProjectToken
           POSTHOG_HOST: !Ref PosthogHost
+          S3_BUCKET_NAME: !Ref RawJobsBucket
       Events:
         # GET /jobs/{id}/resume — Retrieve or generate candidate ATS-optimized resume Markdown for a job
         GetJobResume:

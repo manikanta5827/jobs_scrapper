@@ -87,19 +87,12 @@ export const jobs = pgTable("jobs", {
   aiJobLocation: text("ai_job_location"),
   directApply: text("direct_apply"),
   applicantsCount: text("applicants_count"),
-  optimizedResumeMd: text("optimized_resume_md"),
-  descriptionText: text("description_text"),
+  descriptionS3Key: text("description_s3_key"),
+  atsResumeS3Key: text("ats_resume_s3_key"),
   source: text("source").default('linkedin'),
 }, (table) => [
-  // Composite unique index on user_id and job_link to prevent duplicate delivery per user
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),
-  // Unique constraint on user_id and fingerprint to prevent duplicate jobs per user (also serves as lookup index)
   uniqueIndex("jobs_user_id_fingerprint_unique").on(table.userId, table.fingerprint),
-  // Index on created_at for fast purging of old unmatched jobs
-  index("jobs_created_at_idx").on(table.createdAt),
-  // Composite index on user_id and created_at for fast paginated retrieval per user
-  index("jobs_user_id_created_at_idx").on(table.userId, table.createdAt),
-  // Composite index on user_id and ai_score for fast match queries
   index("jobs_user_id_ai_score_idx").on(table.userId, table.aiScore)
 ]);
 
