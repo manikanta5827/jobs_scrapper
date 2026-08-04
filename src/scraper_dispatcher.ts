@@ -130,12 +130,6 @@ function logDeduplicationStats(
 ): void {
   const SAMPLE_TITLES_PER_USER = 5;
 
-  // Per-user sample titles (capped at 5 — same limit as query builder)
-  const userTitleSamples = users.map((user) => ({
-    userId: user.id,
-    titles: (user.suggestedJobTitles ?? []).slice(0, SAMPLE_TITLES_PER_USER),
-  }));
-
   // Keyword-level dedup (titles only, ignoring location)
   const allKeywords: string[] = [];
   for (const user of users) {
@@ -149,26 +143,15 @@ function logDeduplicationStats(
   // Query-level dedup (keyword + location — what actually drives scraper invocations)
   const uniqueQueryCount = uniqueTasks.length;
   const duplicateQueryCount = totalRawQueries - uniqueQueryCount;
-  const mergedQueries = uniqueTasks
-    .filter((t) => t.userIds.length > 1)
-    .map((t) => ({
-      keyword: t.keyword,
-      location: t.location,
-      sharedByUsers: t.userIds.length,
-      userIds: t.userIds,
-    }))
-    .sort((a, b) => b.sharedByUsers - a.sharedByUsers);
 
   console.log(JSON.stringify({
     event: 'scraper_dedup_stats',
     platform,
     users: users.length,
-    perUserTitleSamples: userTitleSamples,
     titles: {
       totalAcrossUsers: allKeywords.length,
       unique: uniqueKeywords.size,
       duplicates: duplicateKeywordCount,
-      uniqueList: [...uniqueKeywords].sort(),
     },
     queries: {
       totalRaw: totalRawQueries,
@@ -177,9 +160,7 @@ function logDeduplicationStats(
       scraperCallsSaved: duplicateQueryCount,
       wouldHaveBeenWithoutDedup: totalRawQueries,
       actualScraperCalls: uniqueQueryCount,
-    },
-    mergedQueries: mergedQueries.slice(0, 20),
-    mergedQueriesTruncated: mergedQueries.length > 20,
+    }
   }, null, 2));
 }
 
