@@ -57,6 +57,10 @@ export const users = pgTable("users", {
   // Index on is_active to optimize active-user queries
   index("users_is_active_idx").on(table.isActive),
   index("users_telegram_chat_id_idx").on(table.telegramChatId),
+  // Compound index for active + tier queries (scraper/evaluator dispatch)
+  index("users_is_active_tier_idx").on(table.isActive, table.tier),
+  // Compound index for expired subscription downgrade sweep
+  index("users_tier_sub_expires_at_active_idx").on(table.tier, table.subscriptionExpiresAt, table.isActive),
 ]);
 
 // Per-candidate jobs table to track previously seen job postings strictly per user
@@ -93,7 +97,11 @@ export const jobs = pgTable("jobs", {
 }, (table) => [
   uniqueIndex("jobs_user_id_job_link_idx").on(table.userId, table.jobLink),
   uniqueIndex("jobs_user_id_fingerprint_unique").on(table.userId, table.fingerprint),
-  index("jobs_user_id_ai_score_idx").on(table.userId, table.aiScore)
+  index("jobs_user_id_ai_score_idx").on(table.userId, table.aiScore),
+  // Compound index for dashboard date-range filtered queries (userId + createdAt)
+  index("jobs_user_id_created_at_idx").on(table.userId, table.createdAt),
+  // Index for purgeOldJobs cleanup sweep (createdAt cutoff)
+  index("jobs_created_at_idx").on(table.createdAt),
 ]);
 
 // Per-run audit log recording stats and exact costs for every execution turn
