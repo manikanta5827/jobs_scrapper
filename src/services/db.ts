@@ -31,7 +31,14 @@ export async function getExistingJobsData(
   return new Set(result.map((r) => r.fingerprint as string));
 }
 
-// Insert newly processed job links into candidate's personal ledger using ON CONFLICT DO NOTHING (UUID) inside an atomic transaction
+const TRACK_BATCH_SIZE = 500;
+
+// Sanitize aiScore/yoe values before insert — NaN/Infinity would cause column type errors
+const sanitizeScore = (v: number | undefined | null) => v != null && isFinite(v) ? Math.round(v) : null;
+const sanitizeYoe = (v: number | undefined | null) => v != null && isFinite(v) ? v : null;
+
+// Insert newly processed job links into candidate's personal ledger in batches,
+// using ON CONFLICT DO NOTHING (UUID) inside a single atomic transaction
 export async function trackJobs(
   userId: string, 
   jobsToTrack: { 
@@ -67,46 +74,51 @@ export async function trackJobs(
   const deduped = [...new Map(jobsToTrack.map(j => [j.link, j])).values()];
   await initDb();
 
+  const buildRow = (j: typeof deduped[number]) => ({ 
+    userId, 
+    jobLink: j.link, 
+    fingerprint: j.fingerprint,
+    jobTitle: j.jobTitle,
+    companyName: j.companyName,
+    location: j.location,
+    postedAt: j.postedAt,
+    salary: j.salary,
+    aiScore: sanitizeScore(j.aiScore),
+    aiReason: j.aiReason,
+    jobDomain: j.jobDomain ?? null,
+    minRequiredYoe: sanitizeYoe(j.minRequiredYoe),
+    maxRequiredYoe: sanitizeYoe(j.maxRequiredYoe),
+    requiredSkills: j.requiredSkills || [],
+    preferredSkills: j.preferredSkills || [],
+    candidateMatchedRequiredSkills: j.candidateMatchedRequiredSkills || [],
+    candidateMatchedPreferredSkills: j.candidateMatchedPreferredSkills || [],
+    candidateMissingRequiredSkills: j.candidateMissingRequiredSkills || [],
+    candidateMissingPreferredSkills: j.candidateMissingPreferredSkills || [],
+    domainMatchesCandidate: j.domainMatchesCandidate ?? false,
+    aiJobLocation: j.aiJobLocation ?? null,
+    directApply: j.directApply,
+    applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
+    optimizedResumeMd: j.optimizedResumeMd,
+    descriptionText: j.descriptionText,
+    source: j.source,
+  });
+
   try {
     await db.transaction(async (tx) => {
-      const inserted = await tx.insert(jobs)
-        .values(deduped.map(j => ({ 
-          userId, 
-          jobLink: j.link, 
-          fingerprint: j.fingerprint,
-          jobTitle: j.jobTitle,
-          companyName: j.companyName,
-          location: j.location,
-          postedAt: j.postedAt,
-          salary: j.salary,
-          aiScore: j.aiScore,
-          aiReason: j.aiReason,
-          jobDomain: j.jobDomain ?? null,
-          minRequiredYoe: j.minRequiredYoe ?? null,
-          maxRequiredYoe: j.maxRequiredYoe ?? null,
-          requiredSkills: j.requiredSkills || [],
-          preferredSkills: j.preferredSkills || [],
-          candidateMatchedRequiredSkills: j.candidateMatchedRequiredSkills || [],
-          candidateMatchedPreferredSkills: j.candidateMatchedPreferredSkills || [],
-          candidateMissingRequiredSkills: j.candidateMissingRequiredSkills || [],
-          candidateMissingPreferredSkills: j.candidateMissingPreferredSkills || [],
-          domainMatchesCandidate: j.domainMatchesCandidate ?? false,
-          aiJobLocation: j.aiJobLocation ?? null,
-          directApply: j.directApply,
-          applicantsCount: j.applicantsCount ? String(j.applicantsCount) : undefined,
-          optimizedResumeMd: j.optimizedResumeMd,
-          descriptionText: j.descriptionText,
-          source: j.source,
-        })))
-        .onConflictDoNothing()
-        .returning({ id: jobs.id, jobLink: jobs.jobLink, fingerprint: jobs.fingerprint });
+      for (let i = 0; i < deduped.length; i += TRACK_BATCH_SIZE) {
+        const batch = deduped.slice(i, i + TRACK_BATCH_SIZE);
+        const inserted = await tx.insert(jobs)
+          .values(batch.map(buildRow))
+          .onConflictDoNothing()
+          .returning({ id: jobs.id, jobLink: jobs.jobLink, fingerprint: jobs.fingerprint });
 
-      for (const row of inserted) {
-        if (row.id && row.jobLink) {
-          map.set(row.jobLink, row.id);
-        }
-        if (row.id && row.fingerprint) {
-          map.set(row.fingerprint, row.id);
+        for (const row of inserted) {
+          if (row.id && row.jobLink) {
+            map.set(row.jobLink, row.id);
+          }
+          if (row.id && row.fingerprint) {
+            map.set(row.fingerprint, row.id);
+          }
         }
       }
     });

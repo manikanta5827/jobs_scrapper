@@ -359,7 +359,14 @@ async function processUserWorker(
     return { statusCode: 200, body: JSON.stringify({ status: 'SUCCESS', matched: matchedCount }) };
 
   } catch (userErr) {
-    const errorMsg = userErr instanceof Error ? userErr.message : String(userErr);
+    const rawMsg = userErr instanceof Error ? userErr.message : String(userErr);
+    let detail = '';
+    if (userErr instanceof Error && (userErr as unknown as Record<string, unknown>).cause) {
+      const cause = (userErr as unknown as Record<string, unknown>).cause as Record<string, unknown>;
+      if (cause?.code) detail += `code=${cause.code}; `;
+      if (cause?.detail) detail += `detail=${String(cause.detail).slice(0, 300)}; `;
+    }
+    const errorMsg = `${rawMsg}${detail ? ` [${detail.trim().replace(/;$/, '')}]` : ''}`.slice(0, 1024);
     console.error(`Execution failed for user ${user.id}:`, errorMsg);
 
     // Log failure in user_runs audit table

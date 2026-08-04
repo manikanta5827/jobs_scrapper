@@ -24,6 +24,17 @@ export class FatalError extends Error {
   }
 }
 
+function normalizeYoe() {
+  return z.preprocess(
+    (val) => {
+      if (val == null) return null;
+      const n = typeof val === 'string' ? parseFloat(val) : Number(val);
+      return isFinite(n) ? n : null;
+    },
+    z.number().nullable()
+  );
+}
+
 // OpenRouter returns the exact provider-reported cost in providerMetadata.openrouter.usage.cost.
 // We surface it on TokenUsage.actualCostUsd; no hardcoded pricing table is needed.
 export function calculateCostUsd(usage: TokenUsage): number {
@@ -183,8 +194,8 @@ Return ONLY valid JSON. No markdown outside JSON.
 const jobFitFactsSchema = z.object({
   id: z.coerce.number(),
   job_domain: z.string().nullable().catch(null),
-  min_required_yoe: z.number().nullable().catch(null),
-  max_required_yoe: z.number().nullable().catch(null),
+  min_required_yoe: normalizeYoe().nullable().catch(null),
+  max_required_yoe: normalizeYoe().nullable().catch(null),
   required_skills: z.array(z.string()).catch([]),
   preferred_skills: z.array(z.string()).catch([]),
   candidate_matched_required_skills: z.array(z.string()).catch([]),
