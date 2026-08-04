@@ -54,7 +54,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  // Index on is_active to optimize getActiveUsers() queries
+  // Index on is_active to optimize active-user queries
   index("users_is_active_idx").on(table.isActive),
   index("users_telegram_chat_id_idx").on(table.telegramChatId),
 ]);

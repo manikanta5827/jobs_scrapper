@@ -5,7 +5,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { getActiveUsersMinimal, getUserById } from './services/db';
+import { getActiveUsersMinimal, getUserMinimal } from './services/db';
 import { Tier } from './constants';
 
 const lambdaClient = new LambdaClient({});
@@ -30,8 +30,8 @@ export const handler = async (
   type MinimalUser = { id: string; email: string; isActive: boolean; telegramChatId?: string | null; tier: string; subscriptionExpiresAt?: Date | null };
   let usersToProcess: MinimalUser[] = [];
   if (event.targetUserId) {
-    const singleUser = await getUserById(event.targetUserId);
-    if (singleUser && singleUser.isActive) usersToProcess.push(singleUser);
+    const user = await getUserMinimal(event.targetUserId);
+    if (user && user.isActive) usersToProcess.push(user);
   } else if (includeFreeTier) {
     usersToProcess = await getActiveUsersMinimal(); // all active (free + premium)
   } else {

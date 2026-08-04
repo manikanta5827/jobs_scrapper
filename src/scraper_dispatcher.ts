@@ -6,7 +6,7 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { purgeOldJobs, getActiveUsers, getUserById, downgradeExpiredPremiumSubscriptions } from './services/db';
+import { purgeOldJobs, getActiveUsersForScraping, isUserActive, getUserById, downgradeExpiredPremiumSubscriptions } from './services/db';
 import { Tier } from './constants';
 import { buildSearchQueriesFromProfile, type SearchQuery } from './services/job_fetcher';
 import type { JobQueryOptions } from '../linkedin-scrapper/src/types/linkedin-types';
@@ -53,12 +53,15 @@ export const handler = async (
   // 3. Fetch active users to process — flag-gated
   let usersToProcess: any[] = [];
   if (event.targetUserId) {
-    const singleUser = await getUserById(event.targetUserId);
-    if (singleUser && singleUser.isActive) usersToProcess.push(singleUser);
+    const active = await isUserActive(event.targetUserId);
+    if (active) {
+      const singleUser = await getUserById(event.targetUserId);
+      if (singleUser) usersToProcess.push(singleUser);
+    }
   } else if (event.includeFreeTier) {
-    usersToProcess = await getActiveUsers(); // all active (free + premium)
+    usersToProcess = await getActiveUsersForScraping(); // all active (free + premium)
   } else {
-    usersToProcess = await getActiveUsers(Tier.PREMIUM); // premium only
+    usersToProcess = await getActiveUsersForScraping(Tier.PREMIUM); // premium only
   }
 
   if (usersToProcess.length === 0) {

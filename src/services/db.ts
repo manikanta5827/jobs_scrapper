@@ -301,24 +301,10 @@ export async function updateUserResumeS3Key(userId: string, s3Key: string) {
 
 // ─── Multi-Tenant Users & Subscription Helpers ────────────────────────────────
 
-// Fetch all users from database regardless of active state
+// Fetch all users from database regardless of active state (admin dashboard)
 export async function getAllUsers() {
   await initDb();
   return await db.select().from(users).orderBy(users.createdAt);
-}
-
-// Fetch all users with active state enabled, optionally filtered by tier
-export async function getActiveUsers(tier?: string) {
-  await initDb();
-
-  // add base filter of active condition
-  const conditions: SQL[] = [eq(users.isActive, true)];
-
-  // if tier is passed, then include that in filter
-  if (tier) conditions.push(eq(users.tier, tier));
-
-  // run the command
-  return await db.select().from(users).where(and(...conditions));
 }
 
 // Fetch minimal active user fields for fan-out orchestration, optionally filtered by tier
@@ -336,17 +322,71 @@ export async function getActiveUsersMinimal(tier?: string) {
   }).from(users).where(and(...conditions));
 }
 
+// Fetch only scraper-relevant fields — avoids pulling heavy JSONB arrays (knownSkills, projects, etc.) on every cron dispatch
+export async function getActiveUsersForScraping(tier?: string) {
+  await initDb();
+  const conditions: SQL[] = [eq(users.isActive, true)];
+  if (tier) conditions.push(eq(users.tier, tier));
+  return await db.select({
+    id: users.id,
+    suggestedJobTitles: users.suggestedJobTitles,
+    targetLocations: users.targetLocations,
+  }).from(users).where(and(...conditions));
+}
+
+// Check if a user is active (boolean only, no row fetch)
+export async function isUserActive(id: string): Promise<boolean> {
+  await initDb();
+  const rows = await db.select({ isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  return rows[0]?.isActive === true;
+}
+
+// Fetch the same 6 fields as getActiveUsersMinimal but for a single user ID
+export async function getUserMinimal(id: string) {
+  await initDb();
+  const result = await db.select({
+    id: users.id,
+    email: users.email,
+    isActive: users.isActive,
+    tier: users.tier,
+    subscriptionExpiresAt: users.subscriptionExpiresAt,
+  }).from(users).where(eq(users.id, id)).limit(1);
+  return result[0] || null;
+}
+
+// Fetch only userId by jobId — avoids full row fetch in click-tracking hot path
+export async function getJobUserId(jobId: string) {
+  await initDb();
+  const rows = await db.select({ userId: jobs.userId })
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+  return rows[0] || null;
+}
+
+// Fetch only the 8 fields Telegram webhook uses — avoids 19 wasted columns per webhook hit
+export async function getUserByTelegramChatId(chatId: string) {
+  await initDb();
+  const result = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    tier: users.tier,
+    isActive: users.isActive,
+    subscriptionExpiresAt: users.subscriptionExpiresAt,
+    subscriptionAmount: users.subscriptionAmount,
+    totalRunsCount: users.totalRunsCount,
+  }).from(users).where(eq(users.telegramChatId, chatId)).limit(1);
+  return result[0] || null;
+}
+
 // Fetch a single user by primary key string UUID
 export async function getUserById(id: string) {
   await initDb();
   const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return result[0] || null;
-}
-
-// Fetch a user by their Telegram Chat ID for webhook command processing
-export async function getUserByTelegramChatId(chatId: string) {
-  await initDb();
-  const result = await db.select().from(users).where(eq(users.telegramChatId, chatId)).limit(1);
   return result[0] || null;
 }
 
@@ -675,8 +715,8 @@ export async function recordClickEvent(params: {
   let targetUserId = params.userId;
 
   if (!targetUserId && params.jobId) {
-    const job = await getJobById(params.jobId);
-    if (job) targetUserId = job.userId;
+    const jobUser = await getJobUserId(params.jobId);
+    if (jobUser) targetUserId = jobUser.userId;
   }
 
   if (!targetUserId) return false;
