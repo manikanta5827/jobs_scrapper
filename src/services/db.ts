@@ -287,10 +287,18 @@ export async function getAllUsers() {
   return await db.select().from(users).orderBy(users.createdAt);
 }
 
-// Fetch all users with active state enabled
-export async function getActiveUsers() {
+// Fetch all users with active state enabled, optionally filtered by tier
+export async function getActiveUsers(tier?: string) {
   await initDb();
-  return await db.select().from(users).where(eq(users.isActive, true));
+
+  // add base filter of active condition
+  const conditions: SQL[] = [eq(users.isActive, true)];
+
+  // if tier is passed, then include that in filter
+  if (tier) conditions.push(eq(users.tier, tier));
+
+  // run the command
+  return await db.select().from(users).where(and(...conditions));
 }
 
 // Fetch minimal active user fields for fan-out orchestration, optionally filtered by tier
@@ -419,50 +427,55 @@ export async function updateUserSubscription(
     .returning();
 }
 
-// Downgrade user to free tier when premium subscription expires
-export async function downgradeUserToFree(userId: string): Promise<boolean> {
+/**
+ * Atomically downgrade all expired premium subscriptions in a single SQL statement.
+ * Checks subscription_expires_at and, when expired, updates the user to FREE tier.
+ * Sends a Telegram expiry notice to each downgraded user and returns the downgraded rows.
+ */
+export async function downgradeExpiredPremiumSubscriptions(
+  targetUserId?: string,
+  botToken?: string,
+): Promise<Array<{ id: string; telegramChatId: string | null; subscriptionAmount: number | null }>> {
   await initDb();
-  const result = await db.update(users)
+
+  //construct base filters
+  const conditions: SQL[] = [
+    eq(users.tier, Tier.PREMIUM),
+    isNotNull(users.subscriptionExpiresAt),
+    lt(users.subscriptionExpiresAt, new Date()),
+    eq(users.isActive, true),
+  ];
+
+  // if user is passed then check and update that specific user only
+  if (targetUserId) conditions.push(eq(users.id, targetUserId));
+
+  // execute the command
+  const downgraded = await db.update(users)
     .set({
       tier: Tier.FREE,
       subscriptionExpiresAt: null,
       updatedAt: new Date()
     })
-    .where(and(
-      eq(users.id, userId),
-      eq(users.tier, Tier.PREMIUM)
-    ))
-    .returning();
-  return result.length > 0;
-}
+    .where(and(...conditions))
+    .returning({
+      id: users.id,
+      telegramChatId: users.telegramChatId,
+      subscriptionAmount: users.subscriptionAmount,
+    });
 
-/**
- * Checks if a premium user's subscription has expired.
- * If expired, downgrades the user to FREE tier in the DB, sends a Telegram notification,
- * updates the user object in memory, and returns true.
- * Returns false if the subscription is not expired.
- */
-export async function checkAndHandleSubscriptionExpiry(user: any, botToken?: string): Promise<boolean> {
-  if (user.tier === Tier.PREMIUM && user.subscriptionExpiresAt) {
-    const now = new Date();
-    const expiresAt = new Date(user.subscriptionExpiresAt);
-    if (now > expiresAt) {
-      console.log(`User ${user.id}: Premium subscription expired. Downgrading to free tier.`);
-      const downgraded = await downgradeUserToFree(user.id);
-      if (downgraded && user.telegramChatId && botToken) {
-        const amountText = user.subscriptionAmount && user.subscriptionAmount > 0
-          ? `₹${user.subscriptionAmount}/month`
-          : 'Premium';
-        const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
-        await sendTelegramMessage(botToken, user.telegramChatId,
-          `⏰ <b>Subscription Expired</b>\nYour ${amountText} subscription has ended. You're now on the free tier (${freeAlerts} alert/day).\nContact admin to renew.`
-        );
-      }
-      user.tier = Tier.FREE;
-      return true;
+  // send telegram pings for those users
+  for (const u of downgraded) {
+    if (u.telegramChatId && botToken) {
+      const amountText = u.subscriptionAmount && u.subscriptionAmount > 0
+        ? `₹${u.subscriptionAmount}/month`
+        : 'Premium';
+      const freeAlerts = TIER_CONFIG[Tier.FREE].alertsPerDay;
+      await sendTelegramMessage(botToken, u.telegramChatId,
+        `⏰ <b>Subscription Expired</b>\nYour ${amountText} subscription has ended. You're now on the free tier (${freeAlerts} alert/day).\nContact admin to renew.`
+      );
     }
   }
-  return false;
+  return downgraded;
 }
 
 // Log execution turn details into userRuns (no wallet deduction — subscription model)

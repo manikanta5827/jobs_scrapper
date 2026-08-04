@@ -6,7 +6,8 @@
 
 import type { ScheduledEvent, Context, APIGatewayProxyResult } from 'aws-lambda';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
-import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, checkAndHandleSubscriptionExpiry } from './services/db';
+import { purgeOldUnmatchedJobs, getActiveUsers, getUserById, downgradeExpiredPremiumSubscriptions } from './services/db';
+import { Tier } from './constants';
 import { buildSearchQueriesFromProfile, type SearchQuery } from './services/job_fetcher';
 import type { JobQueryOptions } from '../linkedin-scrapper/src/types/linkedin-types';
 import type { NaukriJobQueryOptions } from '../linkedin-scrapper/src/types/naukri-types';
@@ -41,13 +42,21 @@ export const handler = async (
   // 1. Purge 7-day-old unmatched jobs
   await purgeOldUnmatchedJobs(7);
 
-  // 2. Fetch active users to process
+  // 2. Downgrade expired premium subscriptions first (single SQL statement + Telegram notice)
+  const downgradedUsers = await downgradeExpiredPremiumSubscriptions(event.targetUserId, TELEGRAM_BOT_TOKEN);
+  if (downgradedUsers.length > 0) {
+    console.log(`Downgraded ${downgradedUsers.length} expired premium subscription(s) to free tier.`);
+  }
+
+  // 3. Fetch active users to process — flag-gated
   let usersToProcess: any[] = [];
   if (event.targetUserId) {
     const singleUser = await getUserById(event.targetUserId);
     if (singleUser && singleUser.isActive) usersToProcess.push(singleUser);
+  } else if (event.includeFreeTier) {
+    usersToProcess = await getActiveUsers(); // all active (free + premium)
   } else {
-    usersToProcess = await getActiveUsers();
+    usersToProcess = await getActiveUsers(Tier.PREMIUM); // premium only
   }
 
   if (usersToProcess.length === 0) {
@@ -57,23 +66,7 @@ export const handler = async (
 
   console.log(`Processing scraper dispatch for ${usersToProcess.length} active users.`);
 
-  // Filter valid active users (check subscription expiry)
-  const validUsers: any[] = [];
-  for (const user of usersToProcess) {
-    const isExpired = await checkAndHandleSubscriptionExpiry(user, TELEGRAM_BOT_TOKEN);
-    if (isExpired) {
-      console.log(`[ScraperDispatcher] Skipping scraper dispatch for user ${user.id} as premium subscription just expired.`);
-      continue;
-    }
-    validUsers.push(user);
-  }
-
-  if (validUsers.length === 0) {
-    console.log('No valid active users after subscription checks.');
-    return response(200, { message: 'No valid active users after subscription checks.' });
-  }
-
-  // 3. Deduplicate queries across all valid users per platform
+  // 4. Deduplicate queries across all users per platform
   const platforms = ['linkedin', 'naukri'] as const;
   const functionNames: Record<string, string> = {
     linkedin: LINKEDIN_SCRAPER_NAME,
@@ -91,7 +84,7 @@ export const handler = async (
     const groupedMap = new Map<string, GroupedSearchQuery>();
     let totalRawQueries = 0;
 
-    for (const user of validUsers) {
+    for (const user of usersToProcess) {
       const userQueries = buildSearchQueriesFromProfile(user, platform);
       totalRawQueries += userQueries.length;
       for (const q of userQueries) {
@@ -113,7 +106,7 @@ export const handler = async (
     const uniquePlatformTasks = Array.from(groupedMap.values());
     totalTasksCount += uniquePlatformTasks.length;
 
-    logDeduplicationStats(platform, validUsers, totalRawQueries, uniquePlatformTasks);
+    logDeduplicationStats(platform, usersToProcess, totalRawQueries, uniquePlatformTasks);
 
     const functionName = functionNames[platform];
     const batchSize = batchSizes[platform];
@@ -123,8 +116,8 @@ export const handler = async (
   }
 
   return response(200, {
-    message: `Dispatched deduplicated scraper tasks for ${validUsers.length} active users successfully`,
-    totalUsers: validUsers.length,
+    message: `Dispatched deduplicated scraper tasks for ${usersToProcess.length} active users successfully`,
+    totalUsers: usersToProcess.length,
     totalDeduplicatedTasks: totalTasksCount,
   });
 };
