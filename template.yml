@@ -331,6 +331,11 @@ Resources:
                 - !Sub "${RawJobsBucket.Arn}/job-resumes/*"
             - Effect: Allow
               Action:
+                - s3:GetObject
+              Resource:
+                - !Sub "${RawJobsBucket.Arn}/user-resumes/*"
+            - Effect: Allow
+              Action:
                 - sqs:SendMessage
                 - sqs:SendMessageBatch
               Resource: !GetAtt PostQueue.Arn
@@ -396,6 +401,17 @@ Resources:
               Resource:
                 - !Sub "${RawJobsBucket.Arn}/job-descriptions/*"
                 - !Sub "${RawJobsBucket.Arn}/job-resumes/*"
+                - !Sub "${RawJobsBucket.Arn}/user-resumes/*"
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource:
+                - !Sub "${RawJobsBucket.Arn}/user-resumes/*"
+            - Effect: Allow
+              Action:
+                - s3:DeleteObject
+              Resource:
+                - !Sub "${RawJobsBucket.Arn}/user-resumes/*"
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl

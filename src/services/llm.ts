@@ -106,19 +106,10 @@ export async function executellmCall<T>(
   };
 }
 
-function normalizeCandidateContext(context: UserPromptContext | string): UserPromptContext {
-  if (typeof context === 'string') {
-    return { resumeText: context };
-  }
-  return context;
-}
-
 export function buildSystemPrompt(context: UserPromptContext): string {
   const expYears = Math.ceil(context.experienceYears ?? 0);
   const skills = context.knownSkills?.length ? context.knownSkills.join(', ') : 'See resume';
-  const profileSummary = context.candidateSummary?.trim()
-    ? context.candidateSummary.trim()
-    : (context.resumeText ?? '').slice(0, 2000);
+  const profileSummary = context.candidateSummary?.trim();
 
   return `You are a structured-fact extractor for job-fit evaluation. For each job listing, extract only facts. Do NOT decide matched / rejected.
 
@@ -214,15 +205,15 @@ const batchFactsResponseSchema = z.object({
 // Extract structured job facts for every job via the LLM, without evaluating fit.
 export async function extractJobFitFactsBatch(
   jobs: Job[],
-  candidateContext: UserPromptContext | string,
+  candidateContext: UserPromptContext,
   batchSize: number = 2,  // How many jobs per single LLM API call (e.g. 2 jobs in 1 prompt)
   delayMs: number = 150,   // Tiny pause between rolling calls to prevent instantaneous RPM burst spikes
   concurrency: number = 25,  // How many batches (LLM API calls) to execute simultaneously in parallel
   modelId?: string,
 ): Promise<{ facts: JobFitFacts[]; usage: TokenUsage }> {
-  const candidateCtx = normalizeCandidateContext(candidateContext);
+
   const usage: TokenUsage = { promptCacheHitTokens: 0, promptCacheMissTokens: 0, completionTokens: 0, actualCostUsd: 0 };
-  const systemPrompt = buildSystemPrompt(candidateCtx);
+  const systemPrompt = buildSystemPrompt(candidateContext);
   const allFacts: JobFitFacts[] = new Array(jobs.length);
 
   // STEP 1: Split total jobs into smaller batches (e.g., 149 jobs -> 15 batches of 10 jobs each)
@@ -385,14 +376,13 @@ export async function extractJobFitFactsBatch(
 // Full pipeline: extract facts, then run deterministic fit evaluation.
 export async function checkRelevanceBatch(
   jobs: Job[],
-  candidateContext: UserPromptContext | string,
+  candidateContext: UserPromptContext,
   batchSize: number = 5,
   delayMs: number = 150,
   concurrency: number = 25,
   modelId?: string,
 ): Promise<BatchResult> {
-  const candidateCtx = normalizeCandidateContext(candidateContext);
-  const { facts, usage } = await extractJobFitFactsBatch(jobs, candidateCtx, batchSize, delayMs, concurrency, modelId);
+  const { facts, usage } = await extractJobFitFactsBatch(jobs, candidateContext, batchSize, delayMs, concurrency, modelId);
 
   const matched: EnrichedJob[] = [];
   const rejected: EnrichedJob[] = [];
@@ -400,7 +390,7 @@ export async function checkRelevanceBatch(
   for (let i = 0; i < jobs.length; i++) {
     const job = jobs[i];
     const fact = facts[i];
-    const evalResult = evaluateJobFit(fact, candidateCtx);
+    const evalResult = evaluateJobFit(fact, candidateContext);
     const category = evalResult.category;
     const isGoodMatch = MATCHED_CATEGORY_SET.has(category);
     const matchedSkillsMerge = [...new Set([...(fact.candidate_matched_required_skills || []), ...(fact.candidate_matched_preferred_skills || [])])];

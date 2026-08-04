@@ -38,10 +38,9 @@ function readResume(): string {
   return fs.readFileSync(RESUME_PATH, 'utf-8').trim();
 }
 
-function buildCandidateContext(resume: string): UserPromptContext {
+function buildCandidateContext(): UserPromptContext {
   return {
     experienceYears: CANDIDATE_YOE,
-    resumeText: resume,
     primaryDomain: 'Backend & AI Engineering',
     candidateSummary: 'Backend Engineer with 1 year of experience building serverless AWS applications, AI agents, and production SaaS products. Founder of Assessly (CodeVerdict.io), an AI-powered code assessment platform.',
     knownSkills: [
@@ -344,7 +343,7 @@ async function main() {
     process.exit(1);
   }
 
-  const context = buildCandidateContext(resume);
+  const context = buildCandidateContext();
 
   console.log(`Sending ${passToLLM.length} jobs to OpenRouter (${modelId}) in batches of ${batchSize}...`);
   console.log('');

@@ -292,6 +292,13 @@ export async function batchUpdateJobS3DescriptionKeys(entries: Array<{ jobId: st
   });
 }
 
+export async function updateUserResumeS3Key(userId: string, s3Key: string) {
+  await initDb();
+  await db.update(users)
+    .set({ resumeS3Key: s3Key, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
 // ─── Multi-Tenant Users & Subscription Helpers ────────────────────────────────
 
 // Fetch all users from database regardless of active state
@@ -348,7 +355,7 @@ export async function createUser(userData: {
   email: string;
   name?: string;
   phone?: string;
-  resumeText: string;
+  resumeS3Key?: string;
   telegramChatId?: string;
   linkedinCredentials?: { accessToken?: string; refreshToken?: string; personUrn?: string };
   tier?: string;
@@ -379,8 +386,8 @@ export async function updateUser(id: string, data: Partial<{
   email: string;
   name: string;
   phone: string;
-  resumeText: string;
-  telegramChatId: string;
+  resumeS3Key?: string;
+  telegramChatId?: string;
   linkedinCredentials: { accessToken?: string; refreshToken?: string; personUrn?: string };
   tier: string;
   subscriptionAmount: number;

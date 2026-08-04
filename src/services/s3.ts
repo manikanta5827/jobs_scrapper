@@ -3,7 +3,7 @@
  * Helper to fetch scraped job batches from S3 and perform safe exact-key cleanup.
  */
 
-import { S3Client, ListObjectsV2Command, GetObjectCommand, DeleteObjectsCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, GetObjectCommand, DeleteObjectsCommand, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { Job } from '../types';
 import { normalizeJob } from '../utils/job';
 
@@ -207,5 +207,61 @@ export async function getJobAtsResume(key: string): Promise<string | null> {
   } catch (err) {
     console.error(`[S3] Failed to fetch job resume for key ${key}:`, err);
     return null;
+  }
+}
+
+export async function uploadUserResume(
+  userId: string,
+  text: string
+): Promise<string | null> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName) {
+    console.error('[S3] S3_BUCKET_NAME not set, cannot upload user resume');
+    return null;
+  }
+  if (!text) return null;
+
+  const key = `user-resumes/${userId}.txt`;
+  try {
+    await s3Client.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: text,
+      ContentType: 'text/plain',
+    }));
+    return key;
+  } catch (err) {
+    console.error(`[S3] Failed to upload resume for user ${userId}:`, err);
+    return null;
+  }
+}
+
+export async function getUserResume(key: string): Promise<string | null> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName || !key) return null;
+
+  try {
+    const res = await s3Client.send(new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    }));
+    return await res.Body!.transformToString();
+  } catch (err) {
+    console.error(`[S3] Failed to fetch user resume for key ${key}:`, err);
+    return null;
+  }
+}
+
+export async function deleteUserResume(key: string): Promise<void> {
+  const bucketName = process.env.S3_BUCKET_NAME;
+  if (!bucketName || !key) return;
+
+  try {
+    await s3Client.send(new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    }));
+  } catch (err) {
+    console.error(`[S3] Failed to delete user resume at key ${key}:`, err);
   }
 }

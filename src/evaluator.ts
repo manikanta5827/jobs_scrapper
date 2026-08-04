@@ -25,7 +25,7 @@ import {
   getMatchedJobMessage,
   getZeroMatchesMessage
 } from './templates/telegram';
-import type { Job, EnrichedJob, JobStats } from './types';
+import type { Job, EnrichedJob, JobStats, UserPromptContext } from './types';
 import { Tier, TIER_CONFIG, PREMIUM_PRICE_MONTHLY_INR } from './constants';
 
 const DEEPSEEK_BATCH_SIZE = 5;
@@ -275,8 +275,23 @@ async function processUserWorker(
 
     const totalPreLlmFiltered = keywordFilteredCount + yoeFilteredCount + seniorityFilteredCount;
 
-    // 7. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
-    const { matched, rejected, usage } = await checkRelevanceBatch(afterSeniority, user, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS, LLM_CONCURRENCY);
+    // 7. Build candidate context with resume from S3 (fallback to DB resume_text during transition)
+    const candidateCtx: UserPromptContext = {
+      experienceYears: user.experienceYears,
+      targetLocations: user.targetLocations,
+      employmentType: user.employmentType,
+      primaryDomain: user.primaryDomain,
+      candidateSummary: user.candidateSummary,
+      knownSkills: user.knownSkills,
+      education: user.education,
+      projects: user.projects,
+      certifications: user.certifications,
+      keyHighlights: user.keyHighlights,
+      suggestedJobTitles: user.suggestedJobTitles,
+    };
+
+    // 8. DeepSeek AI Relevance Evaluation using candidate user profile and target parameters
+    const { matched, rejected, usage } = await checkRelevanceBatch(afterSeniority, candidateCtx, DEEPSEEK_BATCH_SIZE, BATCH_DELAY_MS, LLM_CONCURRENCY);
     const matchedCount = matched.length;
     const aiRejectedCount = rejected.length;
 

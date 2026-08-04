@@ -7,7 +7,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(), // Unique email identifier
   name: text("name"), // User full name
   phone: text("phone"), // Optional phone number
-  resumeText: text("resume_text").notNull(), // Full plain text content of candidate's resume
+  resumeText: text("resume_text"), // Full plain text content of candidate's resume (migrating to S3)
+  resumeS3Key: text("resume_s3_key"), // S3 key for candidate's resume text stored in user-resumes/ prefix
   telegramChatId: text("telegram_chat_id"), // Candidate's Telegram chat ID (linked via /register <UUID>)
   linkedinCredentials: jsonb("linkedin_credentials").$type<{
     accessToken?: string;

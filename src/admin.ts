@@ -16,10 +16,11 @@ import {
   getJobsForUser,
   getJobById,
   updateJobAtsResumeS3Key,
+  updateUserResumeS3Key,
   recordClickEvent
 } from './services/db';
 import { analyzeResumeWithLLM, generateAtsResume } from './services/llm';
-import { getJobDescription, getJobAtsResume, uploadJobAtsResume } from './services/s3';
+import { getJobDescription, getJobAtsResume, uploadJobAtsResume, getUserResume, uploadUserResume, deleteUserResume } from './services/s3';
 import { shutdownTelemetry } from './services/telemetry';
 import { 
   UuidParamSchema, 
@@ -87,7 +88,9 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
 
     if (!resumeMd && job.userId) {
       const user = await getUserById(job.userId);
-      if (user && user.resumeText) {
+      if (user) {
+        const userResume = (user.resumeS3Key && await getUserResume(user.resumeS3Key)) || user.resumeText || '';
+        if (userResume) {
         let descriptionText = (job.descriptionS3Key && await getJobDescription(job.descriptionS3Key));
 
         if(!descriptionText || descriptionText === '') {
@@ -98,7 +101,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
         }
         try {
           const result = await generateAtsResume(
-            user.resumeText,
+            userResume,
             job.jobTitle || 'Job Role',
             job.companyName || 'Company',
             descriptionText,
@@ -122,6 +125,7 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           console.error(`Failed on-demand ATS resume generation for job ${job.id}:`, genErr);
         }
       }
+    }
     }
 
     return response(200, {
@@ -262,7 +266,6 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           email,
           name,
           phone,
-          resumeText,
           telegramChatId: telegramChatId || "",
           linkedinCredentials,
           tier: tier || Tier.PREMIUM,
@@ -284,6 +287,17 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           source,
           isActive: true
         });
+
+        // Upload resume to S3 (DB-generated UUID now available)
+        const userId = created[0].id;
+        if (resumeText) {
+          const s3Key = await uploadUserResume(userId, resumeText);
+          if (s3Key) {
+            await updateUserResumeS3Key(userId, s3Key);
+          } else {
+            console.warn(`Failed to upload resume to S3 for new user ${userId}`);
+          }
+        }
 
         return response(201, { message: 'User created successfully', user: created[0] });
       }
@@ -320,14 +334,28 @@ async function processAdminRequest(event: APIGatewayProxyEvent): Promise<APIGate
           updateData.subscriptionExpiresAt = new Date(parseResult.data.subscriptionExpiresAt);
         }
 
+        if (parseResult.data.resumeText) {
+          const s3Key = await uploadUserResume(userId, parseResult.data.resumeText);
+          if (s3Key) {
+            updateData.resumeS3Key = s3Key;
+          } else {
+            console.warn(`Failed to upload resume to S3 for user ${userId}`);
+          }
+          delete updateData.resumeText;
+        }
+
         const updated = await updateUser(userId, updateData as Parameters<typeof updateUser>[1]);
         return response(200, { message: 'User updated successfully', user: updated[0] });
       }
 
       // DELETE /users/{id} — Delete user record from database
       if (method === 'DELETE') {
-        const deleted = await deleteUser(userId);
-        if (deleted.length === 0) return response(404, { error: 'User not found' });
+        const existingUser = await getUserById(userId);
+        if (!existingUser) return response(404, { error: 'User not found' });
+        if (existingUser.resumeS3Key) {
+          await deleteUserResume(existingUser.resumeS3Key);
+        }
+        await deleteUser(userId);
         return response(200, { message: `User ID ${userId} deleted successfully` });
       }
     }
