@@ -1,0 +1,1 @@
+ALTER TABLE "user_runs" ADD COLUMN "llm_reasoning_tokens" integer DEFAULT 0 NOT NULL;

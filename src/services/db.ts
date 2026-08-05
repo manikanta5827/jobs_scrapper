@@ -553,6 +553,7 @@ export async function recordUserRun(
     llmInputTokens?: number;
     llmInputCacheHitTokens?: number;
     llmOutputTokens?: number;
+    llmReasoningTokens?: number;
     errorMessage?: string;
     exitStage?: string;
   }
@@ -573,6 +574,7 @@ export async function recordUserRun(
       llmInputTokens: runData.llmInputTokens ?? 0,
       llmInputCacheHitTokens: runData.llmInputCacheHitTokens ?? 0,
       llmOutputTokens: runData.llmOutputTokens ?? 0,
+      llmReasoningTokens: runData.llmReasoningTokens ?? 0,
       billedRunCostUsd: 0,
       errorMessage: runData.errorMessage,
       exitStage: runData.exitStage

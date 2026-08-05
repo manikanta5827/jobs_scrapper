@@ -72,6 +72,8 @@ export interface TokenUsage {
   promptCacheHitTokens:  number;
   promptCacheMissTokens: number;
   completionTokens:      number;
+  /** Reasoning/thinking tokens that are part of completionTokens but were invisible chain-of-thought. */
+  reasoningTokens?:      number;
   /** Actual USD cost reported by the provider (e.g. OpenRouter), if available. */
   actualCostUsd?:        number;
 }

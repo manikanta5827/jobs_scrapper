@@ -41,6 +41,7 @@ const ZERO_COST = {
   llmInputTokens: 0,
   llmInputCacheHitTokens: 0,
   llmOutputTokens: 0,
+  llmReasoningTokens: 0,
 } as const;
 
 export const handler = async (
@@ -371,7 +372,8 @@ async function processUserWorker(
       actualLlmCostUsd,
       llmInputTokens: usage.promptCacheHitTokens + usage.promptCacheMissTokens,
       llmInputCacheHitTokens: usage.promptCacheHitTokens,
-      llmOutputTokens: usage.completionTokens
+      llmOutputTokens: usage.completionTokens,
+      llmReasoningTokens: usage.reasoningTokens ?? 0
     });
 
     // 11. Send simplified matched jobs summary to CANDIDATE Telegram chat if Chat ID exists

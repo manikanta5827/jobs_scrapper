@@ -127,6 +127,7 @@ export const userRuns = pgTable("user_runs", {
   llmInputTokens: integer("llm_input_tokens").default(0).notNull(), // Total LLM prompt/input tokens
   llmInputCacheHitTokens: integer("llm_input_cache_hit_tokens").default(0).notNull(), // LLM input tokens served from cache
   llmOutputTokens: integer("llm_output_tokens").default(0).notNull(), // LLM completion/output tokens
+  llmReasoningTokens: integer("llm_reasoning_tokens").default(0).notNull(), // LLM reasoning/thinking tokens (subset of output)
   
   errorMessage: text("error_message"), // Error message if run failed
   exitStage: text("exit_stage"), // Which filter stage the run ended at (e.g. "yoe_filter", "ai_evaluation")

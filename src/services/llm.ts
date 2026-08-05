@@ -7,7 +7,7 @@
 import type { Job, EnrichedJob, JobFitFacts, BatchResult, TokenUsage, UserPromptContext } from "../types";
 import { setTimeout as sleep } from "node:timers/promises";
 import { generateObject } from 'ai';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenRouter, type OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
 import pLimit from 'p-limit';
 import { wrapModelWithTelemetry } from './telemetry';
@@ -68,7 +68,7 @@ export async function executellmCall<T>(
   };
 
   if (disableThinking) {
-    openRouterConfig.thinking = { type: 'disabled' };
+   openRouterConfig.reasoning = { enabled: false, effort: 'none' };
   }
 
   const model = wrapModelWithTelemetry(
@@ -84,7 +84,7 @@ export async function executellmCall<T>(
     system: systemPrompt,
     prompt: prompt,
     schema: schema,
-    maxRetries: 3,
+    maxRetries: 1,
     temperature: temperature,
   });
 
@@ -93,6 +93,7 @@ export async function executellmCall<T>(
   const inputTokenDetails = anyUsage.inputTokenDetails ?? {};
   const cachedTokens = inputTokenDetails.cacheReadTokens ?? 0;
   const outputTokens = anyUsage.outputTokens ?? 0;
+  const reasoningTokens = anyUsage.outputTokenDetails?.reasoningTokens ?? 0;
   const openrouterCost = (providerMetadata as Record<string, any> | undefined)?.openrouter?.usage?.cost;
 
   return {
@@ -101,6 +102,7 @@ export async function executellmCall<T>(
       promptCacheHitTokens: cachedTokens,
       promptCacheMissTokens: inputTokens - cachedTokens,
       completionTokens: outputTokens,
+      reasoningTokens,
       actualCostUsd: typeof openrouterCost === 'number' ? openrouterCost : undefined,
     }
   };
@@ -240,7 +242,7 @@ export async function extractJobFitFactsBatch(
 
         let results = new Map<number, JobFitFacts>();
         let attempt = 0;
-        const MAX_BATCH_RETRIES = 3;
+        const MAX_BATCH_RETRIES = 1;
         let lastError: unknown = null;
 
         while (attempt < MAX_BATCH_RETRIES) {
@@ -260,12 +262,14 @@ export async function extractJobFitFactsBatch(
                 metadata: { batch_number: String(batchNum), batch_size: String(batch.length) }
               },
               modelId,
+              true, // disableThinking — job extraction doesn't need chain-of-thought
             );
 
             // Track cumulative token usage and actual cost across all parallel calls
             usage.promptCacheHitTokens += res.usage.promptCacheHitTokens;
             usage.promptCacheMissTokens += res.usage.promptCacheMissTokens;
             usage.completionTokens += res.usage.completionTokens;
+            usage.reasoningTokens = (usage.reasoningTokens ?? 0) + (res.usage.reasoningTokens ?? 0);
             usage.actualCostUsd = (usage.actualCostUsd ?? 0) + (res.usage.actualCostUsd ?? 0);
 
             // Store AI evaluation results keyed by job ID (0..4)
@@ -303,10 +307,12 @@ export async function extractJobFitFactsBatch(
                     metadata: { job_title: batch[j].title ?? '' }
                   },
                   modelId,
+                  true, // disableThinking — single-job fallback doesn't need chain-of-thought
                 );
                 usage.promptCacheHitTokens += singleRes.usage.promptCacheHitTokens;
                 usage.promptCacheMissTokens += singleRes.usage.promptCacheMissTokens;
                 usage.completionTokens += singleRes.usage.completionTokens;
+                usage.reasoningTokens = (usage.reasoningTokens ?? 0) + (singleRes.usage.reasoningTokens ?? 0);
                 usage.actualCostUsd = (usage.actualCostUsd ?? 0) + (singleRes.usage.actualCostUsd ?? 0);
                 if (singleRes.object.results && singleRes.object.results.length > 0) {
                   results.set(j, singleRes.object.results[0] as JobFitFacts);
@@ -486,7 +492,9 @@ ${resumeText.slice(0, 10000)}`;
       prompt,
       undefined,
       0.1,
-      { functionId: 'analyze-resume' }
+      { functionId: 'analyze-resume' },
+      undefined,
+      true // disableThinking — resume analysis is structured extraction
     );
     return res.object;
   } catch (err) {
@@ -614,7 +622,7 @@ CRITICAL: Do NOT return the resume verbatim. Tailor it.`;
     0.4,
     { functionId: 'generate-ats-resume', metadata: { jobTitle, companyName } },
     undefined,
-    true // disableThinking
+    false // disableThinking=false — ATS resume generation benefits from chain-of-thought
   );
 
   const resumeMd = convertAtsResumeToMarkdown(resume, userName || 'Candidate', userEmail || '');
