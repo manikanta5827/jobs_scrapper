@@ -92,7 +92,7 @@ export async function fetchJobsFromS3(userId: string): Promise<{ jobs: Job[]; s3
     })
   );
 
-  const jobs = allBatches.flat().map(normalizeJob);
+  const jobs = allBatches.flatMap(batch => batch.map(normalizeJob));
   console.log(`[S3Fetcher] Downloaded ${jobs.length} total jobs across ${s3Keys.length} S3 files for user ${userId}`);
 
   return { jobs, s3Keys };

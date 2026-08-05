@@ -46,18 +46,21 @@ export function keywordFilter(jobs: Job[], userExcludeTitleKeywords: string[] = 
   // Convert candidate's exclude keywords array to lowercase for case-insensitive matching
   const excludes = userExcludeTitleKeywords.map(kw => kw.toLowerCase().trim()).filter(Boolean);
 
+  // Precompile single regex for all exclude keywords (case-insensitive)
+  const excludePattern = excludes.length > 0
+    ? new RegExp(excludes.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i')
+    : null;
+
   for (const job of jobs) {
     const title = (job.title ?? '').toLowerCase();
     const seniorityLevel = (job.seniorityLevel ?? '').toLowerCase();
-    
-    // Check exclude keywords ONLY against job title and seniority level string
-    const targetText = `${title} ${seniorityLevel}`;
-    const matchedExcludes = excludes.filter(kw => targetText.includes(kw));
 
-    if (matchedExcludes.length > 0) {
-      binned.push({ ...job, keywordBinReason: matchedExcludes.join(', ') });
-    } else {
+    const targetText = `${title} ${seniorityLevel}`;
+    if (!excludePattern || !excludePattern.test(targetText)) {
       relevant.push(job);
+    } else {
+      const matchedExcludes = excludes.filter(kw => targetText.includes(kw));
+      binned.push({ ...job, keywordBinReason: matchedExcludes.join(', ') });
     }
   }
 
@@ -209,10 +212,14 @@ export function seniorityKeywordFilter(
   const filtered: Job[] = [];
   const isSeniorCandidate = candidateYoe > 5;
   const keywords = isSeniorCandidate ? JUNIOR_TITLE_KEYWORDS : SENIOR_TITLE_KEYWORDS;
+  const keywordPattern = new RegExp(
+    keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+    'i',
+  );
 
   for (const job of jobs) {
     const title = (job.title ?? '').toLowerCase();
-    const matched = keywords.find(kw => title.includes(kw));
+    const matched = keywordPattern.test(title) ? keywords.find(kw => title.includes(kw)) : undefined;
     if (matched) {
       filtered.push({
         ...job,

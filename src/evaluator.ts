@@ -330,10 +330,12 @@ async function processUserWorker(
     })));
 
     // ponytail: Assign the persisted DB UUID to each evaluated job so Telegram buttons use UUIDs instead of scraper numeric IDs
-    for (const j of [...matched, ...rejected]) {
-      const dbUuid = (j.link && jobIdMap.get(j.link)) || (j.fingerprint && jobIdMap.get(j.fingerprint));
-      if (dbUuid) {
-        j.id = dbUuid;
+    for (const arr of [matched, rejected]) {
+      for (const j of arr) {
+        const dbUuid = (j.link && jobIdMap.get(j.link)) || (j.fingerprint && jobIdMap.get(j.fingerprint));
+        if (dbUuid) {
+          j.id = dbUuid;
+        }
       }
     }
 
