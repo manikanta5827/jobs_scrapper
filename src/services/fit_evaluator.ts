@@ -18,6 +18,10 @@ export interface FitEvaluation {
   score: number;
   matched_skills: string[];
   missing_skills: string[];
+  candidate_matched_required: string[];
+  candidate_matched_preferred: string[];
+  candidate_missing_required: string[];
+  candidate_missing_preferred: string[];
   job_location: string | null;
   years_of_experience: string;
   direct_apply: string | null;
@@ -45,47 +49,48 @@ export function evaluateJobFit(
   const required = facts.required_skills ?? [];
   const preferred = facts.preferred_skills ?? [];
 
-  const matchedRequired = filterToTarget(
-    facts.candidate_matched_required_skills ?? [],
-    required,
-  );
-  const matchedPreferred = filterToTarget(
-    facts.candidate_matched_preferred_skills ?? [],
-    preferred,
-  );
+  const matchedRequired = facts.candidate_matched_required_skills ?? [];
+  const matchedPreferred = facts.candidate_matched_preferred_skills ?? [];
 
-  const missingRequired = missingFromTarget(required, matchedRequired);
-  const missingPreferred = missingFromTarget(preferred, matchedPreferred);
+  const missingRequired = skillDiff(required, matchedRequired);
+  const missingPreferred = skillDiff(preferred, matchedPreferred);
 
-  const YOE_TOLERANCE = 1;
+  // +-1 year tolerance so near-miss YOE doesn't auto-reject
+  const YOE_TOLERANCE = 0;
 
-  // 1. Experience gate with ±1 year tolerance
+  // --- Experience gate: reject if candidate YOE (±1) outside job range ---
   if (facts.min_required_yoe != null && candidateYoe + YOE_TOLERANCE < facts.min_required_yoe) {
     return buildEvaluation("experience_mismatch", facts, yoeReason, candidateYoe, {
-      matched: matchedRequired,
-      missing: missingRequired,
+      candidate_matched_required: matchedRequired,
+      candidate_matched_preferred: matchedPreferred,
+      candidate_missing_required: missingRequired,
+      candidate_missing_preferred: missingPreferred,
     });
   }
   if (facts.max_required_yoe != null && candidateYoe - YOE_TOLERANCE > facts.max_required_yoe) {
     return buildEvaluation("experience_mismatch", facts, yoeReason, candidateYoe, {
-      matched: matchedRequired,
-      missing: missingRequired,
+      candidate_matched_required: matchedRequired,
+      candidate_matched_preferred: matchedPreferred,
+      candidate_missing_required: missingRequired,
+      candidate_missing_preferred: missingPreferred,
     });
   }
 
-  // 2. No explicit skills at all — fall back to domain matching
+  // --- No explicit skills in listing: fall back to domain match ---
   const hasNoSkills = required.length === 0 && preferred.length === 0;
   if (hasNoSkills) {
     const caseKey: EvaluationCase = facts.domain_matches_candidate
       ? "no_skills_domain_match"
       : "no_skills_domain_mismatch";
     return buildEvaluation(caseKey, facts, yoeReason, candidateYoe, {
-      matched: [],
-      missing: [],
+      candidate_matched_required: [],
+      candidate_matched_preferred: [],
+      candidate_missing_required: [],
+      candidate_missing_preferred: [],
     });
   }
 
-  // 3. Required skills exist — required is the gate, preferred is the bonus
+  // --- Required skills exist: gate on required, bonus on preferred ---
   if (required.length > 0) {
     const requiredCoverage = matchedRequired.length / required.length;
     const preferredCoverage =
@@ -106,15 +111,16 @@ export function evaluateJobFit(
     }
 
     return buildEvaluation(caseKey, facts, yoeReason, candidateYoe, {
-      matched: matchedRequired,
-      missing: missingRequired,
-      matchedPreferred,
+      candidate_matched_required: matchedRequired,
+      candidate_matched_preferred: matchedPreferred,
+      candidate_missing_required: missingRequired,
+      candidate_missing_preferred: missingPreferred,
       totalRequired: required.length,
       totalPreferred: preferred.length,
     });
   }
 
-  // 4. Preferred skills only — they become the target
+  // --- Only preferred skills: treat them as the target ---
   if (preferred.length > 0) {
     const preferredCoverage = matchedPreferred.length / preferred.length;
 
@@ -128,35 +134,45 @@ export function evaluateJobFit(
     }
 
     return buildEvaluation(caseKey, facts, yoeReason, candidateYoe, {
-      matched: matchedPreferred,
-      missing: missingPreferred,
+      candidate_matched_required: [],
+      candidate_matched_preferred: matchedPreferred,
+      candidate_missing_required: [],
+      candidate_missing_preferred: missingPreferred,
       totalPreferred: preferred.length,
     });
   }
 
-  // Unreachable fallback
+  // Unreachable: fallback no-match
   return buildEvaluation("no_skills_domain_mismatch", facts, yoeReason, candidateYoe, {
-    matched: [],
-    missing: [],
+    candidate_matched_required: [],
+    candidate_matched_preferred: [],
+    candidate_missing_required: [],
+    candidate_missing_preferred: [],
   });
 }
 
+/** Build the final FitEvaluation for a given decision case. */
 function buildEvaluation(
   caseKey: EvaluationCase,
   facts: JobFitFacts,
   yoeReason: string,
   candidateYoe: number,
   ctx: {
-    matched: string[];
-    missing: string[];
-    matchedPreferred?: string[];
+    candidate_matched_required: string[];
+    candidate_matched_preferred: string[];
+    candidate_missing_required: string[];
+    candidate_missing_preferred: string[];
     totalRequired?: number;
     totalPreferred?: number;
   },
 ): FitEvaluation {
   const base = {
-    matched_skills: ctx.matched,
-    missing_skills: ctx.missing,
+    matched_skills: [...ctx.candidate_matched_required, ...ctx.candidate_matched_preferred],
+    missing_skills: [...ctx.candidate_missing_required, ...ctx.candidate_missing_preferred],
+    candidate_matched_required: ctx.candidate_matched_required,
+    candidate_matched_preferred: ctx.candidate_matched_preferred,
+    candidate_missing_required: ctx.candidate_missing_required,
+    candidate_missing_preferred: ctx.candidate_missing_preferred,
     job_location: facts.job_location ?? null,
     years_of_experience: yoeReason,
     direct_apply: facts.direct_apply ?? null,
@@ -192,8 +208,8 @@ function buildEvaluation(
         ...base,
         category: "strong_match",
         reason: buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalRequired ?? 1,
           true,
           "required",
@@ -206,12 +222,11 @@ function buildEvaluation(
         ...base,
         category: "strong_match",
         reason: `${buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalRequired ?? 1,
           false,
-          "required",
-        )} Preferred skills also strongly matched (${ctx.matchedPreferred?.length ?? 0}/${
+          "required")} Preferred skills also strongly matched (${ctx.candidate_matched_preferred?.length ?? 0}/${
           ctx.totalPreferred ?? 0
         }).`,
         score: CATEGORY_SCORES.strong_match,
@@ -222,8 +237,8 @@ function buildEvaluation(
         ...base,
         category: "minor_gaps",
         reason: buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalRequired ?? 1,
           false,
           "required",
@@ -236,8 +251,8 @@ function buildEvaluation(
         ...base,
         category: "skills_mismatch",
         reason: buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalRequired ?? 1,
           false,
           "required",
@@ -250,8 +265,8 @@ function buildEvaluation(
         ...base,
         category: "strong_match",
         reason: buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalPreferred ?? 1,
           true,
           "preferred",
@@ -264,8 +279,8 @@ function buildEvaluation(
         ...base,
         category: "minor_gaps",
         reason: buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalPreferred ?? 1,
           false,
           "preferred",
@@ -278,8 +293,8 @@ function buildEvaluation(
         ...base,
         category: "no_match",
         reason: buildSkillsReason(
-          ctx.matched,
-          ctx.missing,
+          ctx.candidate_matched_required,
+          ctx.candidate_missing_required,
           ctx.totalPreferred ?? 1,
           false,
           "preferred",
@@ -293,100 +308,13 @@ function buildEvaluation(
   }
 }
 
-function jaroWinkler(a: string, b: string): number {
-  if (a === b) return 1;
-  if (a.length === 0 || b.length === 0) return 0;
-
-  const matchDistance = Math.floor(Math.max(a.length, b.length) / 2) - 1;
-  const aMatches: boolean[] = new Array(a.length).fill(false);
-  const bMatches: boolean[] = new Array(b.length).fill(false);
-
-  let matches = 0;
-  for (let i = 0; i < a.length; i++) {
-    const start = Math.max(0, i - matchDistance);
-    const end = Math.min(i + matchDistance + 1, b.length);
-    for (let j = start; j < end; j++) {
-      if (!bMatches[j] && a[i] === b[j]) {
-        aMatches[i] = true;
-        bMatches[j] = true;
-        matches++;
-        break;
-      }
-    }
-  }
-
-  if (matches === 0) return 0;
-
-  let transpositions = 0;
-  let k = 0;
-  for (let i = 0; i < a.length; i++) {
-    if (!aMatches[i]) continue;
-    while (!bMatches[k]) k++;
-    if (a[i] !== b[k]) transpositions++;
-    k++;
-  }
-  transpositions = Math.floor(transpositions / 2);
-
-  const jaro =
-    (matches / a.length + matches / b.length + (matches - transpositions) / matches) / 3;
-
-  let prefix = 0;
-  for (let i = 0; i < Math.min(4, a.length, b.length); i++) {
-    if (a[i] === b[i]) prefix++;
-    else break;
-  }
-
-  return jaro + prefix * 0.1 * (1 - jaro);
+/** Skills in target not present in candidate's matched set. */
+function skillDiff(target: string[], matched: string[]): string[] {
+  const matchedNorm = new Set(matched.map(normalizeSkill));
+  return target.filter((t) => !matchedNorm.has(normalizeSkill(t)));
 }
 
-const FUZZY_THRESHOLD = 0.85;
-
-// Dangerous false-positive pairs that happen to score above the threshold.
-// "java" ↔ "javascript" scores 0.88 but Java ≠ JavaScript.
-const FUZZY_BLACKLIST = new Set(["java:javascript", "javascript:java"]);
-
-function isFuzzyBlacklisted(a: string, b: string): boolean {
-  return FUZZY_BLACKLIST.has(`${a}:${b}`);
-}
-
-function filterToTarget(raw: string[], target: string[]): string[] {
-  const result: string[] = [];
-  for (const m of raw) {
-    // Primary: exact match after normalization — use the target name
-    const exactTarget = target.find((t) => normalizeSkill(t) === normalizeSkill(m));
-    if (exactTarget) {
-      result.push(exactTarget);
-      continue;
-    }
-
-    // Fallback: Jaro-Winkler similarity for minor string differences
-    const mNorm = normalizeSkill(m);
-    const best = target.reduce(
-      (best, t) => {
-        const tNorm = normalizeSkill(t);
-        if (isFuzzyBlacklisted(mNorm, tNorm)) return best;
-        const sim = jaroWinkler(mNorm, tNorm);
-        return sim > best.sim ? { skill: t, sim } : best;
-      },
-      { skill: null as string | null, sim: 0 },
-    );
-
-    if (best.sim > FUZZY_THRESHOLD) {
-      console.warn(
-        `[fuzzy-match] "${m}" → "${best.skill}" (sim=${best.sim.toFixed(3)})`,
-      );
-      result.push(best.skill!);
-    }
-  }
-  return result;
-}
-
-function missingFromTarget(target: string[], matched: string[]): string[] {
-  return target.filter(
-    (t) => !matched.some((m) => normalizeSkill(m) === normalizeSkill(t)),
-  );
-}
-
+/** Normalize: lowercase, trim, collapse whitespace. */
 function normalizeSkill(skill: string): string {
   return skill.toLowerCase().trim().replace(/\s+/g, " ");
 }
@@ -398,6 +326,7 @@ function formatYoeRange(min: number | null, max: number | null): string {
   return "Not specified";
 }
 
+/** Skill match reason string: "2/3 required skills matched; missing: Docker." */
 function buildSkillsReason(
   matched: string[],
   missing: string[],
@@ -405,13 +334,8 @@ function buildSkillsReason(
   isFullMatch: boolean,
   skillType: "required" | "preferred",
 ): string {
-  const missingSlice = missing.slice(0, 5);
   const matchText = `${matched.length}/${total} ${skillType} skills matched`;
-  if (isFullMatch) {
-    return `${matchText}.`;
-  }
-  if (missingSlice.length > 0) {
-    return `${matchText}; missing: ${missingSlice.join(", ")}.`;
-  }
+  if (isFullMatch) return `${matchText}.`;
+  if (missing.length > 0) return `${matchText}; missing: ${missing.join(", ")}.`;
   return `${matchText}.`;
 }

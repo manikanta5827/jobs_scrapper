@@ -59,11 +59,12 @@ export async function executellmCall<T>(
     apiKey: process.env.LLM_API_KEY,
   });
 
-  const openRouterConfig: any = {
-    extraBody: {
-      provider: {
-        order: ['deepinfra'],
-      }
+  const openRouterConfig: OpenRouterProviderOptions = {};
+
+  // Provider routing: prefer cheap providers, fall back to any available
+  (openRouterConfig as any).extraBody = {
+    provider: {
+      order: ['deepinfra'],
     }
   };
 
@@ -145,11 +146,9 @@ Apply these equivalences when populating candidate_matched_required_skills and c
 4. preferred_skills: list only explicitly stated nice-to-have skills. Skills that are unlabeled or ambiguous belong in required_skills, not here.
 5. candidate_matched_required_skills: subset of required_skills that the candidate demonstrably has. Empty if required_skills is empty.
 6. candidate_matched_preferred_skills: subset of preferred_skills that the candidate demonstrably has. Must be computed even when required_skills is empty.
-7. candidate_missing_required_skills: required_skills that are NOT in candidate_matched_required_skills. Empty if required_skills is empty.
-8. candidate_missing_preferred_skills: preferred_skills that are NOT in candidate_matched_preferred_skills. Must be computed even when required_skills is empty.
-9. domain_matches_candidate: true if the job_domain is aligned with the candidate's primary domain and background.
-10. job_location: the location string. Return null if "remote", "anywhere", or not specified.
-11. direct_apply: the direct apply URL if visible in the job data; otherwise null.
+7. domain_matches_candidate: true if the job_domain is aligned with the candidate's primary domain and background.
+8. job_location: the location string. Return null if "remote", "anywhere", or not specified.
+9. direct_apply: the direct apply URL if visible in the job data; otherwise null.
 
 ## SKILL MATCHING RULES
 When populating candidate_matched_required_skills and candidate_matched_preferred_skills, apply these lineage rules:
@@ -174,8 +173,6 @@ Return ONLY valid JSON. No markdown outside JSON.
       "preferred_skills": string[],
       "candidate_matched_required_skills": string[],
       "candidate_matched_preferred_skills": string[],
-      "candidate_missing_required_skills": string[],
-      "candidate_missing_preferred_skills": string[],
       "domain_matches_candidate": boolean,
       "job_location": string | null,
       "direct_apply": string | null
@@ -193,8 +190,6 @@ const jobFitFactsSchema = z.object({
   preferred_skills: z.array(z.string()).catch([]),
   candidate_matched_required_skills: z.array(z.string()).catch([]),
   candidate_matched_preferred_skills: z.array(z.string()).catch([]),
-  candidate_missing_required_skills: z.array(z.string()).catch([]),
-  candidate_missing_preferred_skills: z.array(z.string()).catch([]),
   domain_matches_candidate: z.boolean().catch(false),
   job_location: z.string().nullable().catch(null),
   direct_apply: z.string().nullable().catch(null),
@@ -329,8 +324,6 @@ export async function extractJobFitFactsBatch(
                   preferred_skills: [],
                   candidate_matched_required_skills: [],
                   candidate_matched_preferred_skills: [],
-                  candidate_missing_required_skills: [],
-                  candidate_missing_preferred_skills: [],
                   domain_matches_candidate: false,
                   job_location: null,
                   direct_apply: null,
@@ -356,8 +349,6 @@ export async function extractJobFitFactsBatch(
               preferred_skills: [],
               candidate_matched_required_skills: [],
               candidate_matched_preferred_skills: [],
-              candidate_missing_required_skills: [],
-              candidate_missing_preferred_skills: [],
               domain_matches_candidate: false,
               job_location: null,
               direct_apply: null,
@@ -400,7 +391,7 @@ export async function checkRelevanceBatch(
     const category = evalResult.category;
     const isGoodMatch = MATCHED_CATEGORY_SET.has(category);
     const matchedSkillsMerge = [...new Set([...(fact.candidate_matched_required_skills || []), ...(fact.candidate_matched_preferred_skills || [])])];
-    const missingSkillsMerge = [...new Set([...(fact.candidate_missing_required_skills || []), ...(fact.candidate_missing_preferred_skills || [])])];
+    const missingSkillsMerge = [...new Set([...evalResult.candidate_missing_required, ...evalResult.candidate_missing_preferred])];
     const enriched: EnrichedJob = {
       ...job,
       status: isGoodMatch ? "matched" : "rejected",
@@ -414,8 +405,8 @@ export async function checkRelevanceBatch(
       preferredSkills: fact.preferred_skills || [],
       candidateMatchedRequiredSkills: fact.candidate_matched_required_skills || [],
       candidateMatchedPreferredSkills: fact.candidate_matched_preferred_skills || [],
-      candidateMissingRequiredSkills: fact.candidate_missing_required_skills || [],
-      candidateMissingPreferredSkills: fact.candidate_missing_preferred_skills || [],
+      candidateMissingRequiredSkills: evalResult.candidate_missing_required,
+      candidateMissingPreferredSkills: evalResult.candidate_missing_preferred,
       domainMatchesCandidate: fact.domain_matches_candidate ?? false,
       aiJobLocation: evalResult.job_location,
       aiDirectApply: evalResult.direct_apply,

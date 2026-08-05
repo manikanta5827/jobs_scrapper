@@ -262,8 +262,10 @@ function printFacts(facts: JobFitFacts[], jobs: Job[]): void {
     console.log(`    preferred_skills:    [${f.preferred_skills.join(', ') || '—'}]`);
     console.log(`    matched_required:    [${f.candidate_matched_required_skills.join(', ') || '—'}]`);
     console.log(`    matched_preferred:   [${f.candidate_matched_preferred_skills.join(', ') || '—'}]`);
-    console.log(`    missing_required:    [${f.candidate_missing_required_skills.join(', ') || '—'}]`);
-    console.log(`    missing_preferred:   [${f.candidate_missing_preferred_skills.join(', ') || '—'}]`);
+    const missing_required = f.required_skills.filter(s => !f.candidate_matched_required_skills.includes(s));
+    const missing_preferred = f.preferred_skills.filter(s => !f.candidate_matched_preferred_skills.includes(s));
+    console.log(`    missing_required:    [${missing_required.join(', ') || '—'}]`);
+    console.log(`    missing_preferred:   [${missing_preferred.join(', ') || '—'}]`);
     console.log(`    min_yoe:             ${f.min_required_yoe ?? '—'}`);
     console.log(`    max_yoe:             ${f.max_required_yoe ?? '—'}`);
     console.log(`    location:            ${f.job_location ?? '—'}`);
