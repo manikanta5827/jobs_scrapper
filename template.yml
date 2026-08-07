@@ -644,6 +644,53 @@ Resources:
         EntryPoints:
           - post_scheduler.ts
 
+  # Error Notifier Lambda — receives ERROR logs via subscription filters and publishes to SNS
+  ErrorNotifierLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 128
+      LoggingConfig:
+        LogFormat: JSON
+      CodeUri: src/
+      Handler: error-notifier.handler
+      Timeout: 10
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref AdminAlertTopic
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref AdminAlertTopic
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: es2022
+        Format: esm
+        OutExtension:
+          - .js=.mjs
+        Sourcemap: true
+        Banner:
+          - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+        External:
+          - "@aws-sdk/*"
+          - "aws-lambda"
+        EntryPoints:
+          - error-notifier.ts
+
+  ErrorNotifierLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ErrorNotifierLambda
+      Principal: logs.amazonaws.com
+      SourceArn: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*"
+
   # ─── CLOUDWATCH LOG GROUPS WITH 3-DAY RETENTION ────────────────────────────
   ScraperDispatcherLambdaLogGroup:
     Type: AWS::Logs::LogGroup
@@ -699,6 +746,49 @@ Resources:
       Subscription:
         - Protocol: email
           Endpoint: !Ref AdminEmail
+
+  # ─── CLOUDWATCH ERROR LOG SUBSCRIPTION FILTERS ────────────────────────────
+  ScraperDispatcherErrorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref ScraperDispatcherLambdaLogGroup
+      FilterPattern: '{ $.level = "ERROR" }'
+      DestinationArn: !GetAtt ErrorNotifierLambda.Arn
+
+  EvaluatorDispatcherErrorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref EvaluatorDispatcherLambdaLogGroup
+      FilterPattern: '{ $.level = "ERROR" }'
+      DestinationArn: !GetAtt ErrorNotifierLambda.Arn
+
+  EvaluatorLambdaErrorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref EvaluatorLambdaLogGroup
+      FilterPattern: '{ $.level = "ERROR" }'
+      DestinationArn: !GetAtt ErrorNotifierLambda.Arn
+
+  AdminLambdaErrorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref AdminLambdaLogGroup
+      FilterPattern: '{ $.level = "ERROR" }'
+      DestinationArn: !GetAtt ErrorNotifierLambda.Arn
+
+  TelegramWebhookErrorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref TelegramWebhookLambdaLogGroup
+      FilterPattern: '{ $.level = "ERROR" }'
+      DestinationArn: !GetAtt ErrorNotifierLambda.Arn
+
+  PostSchedulerErrorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref PostSchedulerLambdaLogGroup
+      FilterPattern: '{ $.level = "ERROR" }'
+      DestinationArn: !GetAtt ErrorNotifierLambda.Arn
 
   ScraperDispatcherLambdaErrorAlarm:
     Type: AWS::CloudWatch::Alarm

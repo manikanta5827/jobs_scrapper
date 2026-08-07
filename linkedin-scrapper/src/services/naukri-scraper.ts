@@ -44,7 +44,9 @@ const BLOCKED_DOMAINS = [
 export async function isBotBlocked(page: any): Promise<boolean> {
   try {
     const title = (await page.title()).toLowerCase();
-    const blockedKeywords = [
+    const url = (await page.url()).toLowerCase();
+
+    const blockedTitleKeywords = [
       'just a moment...',
       'cloudflare',
       'attention required',
@@ -56,9 +58,30 @@ export async function isBotBlocked(page: any): Promise<boolean> {
       'validate your request',
       'unusual traffic',
     ];
-    return blockedKeywords.some((kw) => title.includes(kw));
-  } catch {
-    return false;
+
+    const blockedUrlPatterns = [
+      'cloudflare',
+      'challenge',
+      'captcha',
+      'blocked',
+      'access-denied',
+      'robot',
+      'verify',
+    ];
+
+    const titleBlocked = blockedTitleKeywords.some((kw) => title.includes(kw));
+    const urlBlocked = blockedUrlPatterns.some((pat) => url.includes(pat));
+    const blocked = titleBlocked || urlBlocked;
+
+    if (blocked) {
+      console.warn(`[Naukri Scraper] Bot detection — title: "${title.substring(0, 80)}", url: "${url.substring(0, 120)}"`);
+    }
+
+    return blocked;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Naukri Scraper] isBotBlocked check failed (page unstable): ${msg}. Treating as blocked.`);
+    return true;
   }
 }
 
@@ -89,9 +112,13 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
     '--disable-dev-shm-usage',
     '--disable-gpu',
     '--no-zygote',
-    '--single-process',
     '--disable-background-networking',
   ];
+
+  // single-process reduces memory but causes net::ERR_FAILED with multiple pages
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    extraArgs.push('--single-process');
+  }
 
   if (proxyServer) {
     extraArgs.push(`--proxy-server=${proxyServer}`);
@@ -100,6 +127,7 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
   let browser: any;
   // Lambda: use @sparticuz/chromium (detected by Lambda env vars)
   if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    console.log('[Naukri Scraper] Lambda environment detected, using @sparticuz/chromium');
     const chromium = (() => {
       try { return require('@sparticuz/chromium'); } catch { return null; }
     })();
@@ -133,6 +161,7 @@ async function launchBrowser(proxyUrl?: string): Promise<{ browser: any; proxyAu
     });
   }
 
+  console.log(`[Naukri Scraper] Browser launched${proxyServer ? ` with proxy ${proxyServer}` : ' (no proxy)'}. AWS Lambda: ${!!process.env.AWS_LAMBDA_FUNCTION_NAME}`);
   return { browser, proxyAuth };
 }
 
@@ -178,6 +207,8 @@ export class NaukriJobsQuery {
   }
 
   public async getJobs(): Promise<JobPosting[]> {
+    const startedAt = Date.now();
+    console.log(`[Naukri Scraper] getJobs started — keyword: "${this.options.keyword}", location: "${this.options.location || 'any'}", limit: ${this.options.limit || 25}`);
     let browserInstance: any = null;
     try {
       const { browser, proxyAuth } = await launchBrowser(this.options.proxyUrl);
@@ -186,6 +217,8 @@ export class NaukriJobsQuery {
       let allJobs: JobPosting[] = [];
       const seenJobUrls = new Set<string>();
       let currentPage = this.options.page || 1;
+      let detailSuccess = 0;
+      let detailFailed = 0;
 
       while (allJobs.length < maxLimit) {
         const searchUrl = this.buildSearchUrl(currentPage);
@@ -207,8 +240,36 @@ export class NaukriJobsQuery {
             }
           });
 
+          console.log(`[Naukri Scraper] Navigating to page ${currentPage}: ${searchUrl}`);
           await browserPage.setDefaultNavigationTimeout(10000);
-          await browserPage.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
+          let pageLoaded = false;
+          try {
+            await browserPage.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+            pageLoaded = true;
+          } catch (navErr: unknown) {
+            const navMsg = navErr instanceof Error ? navErr.message : String(navErr);
+            console.warn(`[Naukri Scraper] Navigation failed page ${currentPage}: ${navMsg}`);
+            try {
+              const currentUrl = await browserPage.url();
+              console.warn(`[Naukri Scraper] Landed at URL after nav error: ${currentUrl}`);
+            } catch {}
+          }
+
+          if (!pageLoaded) {
+            break;
+          }
+
+          // Check if we landed on a bot-protection redirect URL
+          try {
+            const landedUrl = await browserPage.url();
+            if (landedUrl.includes('cloudflare') || landedUrl.includes('challenge') ||
+                landedUrl.includes('captcha') || landedUrl.includes('blocked') ||
+                landedUrl.includes('access-denied')) {
+              console.warn(`[Naukri Scraper] Bot-protection redirect on page ${currentPage}: ${landedUrl}. Aborting.`);
+              break;
+            }
+          } catch {}
 
           if (await isBotBlocked(browserPage)) {
             console.warn(`[Naukri Scraper] Bot protection / Cloudflare detected on page ${currentPage}. Aborting search early.`);
@@ -229,6 +290,7 @@ export class NaukriJobsQuery {
           }
 
           if (addedInPage === 0) break;
+          console.log(`[Naukri Scraper] Page ${currentPage}: extracted ${addedInPage} new jobs (total: ${allJobs.length})`);
         } finally {
           try { await browserPage.close(); } catch {}
         }
@@ -240,18 +302,34 @@ export class NaukriJobsQuery {
       // Cap at limit, enrich with details
       allJobs = allJobs.slice(0, maxLimit);
       const jobsNeedingDetails = allJobs.filter((j) => j.jobUrl);
+      console.log(`[Naukri Scraper] Enriching ${jobsNeedingDetails.length} jobs with full descriptions...`);
 
       for (let i = 0; i < jobsNeedingDetails.length; i += 3) {
         const chunk = jobsNeedingDetails.slice(i, i + 3);
         await Promise.all(
           chunk.map(async (job) => {
-            try {
-              const details = await this.fetchJobDetails(browserInstance, job.jobUrl, proxyAuth);
-              if (details && details.descriptionText && details.descriptionText.trim().length > 0) {
-                job.details = { ...job.details, ...details };
+            let retries = 2;
+            while (retries >= 0) {
+              try {
+                const details = await this.fetchJobDetails(browserInstance, job.jobUrl, proxyAuth);
+                if (details && details.descriptionText && details.descriptionText.trim().length > 0) {
+                  job.details = { ...job.details, ...details };
+                  detailSuccess++;
+                  return;
+                }
+                // Null or empty description — treat as transient failure, retry
+                throw new Error('Empty detail response');
+              } catch (err: unknown) {
+                if (retries > 0) {
+                  const retryMsg = err instanceof Error ? err.message : String(err);
+                  if (retries === 2) console.warn(`[Naukri Scraper] Detail fetch retry ${3 - retries}/2 for ${job.jobUrl?.substring(0, 60)}: ${retryMsg}`);
+                  await delay(2000 + Math.random() * 3000);
+                  retries--;
+                } else {
+                  detailFailed++;
+                  return;
+                }
               }
-            } catch {
-              // Keep the short description from search results
             }
           })
         );
@@ -260,8 +338,17 @@ export class NaukriJobsQuery {
         }
       }
 
-      // Drop jobs whose full detail description fetch failed — no arbitrary length check
-      return allJobs.filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim());
+      console.log(`[Naukri Scraper] Detail fetch complete — ${detailSuccess} succeeded, ${detailFailed} failed (of ${jobsNeedingDetails.length})`);
+
+      if (detailFailed === jobsNeedingDetails.length && jobsNeedingDetails.length > 0) {
+        console.warn(`[Naukri Scraper] ALL ${jobsNeedingDetails.length} detail fetches failed. Naukri likely rate-limiting/blocking. Consider using a residential proxy or rotating IPs.`);
+      }
+
+      // Drop jobs whose full detail description fetch failed — LLMs need complete descriptions
+      const finalJobs = allJobs.filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim());
+      const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(1);
+      console.log(`[Naukri Scraper] getJobs finished — ${finalJobs.length} jobs after filtering (${elapsedSec}s elapsed)`);
+      return finalJobs;
     } finally {
       if (browserInstance) {
         try { await browserInstance.close(); } catch {}
@@ -274,7 +361,7 @@ export class NaukriJobsQuery {
     try {
       await page.waitForSelector('.srp-jobtuple-wrapper', { timeout: 10000 });
     } catch {
-      // Fallback: page might not have any job cards
+      console.warn('[Naukri Scraper] extractJobCards: .srp-jobtuple-wrapper not found within 10s (page may be blocked or empty)');
     }
 
     await delay(1000);
@@ -283,7 +370,7 @@ export class NaukriJobsQuery {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight * 0.5));
     await delay(500);
 
-    return page.evaluate(() => {
+    const extracted = await page.evaluate(() => {
       const cards = document.querySelectorAll('.srp-jobtuple-wrapper');
       return Array.from(cards).map((card) => {
         const titleEl = card.querySelector('.title, a.row1') as HTMLElement;
@@ -318,6 +405,9 @@ export class NaukriJobsQuery {
         };
       }).filter((j) => j.position && j.company);
     });
+
+    console.log(`[Naukri Scraper] extractJobCards: ${extracted.length} job cards extracted`);
+    return extracted;
   }
 
   private async fetchJobDetails(
@@ -343,7 +433,12 @@ export class NaukriJobsQuery {
       });
 
       await page.setDefaultNavigationTimeout(10000);
-      await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
+      try {
+        await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
+      } catch (navErr: unknown) {
+        console.warn(`[Naukri Scraper] fetchJobDetails navigation failed: ${navErr instanceof Error ? navErr.message : String(navErr)}`);
+        return null;
+      }
       await page.waitForSelector('.styles_job-desc-container__txpYf, [class*="job-desc-container"], [class*="jd-desc"]', { timeout: 4000 }).catch(() => null);
 
       return page.evaluate(() => {
@@ -368,7 +463,8 @@ export class NaukriJobsQuery {
           numApplicants: '',
         };
       });
-    } catch {
+    } catch (err: unknown) {
+      console.warn(`[Naukri Scraper] fetchJobDetails failed for ${jobUrl.substring(0, 80)}: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     } finally {
       try { await page.close(); } catch {}
@@ -378,12 +474,24 @@ export class NaukriJobsQuery {
 
 export function queryNaukriJobs(options: NaukriJobQueryOptions): Promise<JobPosting[]> {
   const query = new NaukriJobsQuery(options);
-  const scrapePromise = query.getJobs();
-  const timeoutPromise = new Promise<JobPosting[]>((resolve) =>
-    setTimeout(() => {
-      console.warn('[Naukri Scraper] Hard per-query timeout reached (90s). Returning results collected so far.');
+  const TIMEOUT_MS = 90000;
+
+  return new Promise<JobPosting[]>((resolve) => {
+    const timer = setTimeout(() => {
+      console.warn('[Naukri Scraper] Hard per-query timeout reached (90s). Results collected after this point are discarded.');
       resolve([]);
-    }, 90000)
-  );
-  return Promise.race([scrapePromise, timeoutPromise]);
+    }, TIMEOUT_MS);
+
+    query.getJobs()
+      .then((jobs) => {
+        clearTimeout(timer);
+        console.log(`[Naukri Scraper] Query completed — ${jobs.length} jobs fetched (before timeout).`);
+        resolve(jobs);
+      })
+      .catch((err: unknown) => {
+        clearTimeout(timer);
+        console.error('[Naukri Scraper] Query failed:', err instanceof Error ? err.message : String(err));
+        resolve([]);
+      });
+  });
 }
