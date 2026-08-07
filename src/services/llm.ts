@@ -419,23 +419,6 @@ export async function checkRelevanceBatch(
   return { matched, rejected, usage };
 }
 
-function stripHtml(text: string): string {
-  if (!text) return '';
-  return text
-    .replace(/<br\s*[\/]?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .trim();
-}
-
 function prepareJobPayload(job: Job) {
   return {
     title: job.title,
@@ -445,7 +428,7 @@ function prepareJobPayload(job: Job) {
     jobFunction: job.jobFunction,
     industries: job.industries,
     salary: job.salary,
-    descriptionText: stripHtml(job.descriptionText ?? ""),
+    descriptionText: (job.descriptionText ?? ""),
     benefits: job.benefits,
     extracted_yoe: job.extractedYoeText ?? null,
   };
