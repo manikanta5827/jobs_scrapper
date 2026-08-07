@@ -80,8 +80,10 @@ export async function isBotBlocked(page: any): Promise<boolean> {
     return blocked;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[Naukri Scraper] isBotBlocked check failed (page unstable): ${msg}. Treating as blocked.`);
-    return true;
+    if (!msg.includes('detached Frame') && !msg.includes('Target closed')) {
+      console.warn(`[Naukri Scraper] isBotBlocked check failed: ${msg}`);
+    }
+    return false;
   }
 }
 
@@ -344,8 +346,8 @@ export class NaukriJobsQuery {
         console.warn(`[Naukri Scraper] ALL ${jobsNeedingDetails.length} detail fetches failed. Naukri likely rate-limiting/blocking. Consider using a residential proxy or rotating IPs.`);
       }
 
-      // Drop jobs whose full detail description fetch failed — LLMs need complete descriptions
-      const finalJobs = allJobs.filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim());
+      // Drop jobs whose full detail description fetch failed or is too short (< 300 chars)
+      const finalJobs = allJobs.filter((job) => !!job.details && !!job.details.descriptionText && job.details.descriptionText.trim().length >= 300);
       const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(1);
       console.log(`[Naukri Scraper] getJobs finished — ${finalJobs.length} jobs after filtering (${elapsedSec}s elapsed)`);
       return finalJobs;
@@ -425,16 +427,18 @@ export class NaukriJobsQuery {
         const resourceType = req.resourceType();
         const url = req.url();
         const isBlockedDomain = BLOCKED_DOMAINS.some((domain) => url.includes(domain));
-        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType) || isBlockedDomain) {
+        // Allow stylesheets — Naukri detail pages are Next.js CSR, need CSS for hydration
+        if (['image', 'font', 'media'].includes(resourceType) || isBlockedDomain) {
           req.abort();
         } else {
           req.continue();
         }
       });
 
-      await page.setDefaultNavigationTimeout(10000);
+      // Longer timeout — Next.js CSR pages take time to hydrate
+      await page.setDefaultNavigationTimeout(25000);
       try {
-        await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
+        await page.goto(jobUrl, { waitUntil: 'networkidle0', timeout: 25000 });
       } catch (navErr: unknown) {
         console.warn(`[Naukri Scraper] fetchJobDetails navigation failed: ${navErr instanceof Error ? navErr.message : String(navErr)}`);
         return null;

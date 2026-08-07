@@ -279,9 +279,9 @@ export class SimplyHiredJobsQuery {
       await delay(500 + Math.random() * 300);
     }
 
-    // Drop jobs whose full detail description fetch failed — no arbitrary length check
+    // Drop jobs whose full detail description fetch failed or is too short (< 300 chars)
     return allJobs
-      .filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim())
+      .filter((job) => !!job.details && !!job.details.descriptionText && job.details.descriptionText.trim().length >= 300)
       .slice(0, maxLimit)
       .map((job) => ({ ...job, source: 'simplyhired' as const }));
   }

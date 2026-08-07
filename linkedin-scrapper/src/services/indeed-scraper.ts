@@ -404,8 +404,8 @@ export class IndeedJobsQuery {
       }
     }
 
-    // Drop jobs whose full detail description fetch failed — no arbitrary length check
-    return jobPostings.filter((job) => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim());
+    // Drop jobs whose full detail description fetch failed or is too short (< 300 chars)
+    return jobPostings.filter((job) => !!job.details && !!job.details.descriptionText && job.details.descriptionText.trim().length >= 300);
   }
 }
 

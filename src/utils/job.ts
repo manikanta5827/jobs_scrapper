@@ -1,6 +1,23 @@
 import { createHash } from 'crypto';
 import type { Job } from '../types';
 
+function stripHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
+}
+
 /**
  * Normalizes different scraper output formats (e.g. LinkedIn or Naukri JobPosting)
  * into a standard Job interface with link, title, companyName, etc.
@@ -13,7 +30,7 @@ export function normalizeJob(job: any): Job {
     title: job.title || job.position || '',
     companyName: job.companyName || job.company || '',
     link: job.link || job.jobUrl || '',
-    descriptionText: job.descriptionText || job.details?.descriptionText || '',
+    descriptionText: stripHtml(job.descriptionText || job.details?.descriptionText || ''),
     seniorityLevel: job.seniorityLevel || job.details?.seniorityLevel || '',
     employmentType: job.employmentType || job.details?.employmentType || '',
     jobFunction: job.jobFunction || job.details?.jobFunction || '',
@@ -67,8 +84,8 @@ export function getUniqueJobsFromBatch(rawJobs: Job[]): Job[] {
   const uniqueJobsMap = new Map<string, Job>();
   
   for (const job of rawJobs) {
-    // Drop jobs missing basic fields or descriptionText (without arbitrary length check)
-    if (!job.link || !job.title || !job.companyName || !job.descriptionText || !job.descriptionText.trim()) continue;
+    // Drop jobs missing basic fields or with too-short description (< 300 chars)
+    if (!job.link || !job.title || !job.companyName || !job.descriptionText || job.descriptionText.trim().length < 300) continue;
     
     const normalizedLink = normalizeLink(job.link);
     const fingerprint = calculateFingerprint(job);

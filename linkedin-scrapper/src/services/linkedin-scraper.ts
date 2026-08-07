@@ -302,9 +302,9 @@ export class LinkedInJobsQuery {
       }
     }
 
-    // Drop jobs whose detail fetch failed — no arbitrary length check
+    // Drop jobs whose detail fetch failed or description is too short (< 300 chars)
     return allJobs
-      .filter(job => !!job.details && !!job.details.descriptionText && !!job.details.descriptionText.trim())
+      .filter(job => !!job.details && !!job.details.descriptionText && job.details.descriptionText.trim().length >= 300)
       .map(job => ({ ...job, source: 'linkedin' as const }));
   }
 

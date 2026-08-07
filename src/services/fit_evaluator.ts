@@ -190,9 +190,9 @@ function buildEvaluation(
     case "no_skills_domain_match":
       return {
         ...base,
-        category: "minor_gaps",
-        reason: "No explicit skills listed; domain matches candidate.",
-        score: CATEGORY_SCORES.minor_gaps,
+        category: "no_match",
+        reason: "No explicit skills listed; domain matches but skill extraction unavailable — not sent.",
+        score: CATEGORY_SCORES.no_match,
       };
 
     case "no_skills_domain_mismatch":
